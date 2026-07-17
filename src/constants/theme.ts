@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 export const colors = {
   primary: '#0C8CE4', // Ink Blue
   primarySupportText: '#666666', // Gray (estimated from image)
@@ -15,21 +17,23 @@ export const colors = {
   linkText: '#1A8BFF', // Blue
 };
 
+const defaultFontFamily = Platform.select({ ios: 'System', android: 'sans-serif' });
+
 export const typography = {
-  sectionHeader: { fontSize: 32, lineHeight: 32, fontWeight: '700' },
-  h1: { fontSize: 24, lineHeight: 32, fontWeight: '400' },
-  h1Med: { fontSize: 24, lineHeight: 32, fontWeight: '500' },
-  h2: { fontSize: 20, lineHeight: 28, fontWeight: '400' },
-  h2Med: { fontSize: 20, lineHeight: 28, fontWeight: '500' },
-  bodyRegular: { fontSize: 16, lineHeight: 24, fontWeight: '400' },
-  bodyMed: { fontSize: 16, lineHeight: 24, fontWeight: '500' },
-  label: { fontSize: 14, lineHeight: 20, fontWeight: '400' },
-  labelMed: { fontSize: 14, lineHeight: 20, fontWeight: '500' },
-  button: { fontSize: 16, lineHeight: 24, fontWeight: '500' },
-  caption: { fontSize: 12, lineHeight: 16, fontWeight: '400' },
-  captionMed: { fontSize: 12, lineHeight: 16, fontWeight: '500' },
-  topHeader: { fontSize: 17, lineHeight: 24, fontWeight: '500' },
-  extraTiny: { fontSize: 10, lineHeight: 14, fontWeight: '400' },
+  sectionHeader: { fontFamily: defaultFontFamily, fontSize: 32, lineHeight: 32, fontWeight: '700' as const, fontStyle: 'normal' as const },
+  h1: { fontFamily: defaultFontFamily, fontSize: 24, lineHeight: 32, fontWeight: '400' as const, fontStyle: 'normal' as const },
+  h1Med: { fontFamily: defaultFontFamily, fontSize: 24, lineHeight: 32, fontWeight: '500' as const, fontStyle: 'normal' as const },
+  h2: { fontFamily: defaultFontFamily, fontSize: 20, lineHeight: 28, fontWeight: '400' as const, fontStyle: 'normal' as const },
+  h2Med: { fontFamily: defaultFontFamily, fontSize: 20, lineHeight: 28, fontWeight: '500' as const, fontStyle: 'normal' as const },
+  bodyRegular: { fontFamily: defaultFontFamily, fontSize: 16, lineHeight: 24, fontWeight: '400' as const, fontStyle: 'normal' as const },
+  bodyMed: { fontFamily: defaultFontFamily, fontSize: 16, lineHeight: 24, fontWeight: '500' as const, fontStyle: 'normal' as const },
+  label: { fontFamily: defaultFontFamily, fontSize: 14, lineHeight: 20, fontWeight: '400' as const, fontStyle: 'normal' as const },
+  labelMed: { fontFamily: defaultFontFamily, fontSize: 14, lineHeight: 20, fontWeight: '500' as const, fontStyle: 'normal' as const },
+  button: { fontFamily: defaultFontFamily, fontSize: 16, lineHeight: 24, fontWeight: '500' as const, fontStyle: 'normal' as const },
+  caption: { fontFamily: defaultFontFamily, fontSize: 12, lineHeight: 16, fontWeight: '400' as const, fontStyle: 'normal' as const },
+  captionMed: { fontFamily: defaultFontFamily, fontSize: 12, lineHeight: 16, fontWeight: '500' as const, fontStyle: 'normal' as const },
+  topHeader: { fontFamily: defaultFontFamily, fontSize: 17, lineHeight: 24, fontWeight: '500' as const, fontStyle: 'normal' as const },
+  extraTiny: { fontFamily: defaultFontFamily, fontSize: 10, lineHeight: 14, fontWeight: '400' as const, fontStyle: 'normal' as const },
 };
 
 export const shadows = {

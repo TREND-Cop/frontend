@@ -3,6 +3,7 @@
     "name": "test2test",
     "slug": "test2test",
     "version": "1.0.0",
+    "sdkVersion": "54.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "test2test",

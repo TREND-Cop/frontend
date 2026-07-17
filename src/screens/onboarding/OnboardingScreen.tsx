@@ -13,6 +13,8 @@ import { theme } from '../../constants/theme';
 
 const { width, height } = Dimensions.get('window');
 
+// TODO (Content): Replace placeholder text with final copy once provided by the client.
+// Each object represents a slide in the onboarding carousel.
 const SLIDES = [
   {
     id: '1',
@@ -37,9 +39,15 @@ const SLIDES = [
 ];
 
 export const OnboardingScreen = ({ navigation }: { navigation?: any }) => {
+  // Tracks the currently active slide (0 to 3) for pagination dots and button logic
   const [currentIndex, setCurrentIndex] = useState(0);
+  // Reference to the FlatList to programmatically scroll to the next slide
   const flatListRef = useRef<FlatList>(null);
 
+  /**
+   * Updates the current slide index as the user swipes horizontally.
+   * This is bound to the FlatList's onScroll event.
+   */
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const scrollPosition = event.nativeEvent.contentOffset.x;
     // Calculate the index based on the scroll position
@@ -49,17 +57,24 @@ export const OnboardingScreen = ({ navigation }: { navigation?: any }) => {
     }
   };
 
+  /**
+   * Called when the user taps "Skip" or "Get Started".
+   * TODO (Backend/Integration): You might want to save a flag in AsyncStorage/SecureStore
+   * here to ensure the user doesn't see the onboarding screen again on future app launches.
+   */
   const skipToSignUp = () => {
     // Navigate to SignUpScreen
     if (navigation) {
-      // navigation.navigate('SignUpScreen');
+      navigation.navigate('SignUpScreen');
     }
-    console.log('Navigate to SignUpScreen');
   };
 
   const goToNextSlide = () => {
     if (currentIndex < SLIDES.length - 1) {
-      flatListRef.current?.scrollToIndex({ index: currentIndex + 1, animated: true });
+      flatListRef.current?.scrollToOffset({
+        offset: (currentIndex + 1) * width,
+        animated: true,
+      });
     }
   };
 
@@ -79,7 +94,11 @@ export const OnboardingScreen = ({ navigation }: { navigation?: any }) => {
 
   return (
     <View style={styles.container}>
-      {/* Header with Skip button */}
+      {/* 
+        Header Section
+        Displays a "Skip" button on slides 1-3.
+        On the last slide, we show an empty placeholder to maintain layout balance.
+      */}
       <View style={styles.header}>
         {currentIndex < SLIDES.length - 1 ? (
           <TouchableOpacity onPress={skipToSignUp} style={styles.skipButton}>
