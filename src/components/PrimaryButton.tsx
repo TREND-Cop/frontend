@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     width: 358,
-    marginBottom: 24, // Space between progress line and button
+    marginBottom: 40, // Space between progress line and button
   },
   progressDash: {
     width: 72,

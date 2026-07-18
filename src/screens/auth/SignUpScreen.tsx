@@ -7,7 +7,7 @@
  * Uses shared validation: PASSWORD_RULES, isPasswordValid, isPhoneValid, COUNTRY_CODES
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -25,9 +25,33 @@ import {
   COUNTRY_CODES,
 } from '../../constants/validation';
 import { FormInput } from '../../components/FormInput';
+import { SearchablePicker } from '../../components/SearchablePicker';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { SocialAuthSection } from '../../components/SocialAuthSection';
 import { AuthFooter } from '../../components/AuthFooter';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COUNTRY DATA
+// ─────────────────────────────────────────────────────────────────────────────
+
+let CountryData: any;
+try {
+  const csc = require('country-state-city');
+  CountryData = csc.Country;
+} catch {
+  CountryData = {
+    getAllCountries: () => [
+      { name: 'Nigeria', isoCode: 'NG', flag: '🇳🇬', phonecode: '234' },
+      { name: 'United States', isoCode: 'US', flag: '🇺🇸', phonecode: '1' },
+      { name: 'United Kingdom', isoCode: 'GB', flag: '🇬🇧', phonecode: '44' },
+      { name: 'India', isoCode: 'IN', flag: '🇮🇳', phonecode: '91' },
+      { name: 'Germany', isoCode: 'DE', flag: '🇩🇪', phonecode: '49' },
+      { name: 'France', isoCode: 'FR', flag: '🇫🇷', phonecode: '33' },
+      { name: 'Canada', isoCode: 'CA', flag: '🇨🇦', phonecode: '1' },
+      { name: 'Australia', isoCode: 'AU', flag: '🇦🇺', phonecode: '61' },
+    ],
+  };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STUB FUNCTIONS
@@ -72,8 +96,16 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
   // ── Form State ──────────────────────────────────────────────────────────
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedCountry, setSelectedCountry] = useState(COUNTRY_CODES[0]);
+  const [selectedCountry, setSelectedCountry] = useState({ code: '+234', flag: '🇳🇬', country: 'Nigeria' });
   const [showCountryPicker, setShowCountryPicker] = useState(false);
+
+  const countryItems = useMemo(() => {
+    return CountryData.getAllCountries().map((c: any) => ({
+      label: `+${c.phonecode || ''} ${c.name}`,
+      value: c.isoCode,
+      icon: c.flag,
+    }));
+  }, []);
 
   // ── Validation State ────────────────────────────────────────────────────
   const [phoneError, setPhoneError] = useState<string | null>(null);
@@ -188,25 +220,20 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
           }
         />
 
-        {/* ─── Country Code Dropdown (conditional) ────────────────────── */}
-        {showCountryPicker && (
-          <View style={styles.countryDropdown}>
-            {COUNTRY_CODES.map((country) => (
-              <TouchableOpacity
-                key={country.code}
-                style={styles.countryOption}
-                onPress={() => {
-                  setSelectedCountry(country);
-                  setShowCountryPicker(false);
-                }}
-              >
-                <Text style={styles.countryOptionText}>
-                  {country.flag}  {country.code}  {country.country}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+        {/* ─── Country Code Dropdown (Searchable Picker) ───────────── */}
+        <SearchablePicker
+          visible={showCountryPicker}
+          title="Select Country"
+          items={countryItems}
+          onSelect={(value) => {
+            const c = CountryData.getAllCountries().find((x: any) => x.isoCode === value);
+            if (c) {
+              setSelectedCountry({ code: `+${c.phonecode}`, flag: c.flag, country: c.name });
+            }
+            setShowCountryPicker(false);
+          }}
+          onClose={() => setShowCountryPicker(false)}
+        />
 
         {/* ─── Password Field ─────────────────────────────────────────── */}
         <FormInput
@@ -223,7 +250,6 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
           isValid={passwordValid}
           touched={passwordTouched}
           onBlur={handlePasswordBlur}
-          hint={`Min ${PASSWORD_RULES.minLength} characters${PASSWORD_RULES.requiresNumber ? ', at least 1 number' : ''}`}
         />
 
         {/* ─── Sign Up Button ─────────────────────────────────────────── */}

@@ -2,8 +2,8 @@
  * Route: /sign-up
  */
 
-import { useRouter } from 'expo-router';
 import { SignUpScreen } from '@/screens/auth/SignUpScreen';
+import { useRouter } from 'expo-router';
 
 export default function SignUpRoute() {
   const router = useRouter();
@@ -11,9 +11,8 @@ export default function SignUpRoute() {
   return (
     <SignUpScreen
       navigation={{
-        navigate: (screen: string, params?: any) => {
+        navigate: (screen: string) => {
           if (screen === 'SignInScreen') router.push('/sign-in');
-          if (screen === 'PhoneVerification') router.push({ pathname: '/phone-verification', params });
           if (screen === 'UserLocation') router.push('/user-location');
           if (screen === 'TermsScreen') console.log('TODO: Terms screen');
         },

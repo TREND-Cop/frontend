@@ -11,8 +11,8 @@
  * - requiresNumber: whether at least one digit (0-9) is required
  */
 export const PASSWORD_RULES = {
-  minLength: 8,
-  requiresNumber: true,
+  minLength: 1,
+  requiresNumber: false,
 };
 
 /**
