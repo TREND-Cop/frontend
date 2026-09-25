@@ -76,6 +76,3 @@ After verifying their OTP, the user is navigated through a series of profile set
 * **Payload:** `{ "email": "user@example.com" }`
 * **Frontend Location:** `src/screens/auth/ForgotPasswordScreen.tsx`
 
-## Integration Notes
-- Most stubbed functions are currently marked with `TODO (Backend)` inside the `src/screens/` directory.
-- Simply search the codebase for `TODO (Backend)` to find exactly where to inject your fetch/axios API calls.
