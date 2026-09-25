@@ -13,7 +13,7 @@
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { Platform, View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { colors, typography, radius } from '../constants/theme';
 
 interface SocialAuthSectionProps {
@@ -124,6 +124,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.appBackground,
   },
   socialIcon: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
     fontSize: 24,
     color: '#000000',
   },

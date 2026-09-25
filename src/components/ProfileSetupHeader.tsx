@@ -19,6 +19,7 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { ArrowLeft } from 'lucide-react-native';
 import { colors, typography, spacing } from '../constants/theme';
 
 interface ProfileSetupHeaderProps {
@@ -44,8 +45,8 @@ export const ProfileSetupHeader: React.FC<ProfileSetupHeaderProps> = ({
       {/* ─── Top Row: Back Arrow ────────────────────────────────────── */}
       <View style={styles.topRow}>
         {/* Back Arrow */}
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
-          <Text style={styles.backArrow}>←</Text>
+        <TouchableOpacity onPress={onBack} style={styles.backButton} activeOpacity={0.7}>
+          <ArrowLeft size={24} color="#141A33" />
         </TouchableOpacity>
       </View>
 
@@ -87,10 +88,12 @@ const styles = StyleSheet.create({
   title: {
     ...typography.h1Med,
     color: '#141A33',
+    lineHeight: 32,
     marginBottom: 8,
   },
   subtitle: {
     ...typography.bodyRegular,
     color: 'rgba(96, 96, 102, 0.96)',
+    lineHeight: 24,
   },
 });

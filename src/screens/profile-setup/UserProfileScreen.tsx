@@ -26,11 +26,14 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { colors, typography, radius, spacing } from '../../constants/theme';
 import { ProfileSetupHeader } from '../../components/ProfileSetupHeader';
 import { PhotoUploadSheet } from '../../components/PhotoUploadSheet';
 import { PrimaryButton } from '../../components/PrimaryButton';
+import { useUserContext } from '../../store/UserContext';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IMAGE PICKER HELPER
@@ -87,6 +90,7 @@ const launchImageLibrary = async (): Promise<string | null> => {
 
 export const UserProfileScreen = ({ navigation }: { navigation?: any }) => {
   // ── State ───────────────────────────────────────────────────────────────
+  const { setAvatarUri } = useUserContext();
   const [profileImageUri, setProfileImageUri] = useState<string | null>(null);
   const [showPhotoSheet, setShowPhotoSheet] = useState(false);
 
@@ -117,21 +121,30 @@ export const UserProfileScreen = ({ navigation }: { navigation?: any }) => {
    * Photo is optional, so this button is always enabled.
    */
   const handleNext = () => {
-    if (navigation) {
+    if (profileImageUri) {
+      setAvatarUri(profileImageUri);
+    }
+    if (navigation?.navigate) {
       navigation.navigate('UserGender');
+    } else {
+      router.push('/user-gender');
     }
   };
 
+  const router = useRouter();
+
   const handleBack = () => {
-    if (navigation) {
+    if (navigation?.goBack) {
       navigation.goBack();
+    } else {
+      router.back();
     }
   };
 
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* ─── Header ─────────────────────────────────────────────────── */}
       <ProfileSetupHeader
         onBack={handleBack}
@@ -189,7 +202,7 @@ export const UserProfileScreen = ({ navigation }: { navigation?: any }) => {
         onSelectFile={handleSelectFile}
         onClose={() => setShowPhotoSheet(false)}
       />
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -251,6 +264,8 @@ const styles = StyleSheet.create({
     ...typography.bodyRegular,
     color: colors.primarySupportText,
     textAlign: 'center',
+    lineHeight: 24,
+    marginTop: 8,
   },
 
   // ── Spacer ──────────────────────────────────────────────────────────────

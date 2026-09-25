@@ -32,35 +32,45 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
 
 const styles = StyleSheet.create({
   small: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
     fontSize: 14,
     lineHeight: 20,
-    fontWeight: 500,
+    fontWeight: '400',
+    letterSpacing: 0.5,
   },
   smallBold: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_700Bold',
     fontSize: 14,
     lineHeight: 20,
-    fontWeight: 700,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   default: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
     fontSize: 16,
     lineHeight: 24,
-    fontWeight: 500,
+    fontWeight: '500',
+    letterSpacing: Platform.OS === 'ios' ? 0.4 : 0.2,
   },
   title: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_600SemiBold',
     fontSize: 48,
-    fontWeight: 600,
+    fontWeight: '600',
     lineHeight: 52,
   },
   subtitle: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_600SemiBold',
     fontSize: 32,
     lineHeight: 44,
-    fontWeight: 600,
+    fontWeight: '600',
   },
   link: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
     lineHeight: 30,
     fontSize: 14,
   },
   linkPrimary: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
     lineHeight: 30,
     fontSize: 14,
     color: '#3c87f7',

@@ -1,22 +1,19 @@
 /**
  * Route: / (index)
- * Entry point — renders the OnboardingScreen carousel.
+ * Entry point — renders the 1:1 Figma Video Onboarding Screen.
  */
 
 import { useRouter } from 'expo-router';
-import { OnboardingScreen } from '@/screens/onboarding/OnboardingScreen';
+import { OnboardingScreen } from '../screens/onboarding/OnboardingScreen';
 
 export default function OnboardingRoute() {
   const router = useRouter();
 
   return (
     <OnboardingScreen
-      navigation={{
-        navigate: (screen: string) => {
-          // Map screen names to expo-router paths
-          if (screen === 'SignUpScreen') router.push('/sign-up');
-        },
-      }}
+      onSignUp={() => router.push('/sign-up')}
+      onSignIn={() => router.push('/sign-in')}
+      onDismiss={() => router.push('/sign-up')}
     />
   );
 }

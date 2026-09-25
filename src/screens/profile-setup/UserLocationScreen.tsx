@@ -16,7 +16,9 @@
  * The data is tree-shakeable and provides ISO codes, names, and phone codes.
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'expo-router';
+import { ChevronDown } from 'lucide-react-native';
 import {
   View,
   Text,
@@ -25,12 +27,15 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, typography, radius, spacing } from '../../constants/theme';
 import { ProfileSetupHeader } from '../../components/ProfileSetupHeader';
 import { SearchablePicker, PickerItem } from '../../components/SearchablePicker';
 import { FormInput } from '../../components/FormInput';
 import { PrimaryButton } from '../../components/PrimaryButton';
+import { useUserContext } from '../../store/UserContext';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COUNTRY & STATE DATA
@@ -86,6 +91,7 @@ try {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const UserLocationScreen = ({ navigation }: { navigation?: any }) => {
+  const { setLocation } = useUserContext();
   // ── Form State ──────────────────────────────────────────────────────────
   const [selectedCountryCode, setSelectedCountryCode] = useState('');
   const [selectedCountryName, setSelectedCountryName] = useState('');
@@ -99,6 +105,22 @@ export const UserLocationScreen = ({ navigation }: { navigation?: any }) => {
 
   // ── Validation State ────────────────────────────────────────────────────
   const [showErrors, setShowErrors] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // ── Derived Data ────────────────────────────────────────────────────────
 
@@ -151,138 +173,150 @@ export const UserLocationScreen = ({ navigation }: { navigation?: any }) => {
       setShowErrors(true);
       return;
     }
-    if (navigation) {
+    const fullLocation = [address, selectedStateName, selectedCountryName].filter(Boolean).join(', ');
+    setLocation(fullLocation);
+    if (navigation?.navigate) {
       navigation.navigate('UserProfile');
+    } else {
+      router.push('/user-profile');
     }
   };
 
+  const router = useRouter();
+
   const handleBack = () => {
-    if (navigation) {
+    if (navigation?.goBack) {
       navigation.goBack();
+    } else {
+      router.back();
     }
   };
 
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+    <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        {/* ─── Header ─────────────────────────────────────────────────── */}
-        <ProfileSetupHeader
-          onBack={handleBack}
-          title="Enter Your Location"
-          subtitle="Your location will enable us connect you with places near you."
-          currentStep={1}
-          totalSteps={4}
-        />
-
-        {/* ─── Country Field (tappable, opens picker) ─────────────────── */}
-        <View style={styles.fieldContainer}>
-          <Text style={styles.fieldLabel}>Country</Text>
-          <TouchableOpacity
-            style={[
-              styles.pickerButton,
-              showErrors && !selectedCountryCode && styles.pickerError
-            ]}
-            onPress={() => setShowCountryPicker(true)}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={[
-                styles.pickerText,
-                !selectedCountryName && styles.pickerPlaceholder,
-              ]}
-            >
-              {selectedCountryName || 'Select your country'}
-            </Text>
-            <Text style={styles.pickerArrow}>▼</Text>
-          </TouchableOpacity>
-          {showErrors && !selectedCountryCode && (
-            <Text style={styles.errorText}>Country is required</Text>
-          )}
-        </View>
-
-        {/* ─── State Field (tappable, opens picker) ───────────────────── */}
-        <View style={styles.fieldContainer}>
-          <Text style={styles.fieldLabel}>State of Resident</Text>
-          <TouchableOpacity
-            style={[
-              styles.pickerButton,
-              !selectedCountryCode && styles.pickerDisabled,
-              showErrors && !selectedStateCode && styles.pickerError
-            ]}
-            onPress={() => {
-              if (selectedCountryCode) setShowStatePicker(true);
-            }}
-            activeOpacity={selectedCountryCode ? 0.7 : 1}
-            disabled={!selectedCountryCode}
-          >
-            <Text
-              style={[
-                styles.pickerText,
-                !selectedStateName && styles.pickerPlaceholder,
-              ]}
-            >
-              {selectedStateName || (selectedCountryCode
-                ? 'Select your state'
-                : 'Select a country first')}
-            </Text>
-            <Text style={styles.pickerArrow}>▼</Text>
-          </TouchableOpacity>
-          {showErrors && !selectedStateCode && (
-            <Text style={styles.errorText}>State is required</Text>
-          )}
-        </View>
-
-        {/* ─── Residential Address Field ──────────────────────────────── */}
-        <FormInput
-          label="Residential Address"
-          value={address}
-          onChangeText={setAddress}
-          placeholder="Enter your residential address"
-          error={!address.trim() ? 'Residential Address is required' : undefined}
-          touched={showErrors}
-        />
-
-        {/* ─── Next Button (Pinned to bottom) ─────────────────────── */}
-        <View style={{ marginTop: 'auto' }}>
-          <PrimaryButton
-            title="Next"
-            onPress={handleNext}
-            disabled={false}
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: isKeyboardVisible ? 320 : 40 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ─── Header ─────────────────────────────────────────────────── */}
+          <ProfileSetupHeader
+            onBack={handleBack}
+            title="Enter Your Location"
+            subtitle="Your location will enable us connect you with places near you."
             currentStep={1}
+            totalSteps={4}
           />
-        </View>
-      </ScrollView>
 
-      {/* ─── Country Picker Modal ───────────────────────────────────────── */}
-      <SearchablePicker
-        visible={showCountryPicker}
-        title="Select Country"
-        items={countryItems}
-        selectedValue={selectedCountryCode}
-        onSelect={handleCountrySelect}
-        onClose={() => setShowCountryPicker(false)}
-      />
+          {/* ─── Country Field (tappable, opens picker) ─────────────────── */}
+          <View style={styles.fieldContainer}>
+            <Text style={styles.fieldLabel}>Country</Text>
+            <TouchableOpacity
+              style={[
+                styles.pickerButton,
+                showErrors && !selectedCountryCode && styles.pickerError,
+              ]}
+              onPress={() => setShowCountryPicker(true)}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.pickerText,
+                  !selectedCountryName && styles.pickerPlaceholder,
+                ]}
+              >
+                {selectedCountryName || 'Eg. Nigeria'}
+              </Text>
+              <ChevronDown size={20} color="#141A33" />
+            </TouchableOpacity>
+            {showErrors && !selectedCountryCode && (
+              <Text style={styles.errorText}>Country is required</Text>
+            )}
+          </View>
 
-      {/* ─── State Picker Modal ─────────────────────────────────────────── */}
-      <SearchablePicker
-        visible={showStatePicker}
-        title="Select State"
-        items={stateItems}
-        selectedValue={selectedStateCode}
-        onSelect={handleStateSelect}
-        onClose={() => setShowStatePicker(false)}
-      />
-    </KeyboardAvoidingView>
+          {/* ─── State Field (tappable, opens picker) ───────────────────── */}
+          <View style={styles.fieldContainer}>
+            <Text style={styles.fieldLabel}>State of Resident</Text>
+            <TouchableOpacity
+              style={[
+                styles.pickerButton,
+                !selectedCountryCode && styles.pickerDisabled,
+                showErrors && !selectedStateCode && styles.pickerError,
+              ]}
+              onPress={() => {
+                if (selectedCountryCode) setShowStatePicker(true);
+              }}
+              activeOpacity={selectedCountryCode ? 0.7 : 1}
+              disabled={!selectedCountryCode}
+            >
+              <Text
+                style={[
+                  styles.pickerText,
+                  !selectedStateName && styles.pickerPlaceholder,
+                ]}
+              >
+                {selectedStateName || 'Eg. Abuja'}
+              </Text>
+              <ChevronDown size={20} color="#141A33" />
+            </TouchableOpacity>
+            {showErrors && !selectedStateCode && (
+              <Text style={styles.errorText}>State is required</Text>
+            )}
+          </View>
+
+          {/* ─── Residential Address Field ──────────────────────────────── */}
+          <FormInput
+            label="Residential Address"
+            value={address}
+            onChangeText={setAddress}
+            placeholder="Eg. Off 1124 Adamu Cresent,Jahi Abuja."
+            error={!address.trim() ? 'Residential Address is required' : undefined}
+            touched={showErrors}
+          />
+
+          {/* ─── Next Button (Pinned to bottom) ─────────────────────── */}
+          <View style={{ marginTop: 'auto' }}>
+            <PrimaryButton
+              title="Next"
+              onPress={handleNext}
+              disabled={false}
+              currentStep={1}
+            />
+          </View>
+        </ScrollView>
+
+        {/* ─── Country Picker Modal ───────────────────────────────────────── */}
+        <SearchablePicker
+          visible={showCountryPicker}
+          title="Select Country"
+          items={countryItems}
+          selectedValue={selectedCountryCode}
+          onSelect={handleCountrySelect}
+          onClose={() => setShowCountryPicker(false)}
+        />
+
+        {/* ─── State Picker Modal ─────────────────────────────────────────── */}
+        <SearchablePicker
+          visible={showStatePicker}
+          title="Select State"
+          items={stateItems}
+          selectedValue={selectedStateCode}
+          onSelect={handleStateSelect}
+          onClose={() => setShowStatePicker(false)}
+        />
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 

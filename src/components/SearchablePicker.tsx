@@ -21,7 +21,7 @@
  *   />
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -30,9 +30,10 @@ import {
   FlatList,
   Modal,
   StyleSheet,
-  SafeAreaView,
   Pressable,
+  Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { colors, typography, radius, spacing, shadows } from '../constants/theme';
 
@@ -61,6 +62,31 @@ interface SearchablePickerProps {
   onClose: () => void;
 }
 
+const ITEM_HEIGHT = 48;
+
+/** Pure memoized row component for fast virtualized rendering */
+const PickerRow = React.memo(({
+  item,
+  isSelected,
+  onPress,
+}: {
+  item: PickerItem;
+  isSelected: boolean;
+  onPress: (value: string, label: string) => void;
+}) => (
+  <TouchableOpacity
+    style={[styles.itemRow, isSelected && styles.itemRowSelected]}
+    onPress={() => onPress(item.value, item.label)}
+    activeOpacity={0.7}
+  >
+    {item.icon ? <Text style={styles.itemIcon}>{item.icon}</Text> : null}
+    <Text style={[styles.itemLabel, isSelected && styles.itemLabelSelected]}>
+      {item.label}
+    </Text>
+    {isSelected ? <Text style={styles.selectedCheck}>✓</Text> : null}
+  </TouchableOpacity>
+));
+
 export const SearchablePicker: React.FC<SearchablePickerProps> = ({
   visible,
   title,
@@ -78,36 +104,29 @@ export const SearchablePicker: React.FC<SearchablePickerProps> = ({
     return items.filter((item) => item.label.toLowerCase().includes(query));
   }, [items, searchQuery]);
 
-  /**
-   * Renders a single item row in the picker list.
-   */
-  const renderItem = ({ item }: { item: PickerItem }) => {
-    const isSelected = item.value === selectedValue;
+  const handleItemPress = useCallback((value: string, label: string) => {
+    onSelect(value, label);
+    setSearchQuery('');
+  }, [onSelect]);
 
-    return (
-      <TouchableOpacity
-        style={[styles.itemRow, isSelected && styles.itemRowSelected]}
-        onPress={() => {
-          onSelect(item.value, item.label);
-          setSearchQuery(''); // Reset search on selection
-        }}
-        activeOpacity={0.7}
-      >
-        {/* Optional icon (e.g. country flag) */}
-        {item.icon && <Text style={styles.itemIcon}>{item.icon}</Text>}
+  const renderItem = useCallback(({ item }: { item: PickerItem }) => (
+    <PickerRow
+      item={item}
+      isSelected={item.value === selectedValue}
+      onPress={handleItemPress}
+    />
+  ), [selectedValue, handleItemPress]);
 
-        {/* Item label */}
-        <Text
-          style={[styles.itemLabel, isSelected && styles.itemLabelSelected]}
-        >
-          {item.label}
-        </Text>
+  const keyExtractor = useCallback((item: PickerItem) => item.value, []);
 
-        {/* Checkmark for selected item */}
-        {isSelected && <Text style={styles.selectedCheck}>✓</Text>}
-      </TouchableOpacity>
-    );
-  };
+  const getItemLayout = useCallback(
+    (_: any, index: number) => ({
+      length: ITEM_HEIGHT,
+      offset: ITEM_HEIGHT * index,
+      index,
+    }),
+    []
+  );
 
   return (
     <Modal
@@ -142,7 +161,13 @@ export const SearchablePicker: React.FC<SearchablePickerProps> = ({
           <FlatList
             data={filteredItems}
             renderItem={renderItem}
-            keyExtractor={(item) => item.value}
+            keyExtractor={keyExtractor}
+            getItemLayout={getItemLayout}
+            initialNumToRender={15}
+            maxToRenderPerBatch={15}
+            windowSize={5}
+            removeClippedSubviews={Platform.OS !== 'web'}
+            keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
@@ -212,8 +237,7 @@ const styles = StyleSheet.create({
     ...typography.bodyRegular,
     color: '#000000',
     paddingVertical: 0,
-    // @ts-ignore: outlineStyle is a web-only property
-    outlineStyle: 'none',
+    outlineStyle: 'none' as any,
   },
 
   // ── List Items ──────────────────────────────────────────────────────────
@@ -230,6 +254,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.successBackground,
   },
   itemIcon: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
     fontSize: 22,
     marginRight: 12,
   },
@@ -243,6 +268,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
   selectedCheck: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
     fontSize: 16,
     color: colors.successVibrant,
     marginLeft: 8,

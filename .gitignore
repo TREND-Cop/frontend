@@ -31,6 +31,7 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
 
 # typescript
@@ -41,3 +42,26 @@ example
 # generated native folders
 /ios
 /android
+
+# dev tools & user temp folders
+tools/
+provider/
+.agents/
+.idea/
+New/
+scratch/
+specs/
+*.pdf
+*.opus
+VID-*.mp4
+fetch_unsplash.sh
+generateMockData.js
+br_corner.png
+right_crop.png
+tr_corner.png
+AGENTS.md
+clean_styles.js
+*.log
+*.txt
+.easignore
+eas.json

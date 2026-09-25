@@ -3,7 +3,7 @@
  */
 
 import { useRouter } from 'expo-router';
-import { UserGenderScreen } from '@/screens/profile-setup/UserGenderScreen';
+import { UserGenderScreen } from '../screens/profile-setup/UserGenderScreen';
 
 export default function UserGenderRoute() {
   const router = useRouter();

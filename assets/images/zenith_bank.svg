@@ -1,0 +1,8 @@
+<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Top bar (Grey) -->
+  <path d="M4 7H30L23 14H4V7Z" fill="#6E7278"/>
+  <!-- Main Z diagonal and bottom (Red) -->
+  <path d="M31 8L10 26H32V30H4L25 12H31V8Z" fill="#E51937"/>
+  <!-- Zenith wordmark -->
+  <text x="18" y="35" font-family="Arial, sans-serif" font-size="5" font-weight="bold" fill="#6E7278" text-anchor="middle" letter-spacing="1">ZENITH</text>
+</svg>

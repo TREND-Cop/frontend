@@ -175,8 +175,7 @@ const styles = StyleSheet.create({
     ...typography.bodyRegular,
     color: '#000000',
     paddingVertical: 0, // Remove default Android vertical padding
-    // @ts-ignore: web-only outline style
-    outlineStyle: 'none',
+    outlineStyle: 'none' as any,
   },
   passwordInput: {
     paddingRight: 10, // Adjust for absolute icons if needed, but flex takes care of it usually

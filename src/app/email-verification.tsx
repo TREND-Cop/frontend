@@ -14,7 +14,9 @@ export default function EmailVerificationRoute() {
       route={{ params: { email: params.email } }}
       navigation={{
         navigate: (screen: string) => {
-          if (screen === 'SignInScreen') router.push('/sign-in');
+          if (screen === 'PasswordResetSuccess' || screen === 'SignInScreen') {
+            router.replace('/password-reset-success' as any);
+          }
         },
         goBack: () => router.back(),
       }}

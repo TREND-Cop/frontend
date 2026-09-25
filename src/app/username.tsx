@@ -3,7 +3,7 @@
  */
 
 import { useRouter } from 'expo-router';
-import { UsernameScreen } from '@/screens/profile-setup/UsernameScreen';
+import { UsernameScreen } from '../screens/profile-setup/UsernameScreen';
 
 export default function UsernameRoute() {
   const router = useRouter();

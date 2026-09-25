@@ -22,9 +22,11 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { colors, typography, radius, spacing } from '../../constants/theme';
 import { PrimaryButton } from '../../components/PrimaryButton';
+import { useRouter } from 'expo-router';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -177,6 +179,8 @@ export const EmailVerificationScreen = ({
    * Handles the "Verify" button press.
    * Calls the stubbed verifyCode function and navigates on success.
    */
+  const router = useRouter();
+
   const handleVerify = useCallback(async () => {
     if (!allDigitsEntered) return;
 
@@ -184,14 +188,16 @@ export const EmailVerificationScreen = ({
     const success = await verifyCode(code);
 
     if (success) {
-      if (navigation) {
-        navigation.navigate('SignInScreen');
+      if (navigation?.navigate) {
+        navigation.navigate('PasswordResetSuccess');
+      } else {
+        router.replace('/password-reset-success' as any);
       }
     } else {
       // TODO: Show an error to the user (e.g. "Invalid code, please try again")
       console.log('Verification failed');
     }
-  }, [allDigitsEntered, otp, navigation]);
+  }, [allDigitsEntered, otp, navigation, router]);
 
   /**
    * Handles the "Resend" button press.
@@ -226,73 +232,81 @@ export const EmailVerificationScreen = ({
   return (
     <KeyboardAvoidingView
       style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={styles.container}>
-        {/* ─── Header with Back Arrow ───────────────────────────────── */}
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
-            <Text style={styles.backArrow}>←</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ─── Centered Envelope Icon ────────────────────────────────── */}
-        <View style={styles.iconContainer}>
-          <Text style={styles.envelopeIcon}>✉️</Text>
-        </View>
-
-        {/* ─── Title & Subtitle ──────────────────────────────────────── */}
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>Email verification</Text>
-          <Text style={styles.subtitle}>
-            Verification code sent to the following email:
-          </Text>
-          <Text style={styles.emailText}>{email}</Text>
-        </View>
-
-        {/* ─── OTP Input Boxes ───────────────────────────────────────── */}
-        <View style={styles.otpContainer}>
-          {Array.from({ length: OTP_LENGTH }).map((_, index) => (
-            <TextInput
-              key={index}
-              ref={(ref) => {
-                inputRefs.current[index] = ref;
-              }}
-              style={[
-                styles.otpBox,
-                otp[index].length > 0 && styles.otpBoxFilled,
-              ]}
-              value={otp[index]}
-              onChangeText={(text) => handleOtpChange(text, index)}
-              onKeyPress={(e) => handleKeyPress(e, index)}
-              keyboardType="number-pad"
-              maxLength={1}
-              textAlign="center"
-              selectTextOnFocus
-            />
-          ))}
-        </View>
-
-        {/* ─── Countdown Timer ───────────────────────────────────────── */}
-        <View style={styles.timerContainer}>
-          {isTimerRunning ? (
-            <Text style={styles.timerText}>
-              Resend in {formatCountdown(countdown)}
-            </Text>
-          ) : (
-            <TouchableOpacity onPress={handleResend}>
-              <Text style={styles.resendActiveText}>Resend</Text>
+      <ScrollView
+        style={styles.flex}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.container}>
+          {/* ─── Header with Back Arrow ───────────────────────────────── */}
+          <View style={styles.headerRow}>
+            <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
+              <Text style={styles.backArrow}>←</Text>
             </TouchableOpacity>
-          )}
-        </View>
+          </View>
 
-        {/* ─── Verify Button ─────────────────────────────────────────── */}
-        <PrimaryButton
-          title="Verify"
-          onPress={handleVerify}
-          disabled={!allDigitsEntered}
-        />
-      </View>
+          {/* ─── Centered Envelope Icon ────────────────────────────────── */}
+          <View style={styles.iconContainer}>
+            <Text style={styles.envelopeIcon}>✉️</Text>
+          </View>
+
+          {/* ─── Title & Subtitle ──────────────────────────────────────── */}
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>Email verification</Text>
+            <Text style={styles.subtitle}>
+              Verification code sent to the following email:
+            </Text>
+            <Text style={styles.emailText}>{email}</Text>
+          </View>
+
+          {/* ─── OTP Input Boxes ───────────────────────────────────────── */}
+          <View style={styles.otpContainer}>
+            {Array.from({ length: OTP_LENGTH }).map((_, index) => (
+              <TextInput
+                key={index}
+                ref={(ref) => {
+                  inputRefs.current[index] = ref;
+                }}
+                style={[
+                  styles.otpBox,
+                  otp[index].length > 0 && styles.otpBoxFilled,
+                ]}
+                value={otp[index]}
+                onChangeText={(text) => handleOtpChange(text, index)}
+                onKeyPress={(e) => handleKeyPress(e, index)}
+                keyboardType="number-pad"
+                maxLength={1}
+                textAlign="center"
+                selectTextOnFocus
+              />
+            ))}
+          </View>
+
+          {/* ─── Countdown Timer ───────────────────────────────────────── */}
+          <View style={styles.timerContainer}>
+            {isTimerRunning ? (
+              <Text style={styles.timerText}>
+                Resend in {formatCountdown(countdown)}
+              </Text>
+            ) : (
+              <TouchableOpacity onPress={handleResend}>
+                <Text style={styles.resendActiveText}>Resend</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* ─── Verify Button ─────────────────────────────────────────── */}
+          <PrimaryButton
+            title="Verify"
+            onPress={handleVerify}
+            disabled={!allDigitsEntered}
+          />
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 };
@@ -304,6 +318,9 @@ export const EmailVerificationScreen = ({
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   container: {
     flex: 1,
@@ -323,6 +340,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   backArrow: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
     fontSize: 24,
     color: '#000000',
   },
@@ -333,6 +351,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   envelopeIcon: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
     fontSize: 48,
   },
 
@@ -376,8 +395,6 @@ const styles = StyleSheet.create({
     color: '#000000',
     textAlign: 'center',
     textAlignVertical: 'center', // Android vertical centering
-    // @ts-ignore: web-only outline style
-    outlineStyle: 'none',
   },
   otpBoxFilled: {
     borderColor: colors.primary, // Highlight filled boxes

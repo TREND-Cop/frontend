@@ -12,7 +12,7 @@
  * Sign In screen. This has been corrected to "Don't have an account? Sign Up".
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,12 +21,16 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from 'react-native';
 import { colors, typography, spacing } from '../../constants/theme';
 import { FormInput } from '../../components/FormInput';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { SocialAuthSection } from '../../components/SocialAuthSection';
 import { AuthFooter } from '../../components/AuthFooter';
+import { supabase } from '../../lib/supabase';
+import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STUB FUNCTIONS
@@ -64,6 +68,8 @@ const onSignIn = async (
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const SignInScreen = ({ navigation }: { navigation?: any }) => {
+  const router = useRouter();
+
   // ── Form State ──────────────────────────────────────────────────────────
   const [usernameOrPhone, setUsernameOrPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -73,6 +79,22 @@ export const SignInScreen = ({ navigation }: { navigation?: any }) => {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [usernameTouched, setUsernameTouched] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Simple check: both fields must have content to enable the button
   const formValid = usernameOrPhone.trim().length > 0 && password.length > 0;
@@ -108,31 +130,48 @@ export const SignInScreen = ({ navigation }: { navigation?: any }) => {
   }, [password]);
 
   /**
-   * Handles the "Sign In" button press.
-   * Calls the stubbed onSignIn function and handles the response.
-   * TODO (Backend): Server may return specific error codes to differentiate
-   * between "user not found" and "wrong password" — handle both here.
+   * Handles the "Sign In" button press via Supabase Auth.
    */
   const handleSignIn = useCallback(async () => {
     if (!formValid) return;
 
-    const result = await onSignIn(usernameOrPhone, password);
+    // Reset previous errors
+    setUsernameError(null);
+    setPasswordError(null);
 
-    if (result.success) {
-      if (navigation) {
-        navigation.navigate('Home');
-      }
-    } else {
-      // Show field-specific errors from the server
-      if (result.error === 'username') {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      phone: usernameOrPhone,
+      password: password,
+    });
+
+    if (error) {
+      const msg = error.message.toLowerCase();
+      if (
+        msg.includes('user') ||
+        msg.includes('phone') ||
+        msg.includes('not found') ||
+        msg.includes('invalid credentials')
+      ) {
         setUsernameTouched(true);
         setUsernameError('Username or Phone Number is incorrect');
-      } else if (result.error === 'password') {
+      } else if (msg.includes('password')) {
         setPasswordTouched(true);
         setPasswordError('Incorrect password');
+      } else {
+        setUsernameTouched(true);
+        setUsernameError(error.message || 'Username or Phone Number is incorrect');
+      }
+      return;
+    }
+
+    if (data?.session || data?.user) {
+      if (navigation?.navigate) {
+        navigation.navigate('SignInSuccess');
+      } else {
+        router.replace({ pathname: '/sign-in-success', params: { mode: 'sign-in' } } as any);
       }
     }
-  }, [formValid, usernameOrPhone, password, navigation]);
+  }, [formValid, usernameOrPhone, password, navigation, router]);
 
   /**
    * Navigates to the Forgot Password screen.
@@ -146,99 +185,105 @@ export const SignInScreen = ({ navigation }: { navigation?: any }) => {
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
+    <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        {/* ─── Header ─────────────────────────────────────────────────── */}
-        <View style={styles.headerContainer}>
-          <Text style={styles.headerTitle}>Sign In</Text>
-          <Text style={styles.headerSubtext}>
-            Hello again, welcome back to <Text style={{ fontWeight: 'bold', color: '#000000' }}>Trend</Text>
-          </Text>
-        </View>
-
-        {/* ─── Username or Phone Number Field ─────────────────────────── */}
-        <FormInput
-          label="Username or Phone Number"
-          value={usernameOrPhone}
-          onChangeText={(text) => {
-            setUsernameOrPhone(text);
-            if (usernameError) setUsernameError(null);
-          }}
-          placeholder="Enter username or phone number"
-          autoCapitalize="none"
-          error={usernameError}
-          isValid={usernameOrPhone.trim().length > 0}
-          touched={usernameTouched}
-          onBlur={handleUsernameBlur}
-        />
-
-        {/* ─── Password Field ─────────────────────────────────────────── */}
-        <FormInput
-          label="Enter Password"
-          value={password}
-          onChangeText={(text) => {
-            setPassword(text);
-            if (passwordError) setPasswordError(null);
-          }}
-          placeholder="Enter password"
-          secureTextEntry
-          showPasswordToggle
-          error={passwordError}
-          isValid={password.length > 0}
-          touched={passwordTouched}
-          onBlur={handlePasswordBlur}
-        />
-
-        {/* ─── Forgotten Password Link (right-aligned, below password) ── */}
-        <TouchableOpacity
-          onPress={handleForgotPassword}
-          style={styles.forgotPasswordContainer}
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: isKeyboardVisible ? 320 : 40 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.forgotPasswordText}>Forgotten password?</Text>
-        </TouchableOpacity>
+          {/* ─── Header ─────────────────────────────────────────────────── */}
+          <View style={styles.headerContainer}>
+            <Text style={styles.headerTitle}>Sign In</Text>
+            <Text style={styles.headerSubtext}>
+              Hello again, welcome back to <Text style={{ fontWeight: 'bold', color: '#000000' }}>TREND.</Text>
+            </Text>
+          </View>
 
-        {/* ─── Sign In Button ─────────────────────────────────────────── */}
-        <PrimaryButton
-          title="Sign In"
-          onPress={handleSignIn}
-          disabled={!formValid}
-        />
+          {/* ─── Username or Phone Number Field ─────────────────────────── */}
+          <FormInput
+            label="Username or Phone Number"
+            value={usernameOrPhone}
+            onChangeText={(text) => {
+              setUsernameOrPhone(text);
+              if (usernameError) setUsernameError(null);
+            }}
+            placeholder="Enter username or phone number"
+            autoCapitalize="none"
+            error={usernameError}
+            isValid={usernameOrPhone.trim().length > 0}
+            touched={usernameTouched}
+            onBlur={handleUsernameBlur}
+          />
 
-        {/* ─── Social Login ───────────────────────────────────────────── */}
-        <SocialAuthSection
-          dividerText="Sign in with"
-          onGooglePress={() => console.log('Google Sign In — implement OAuth')}
-          onApplePress={() => console.log('Apple Sign In — implement Apple Sign In')}
-        />
+          {/* ─── Password Field ─────────────────────────────────────────── */}
+          <FormInput
+            label="Enter Password"
+            value={password}
+            onChangeText={(text) => {
+              setPassword(text);
+              if (passwordError) setPasswordError(null);
+            }}
+            placeholder="Enter password"
+            secureTextEntry
+            showPasswordToggle
+            error={passwordError}
+            isValid={password.length > 0}
+            touched={passwordTouched}
+            onBlur={handlePasswordBlur}
+          />
 
-        {/* ─── Footer ─────────────────────────────────────────────────── */}
-        {/*
-          TYPO FIX: The Figma design had "Already have an account? Sign Up"
-          which is a copy-paste error from SignUpScreen. Corrected to:
-          "Don't have an account? Sign Up"
-        */}
-        <AuthFooter
-          promptText="Don't have an account? "
-          linkText="Sign Up"
-          onLinkPress={() => {
-            navigation?.navigate('SignUpScreen');
-          }}
-          onTermsPress={() => {
-            // TODO (Navigation): Navigate to TermsScreen or open a web URL
-            // navigation?.navigate('TermsScreen');
-            console.log('Navigate to TermsScreen');
-          }}
-        />
-      </ScrollView>
-    </KeyboardAvoidingView>
+          {/* ─── Forgotten Password Link (right-aligned, below password) ── */}
+          <TouchableOpacity
+            onPress={handleForgotPassword}
+            style={styles.forgotPasswordContainer}
+          >
+            <Text style={styles.forgotPasswordText}>Forgotten password?</Text>
+          </TouchableOpacity>
+
+          {/* ─── Sign In Button ─────────────────────────────────────────── */}
+          <PrimaryButton
+            title="Sign In"
+            onPress={handleSignIn}
+            disabled={!formValid}
+          />
+
+          {/* ─── Social Login ───────────────────────────────────────────── */}
+          <SocialAuthSection
+            dividerText="Sign in with"
+            onGooglePress={() => console.log('Google Sign In — implement OAuth')}
+            onApplePress={() => console.log('Apple Sign In — implement Apple Sign In')}
+          />
+
+          {/* ─── Footer ─────────────────────────────────────────────────── */}
+          {/*
+            TYPO FIX: The Figma design had "Already have an account? Sign Up"
+            which is a copy-paste error from SignUpScreen. Corrected to:
+            "Don't have an account? Sign Up"
+          */}
+          <AuthFooter
+            promptText="Don't have an account? "
+            linkText="Sign Up"
+            onLinkPress={() => {
+              navigation?.navigate('SignUpScreen');
+            }}
+            onTermsPress={() => {
+              // TODO (Navigation): Navigate to TermsScreen or open a web URL
+              // navigation?.navigate('TermsScreen');
+              console.log('Navigate to TermsScreen');
+            }}
+          />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 

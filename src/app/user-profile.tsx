@@ -3,7 +3,7 @@
  */
 
 import { useRouter } from 'expo-router';
-import { UserProfileScreen } from '@/screens/profile-setup/UserProfileScreen';
+import { UserProfileScreen } from '../screens/profile-setup/UserProfileScreen';
 
 export default function UserProfileRoute() {
   const router = useRouter();

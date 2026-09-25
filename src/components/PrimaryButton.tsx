@@ -69,7 +69,7 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
         disabled={disabled}
         activeOpacity={0.8}
       >
-        <Text style={styles.buttonText}>{title}</Text>
+        <Text style={[styles.buttonText, disabled && styles.buttonTextDisabled]}>{title}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -88,11 +88,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: 358,
-    marginBottom: 40, // Space between progress line and button
+    width: '100%',
+    gap: 8,
+    marginBottom: 40,
   },
   progressDash: {
-    width: 72,
+    flex: 1,
     height: 4,
     borderRadius: 4,
   },
@@ -103,25 +104,24 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(235, 235, 245, 0.96)',
   },
   button: {
-    backgroundColor: 'rgba(0, 8, 20, 0.96)', // Exact match to Figma
-    borderRadius: 24,
-    height: 48,
-    width: 358,
+    backgroundColor: '#0F1626', // Updated to match Navy
+    borderRadius: 28, // More rounded as in screenshot
+    height: 56, // Taller button
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 56,
-    // Emulate Figma box-shadows using React Native elevation/shadows
-    shadowColor: '#858b94',
-    shadowOffset: { width: 4, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 15,
-    elevation: 8,
+    marginBottom: 24, // Reduced to fit layout better
   },
   buttonDisabled: {
-    opacity: 0.95, // Barely noticeable opacity drop so it stays black, but interactions are still disabled
+    backgroundColor: '#F7F7F9',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   buttonText: {
     ...typography.button,
-    color: colors.appBackground, // White text on dark button
+    color: colors.appBackground,
+  },
+  buttonTextDisabled: {
+    color: '#D0D5DD', // Light gray text for disabled state
   },
 });

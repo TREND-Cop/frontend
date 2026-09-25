@@ -27,8 +27,8 @@ import {
   TouchableOpacity,
   Modal,
   StyleSheet,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { colors, typography, radius, spacing } from '../constants/theme';
 

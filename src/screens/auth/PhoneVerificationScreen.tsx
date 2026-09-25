@@ -1,16 +1,6 @@
 /**
- * PhoneVerificationScreen — 4-digit OTP verification after signup.
- *
- * Flow: SignUpScreen → PhoneVerificationScreen → UserLocationScreen
- *
- * Features:
- * - 4 separate OTP input boxes with auto-advance focus
- * - Countdown timer (65 seconds) for resend cooldown
- * - Resend button that resets the timer and stubs a resendCode() call
- * - Verify button enabled only when all 4 digits are entered
- * - Navigates to UserLocationScreen on successful verification
- *
- * Uses shared components: PrimaryButton
+ * PhoneVerificationScreen — 1:1 Figma Screen for Number Verification
+ * Exact styles converted from Figma specifications.
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -22,69 +12,61 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  Keyboard,
 } from 'react-native';
-import { colors, typography, radius, spacing } from '../../constants/theme';
-import { PrimaryButton } from '../../components/PrimaryButton';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import Svg, { Path } from 'react-native-svg';
+import { typography } from '../../constants/theme';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CONSTANTS
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Number of OTP digits */
 const OTP_LENGTH = 4;
+const RESEND_COUNTDOWN_SECONDS = 65; // 1:05 in seconds
 
-/** Countdown timer duration in seconds */
-const RESEND_COUNTDOWN_SECONDS = 65;
+// ── Exact Figma Arrow-Left Icon (24x24) ──
+const ArrowLeftIcon = ({ size = 24, color = 'rgba(0, 8, 20, 0.96)' }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M4.5 12H19.5"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M10 18C10 18 4.5 13.58 4.5 12C4.5 10.42 10 6 10 6"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
 
-// ─────────────────────────────────────────────────────────────────────────────
-// STUB FUNCTIONS
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Verifies the OTP code entered by the user.
- * 
- * TODO (Backend):
- * 1. POST request to `/api/auth/verify-otp`
- *    Payload: { "phone": _phone, "code": _code }
- * 2. On Success (200 OK):
- *    - Return `true` to proceed to the next onboarding/home screen.
- * 3. On Error (400 Bad Request - Invalid OTP):
- *    - Return `false` so the UI can show an "Incorrect code" error message.
- *
- * @param _code - The 4-digit OTP code entered by the user
- * @returns true if verification succeeds, false otherwise
- */
-const verifyCode = async (_code: string): Promise<boolean> => {
-  console.log('verifyCode called — wire up your API here');
-  return true; // Mock: always succeeds
-};
-
-/**
- * Resends the verification code to the user's phone.
- * 
- * TODO (Backend):
- * 1. POST request to `/api/auth/resend-otp`
- *    Payload: { "phone": _phone }
- * 2. Ensure backend has rate-limiting to prevent abuse.
- * 3. Returns void on success. Throw or alert on failure.
- */
-const resendCode = async (_phone: string): Promise<void> => {
-  console.log('resendCode called — wire up your API here');
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// HELPER: Format seconds into "M:SS" display
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Exact Figma Notification Bell Icon (24x24) ──
+const NotificationBellIcon = ({ size = 24, color = '#000000' }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 2C8.686 2 6 4.686 6 8V13.293L4.293 15C4.105 15.187 4 15.442 4 15.707V17C4 17.552 4.448 18 5 18H19C19.552 18 20 17.552 20 17V15.707C20 15.442 19.895 15.187 19.707 15L18 13.293V8C18 4.686 15.314 2 12 2Z"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M9 18C9 19.657 10.343 21 12 21C13.657 21 15 19.657 15 18"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinecap="round"
+    />
+  </Svg>
+);
 
 const formatCountdown = (seconds: number): string => {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// COMPONENT
-// ─────────────────────────────────────────────────────────────────────────────
 
 export const PhoneVerificationScreen = ({
   navigation,
@@ -93,63 +75,56 @@ export const PhoneVerificationScreen = ({
   navigation?: any;
   route?: any;
 }) => {
-  // ── Route Params ────────────────────────────────────────────────────────
-  // Phone passed from SignUpScreen (stub fallback for development)
-  const phone = route?.params?.phone ?? '+1 234 567 8900';
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const phone = route?.params?.phone || '+234 8136567398';
 
-  // ── OTP State ───────────────────────────────────────────────────────────
-  // Each digit is stored as a separate string in the array
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
-
-  // Refs for each OTP input box (used to auto-advance focus)
+  const [focusedIndex, setFocusedIndex] = useState<number>(0);
   const inputRefs = useRef<(TextInput | null)[]>(Array(OTP_LENGTH).fill(null));
 
-  // ── Countdown Timer State ───────────────────────────────────────────────
   const [countdown, setCountdown] = useState(RESEND_COUNTDOWN_SECONDS);
   const [isTimerRunning, setIsTimerRunning] = useState(true);
-
-  // Derived: all 4 digits entered = verify button can be enabled
-  const allDigitsEntered = otp.every((digit) => digit.length === 1);
-
-  // ── Countdown Timer Effect ──────────────────────────────────────────────
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   useEffect(() => {
-    // Don't run if timer isn't active
-    if (!isTimerRunning) return;
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
-    // Clear interval if countdown reaches 0
+  const allDigitsEntered = otp.every((digit) => digit.length === 1);
+
+  useEffect(() => {
+    if (!isTimerRunning) return;
     if (countdown <= 0) {
       setIsTimerRunning(false);
       return;
     }
 
-    // Tick down every second
     const interval = setInterval(() => {
       setCountdown((prev) => prev - 1);
     }, 1000);
 
-    // Cleanup on unmount or when dependencies change
     return () => clearInterval(interval);
   }, [countdown, isTimerRunning]);
 
-  // ── Handlers ────────────────────────────────────────────────────────────
-
-  /**
-   * Handles text changes in individual OTP boxes.
-   * Auto-advances focus to the next box when a digit is entered.
-   * Handles backspace to move focus to the previous box.
-   */
   const handleOtpChange = useCallback(
     (text: string, index: number) => {
-      // Only allow numeric input
       const digit = text.replace(/[^0-9]/g, '');
-
-      // Update the OTP array
       const newOtp = [...otp];
-      newOtp[index] = digit.slice(-1); // Take only the last digit
+      newOtp[index] = digit.slice(-1);
       setOtp(newOtp);
 
-      // Auto-advance to next box if digit was entered
       if (digit.length > 0 && index < OTP_LENGTH - 1) {
         inputRefs.current[index + 1]?.focus();
       }
@@ -157,243 +132,412 @@ export const PhoneVerificationScreen = ({
     [otp]
   );
 
-  /**
-   * Handles backspace key press to move focus to the previous box.
-   */
   const handleKeyPress = useCallback(
     (e: any, index: number) => {
-      if (e.nativeEvent.key === 'Backspace' && otp[index] === '' && index > 0) {
-        // Move focus to previous box and clear its value
-        const newOtp = [...otp];
-        newOtp[index - 1] = '';
-        setOtp(newOtp);
-        inputRefs.current[index - 1]?.focus();
+      if (e.nativeEvent.key === 'Backspace') {
+        if (otp[index] === '' && index > 0) {
+          const newOtp = [...otp];
+          newOtp[index - 1] = '';
+          setOtp(newOtp);
+          inputRefs.current[index - 1]?.focus();
+        }
       }
     },
     [otp]
   );
 
-  /**
-   * Handles the "Verify" button press.
-   * Calls the stubbed verifyCode function and navigates on success.
-   */
-  const handleVerify = useCallback(async () => {
+  const isForgotPassword = route?.params?.flow === 'forgot-password';
+
+  const handleVerify = () => {
     if (!allDigitsEntered) return;
-
-    const code = otp.join('');
-    const success = await verifyCode(code);
-
-    if (success) {
-      if (navigation) {
-        navigation.navigate('UserLocation');
+    if (isForgotPassword) {
+      if (navigation?.navigate) {
+        navigation.navigate('PasswordResetSuccess');
+      } else {
+        router.replace('/password-reset-success' as any);
       }
     } else {
-      // TODO: Show an error to the user (e.g. "Invalid code, please try again")
-      console.log('Verification failed');
-    }
-  }, [allDigitsEntered, otp, navigation]);
-
-  /**
-   * Handles the "Resend" button press.
-   * Resets the countdown timer and calls the stubbed resendCode function.
-   */
-  const handleResend = useCallback(async () => {
-    if (isTimerRunning) return; // Can't resend while timer is running
-
-    // Reset timer
-    setCountdown(RESEND_COUNTDOWN_SECONDS);
-    setIsTimerRunning(true);
-
-    // Clear OTP boxes
-    setOtp(Array(OTP_LENGTH).fill(''));
-
-    // Stub API call
-    await resendCode(phone);
-    console.log('Resend code to:', phone);
-  }, [isTimerRunning, phone]);
-
-  /**
-   * Back button handler — returns to the previous screen.
-   */
-  const handleGoBack = () => {
-    if (navigation) {
-      navigation.goBack();
+      if (navigation?.navigate) {
+        navigation.navigate('SignUpSuccess');
+      } else {
+        router.replace('/sign-up-success' as any);
+      }
     }
   };
 
-  // ── Render ──────────────────────────────────────────────────────────────
+  const handleResend = () => {
+    setCountdown(RESEND_COUNTDOWN_SECONDS);
+    setIsTimerRunning(true);
+    setOtp(Array(OTP_LENGTH).fill(''));
+    inputRefs.current[0]?.focus();
+  };
+
+  const handleGoBack = () => {
+    if (navigation?.goBack) {
+      navigation.goBack();
+    } else if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/sign-up' as any);
+    }
+  };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <View style={styles.container}>
-        {/* ─── Header with Back Arrow ───────────────────────────────── */}
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
-            <Text style={styles.backArrow}>←</Text>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <KeyboardAvoidingView
+        style={styles.keyboardContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'android' ? 0 : 0}
+      >
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: isKeyboardVisible ? 220 : 16 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Top Bar with Back Button */}
+          <View style={styles.topBar}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={handleGoBack}
+              activeOpacity={0.7}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <ArrowLeftIcon size={24} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Centered Bell Icon Circle Badge (Figma: Frame 1000005729, 48x48, top 99) */}
+          <View style={styles.bellBadgeContainer}>
+            <NotificationBellIcon size={24} />
+          </View>
+
+          {/* Header Text Group (Figma: email verification header, gap 16px, top 171) */}
+          <View style={styles.headerGroup}>
+            <View style={styles.titleSubtitleCol}>
+              <Text style={styles.title}>Number Verification</Text>
+              <Text style={styles.subtitle}>
+                Verification code sent to the following Phone Number
+              </Text>
+              <Text style={styles.phoneNumber}>{phone}</Text>
+            </View>
+          </View>
+
+          {/* 4 OTP Digit Boxes (Figma: verification pin, 312px width, 48px height, gap 40px, top 323) */}
+          <View style={styles.otpPinContainer}>
+            {otp.map((digit, index) => {
+              const isFocused = focusedIndex === index;
+              return (
+                <View
+                  key={index}
+                  style={[
+                    styles.otpBox,
+                    isFocused && styles.otpBoxFocused,
+                    digit.length > 0 && styles.otpBoxFilled,
+                  ]}
+                >
+                  <TextInput
+                    ref={(ref) => {
+                      inputRefs.current[index] = ref;
+                    }}
+                    style={styles.otpInput}
+                    value={digit}
+                    onChangeText={(text) => handleOtpChange(text, index)}
+                    onKeyPress={(e) => handleKeyPress(e, index)}
+                    onFocus={() => setFocusedIndex(index)}
+                    keyboardType="number-pad"
+                    inputMode="numeric"
+                    maxLength={1}
+                    selectTextOnFocus
+                    autoFocus={index === 0}
+                  />
+                </View>
+              );
+            })}
+          </View>
+
+          {/* Resend Timer Row (Figma: resend timer, 112px, 24px, gap 8px, top 395) */}
+          <View style={styles.timerRow}>
+            <Text style={styles.resendInText}>Resend in</Text>
+            <Text style={styles.countdownText}>{formatCountdown(countdown)}</Text>
+          </View>
+
+          {/* Didn't get OTP Divider (Figma: didnt get otp question, 335px, 20px, gap 16px, top 637) */}
+          <View style={styles.didntGetOtpRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.didntGetOtpText}>Didn't get OTP?</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* Resend Action Button (Figma: Filled action Button, 358x48, radius 24, top 695) */}
+          <TouchableOpacity
+            style={styles.resendButton}
+            onPress={handleResend}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.resendButtonText}>Resend</Text>
+          </TouchableOpacity>
+        </ScrollView>
+
+        {/* ── Sticky Verify Button — always visible above keyboard ── */}
+        <View style={styles.stickyVerifyContainer}>
+          <TouchableOpacity
+            style={[
+              styles.verifyButton,
+              allDigitsEntered ? styles.verifyButtonActive : styles.verifyButtonDisabled,
+            ]}
+            onPress={handleVerify}
+            disabled={!allDigitsEntered}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.verifyButtonText,
+                allDigitsEntered ? styles.verifyButtonTextActive : styles.verifyButtonTextDisabled,
+              ]}
+            >
+              Verify
+            </Text>
           </TouchableOpacity>
         </View>
-
-        {/* ─── Centered Envelope Icon ────────────────────────────────── */}
-        <View style={styles.iconContainer}>
-          <Text style={styles.envelopeIcon}>📱</Text>
-        </View>
-
-        {/* ─── Title & Subtitle ──────────────────────────────────────── */}
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>Phone verification</Text>
-          <Text style={styles.subtitle}>
-            Verification code sent to the following phone number:
-          </Text>
-          <Text style={styles.emailText}>{phone}</Text>
-        </View>
-
-        {/* ─── OTP Input Boxes ───────────────────────────────────────── */}
-        <View style={styles.otpContainer}>
-          {Array.from({ length: OTP_LENGTH }).map((_, index) => (
-            <TextInput
-              key={index}
-              ref={(ref) => {
-                inputRefs.current[index] = ref;
-              }}
-              style={[
-                styles.otpBox,
-                otp[index].length > 0 && styles.otpBoxFilled,
-              ]}
-              value={otp[index]}
-              onChangeText={(text) => handleOtpChange(text, index)}
-              onKeyPress={(e) => handleKeyPress(e, index)}
-              keyboardType="number-pad"
-              maxLength={1}
-              textAlign="center"
-              selectTextOnFocus
-            />
-          ))}
-        </View>
-
-        {/* ─── Countdown Timer ───────────────────────────────────────── */}
-        <View style={styles.timerContainer}>
-          {isTimerRunning ? (
-            <Text style={styles.timerText}>
-              Resend in {formatCountdown(countdown)}
-            </Text>
-          ) : (
-            <TouchableOpacity onPress={handleResend}>
-              <Text style={styles.resendActiveText}>Resend</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* ─── Verify Button ─────────────────────────────────────────── */}
-        <PrimaryButton
-          title="Verify"
-          onPress={handleVerify}
-          disabled={!allDigitsEntered}
-        />
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// STYLES
-// ─────────────────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  flex: {
-    flex: 1,
-  },
   container: {
     flex: 1,
-    backgroundColor: colors.appBackground,
-    paddingHorizontal: spacing.buttonPadding,
-    paddingTop: 60,
-    paddingBottom: 40,
+    backgroundColor: '#FFFFFF',
+  },
+  keyboardContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    alignItems: 'center',
   },
 
-  // ── Header Row (Back Arrow) ─────────────────────────────────────────────
-  headerRow: {
+  // ── Sticky Verify Button container (always above keyboard) ──
+  stickyVerifyContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 8,
+    backgroundColor: '#FFFFFF',
+  },
+
+  // ── Top Bar ──
+  topBar: {
+    width: '100%',
+    height: 48,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginTop: 8,
   },
   backButton: {
-    padding: 8,
-  },
-  backArrow: {
-    fontSize: 24,
-    color: '#000000',
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
-  // ── Centered Envelope Icon ──────────────────────────────────────────────
-  iconContainer: {
+  // ── Bell Icon Badge (Figma: 48x48, radius 24, background rgba(245, 246, 250, 0.98)) ──
+  bellBadgeContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(245, 246, 250, 0.98)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 24,
+  },
+
+  // ── Header Group (Figma: 358x128, gap 16) ──
+  headerGroup: {
+    width: '100%',
+    maxWidth: 358,
     alignItems: 'center',
     marginBottom: 24,
   },
-  envelopeIcon: {
-    fontSize: 48,
-  },
-
-  // ── Title & Subtitle ───────────────────────────────────────────────────
-  titleContainer: {
+  titleSubtitleCol: {
+    width: '100%',
     alignItems: 'center',
-    marginBottom: 40,
+    gap: 8,
   },
   title: {
-    ...typography.h1,
-    color: '#000000',
-    marginBottom: 12,
+    width: '100%',
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_600SemiBold',
+    fontWeight: '600',
+    fontSize: 24,
+    lineHeight: 32,
     textAlign: 'center',
+    letterSpacing: 0.4,
+    color: '#141A33',
   },
   subtitle: {
-    ...typography.bodyRegular,
-    color: colors.primarySupportText,
+    width: '100%',
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 16,
+    lineHeight: 24,
     textAlign: 'center',
-    marginBottom: 8,
+    letterSpacing: 0.4,
+    color: 'rgba(96, 96, 102, 0.96)',
   },
-  emailText: {
-    ...typography.bodyMed, // Bold/emphasized email
-    color: '#000000',
+  phoneNumber: {
+    width: '100%',
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 16,
+    lineHeight: 24,
     textAlign: 'center',
+    letterSpacing: 0.4,
+    color: 'rgba(96, 96, 102, 0.96)',
   },
 
-  // ── OTP Input Boxes ────────────────────────────────────────────────────
-  otpContainer: {
+  // ── OTP Inputs Container (Figma: 312x48, gap 40) ──
+  otpPinContainer: {
+    width: 312,
+    height: 48,
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 12,
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 24,
   },
   otpBox: {
     width: 48,
     height: 48,
-    borderWidth: 1,
-    borderColor: colors.outlineBorders,
     borderRadius: 8,
-    ...typography.h1,
-    color: '#000000',
-    textAlign: 'center',
-    textAlignVertical: 'center', // Android vertical centering
-    // @ts-ignore: web-only outline style
-    outlineStyle: 'none',
+    borderWidth: 1,
+    borderColor: 'rgba(192, 192, 204, 0.96)',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  otpBoxFocused: {
+    borderColor: 'rgba(0, 8, 20, 0.96)',
+    borderWidth: 1.5,
   },
   otpBoxFilled: {
-    borderColor: colors.primary, // Highlight filled boxes
+    borderColor: 'rgba(0, 8, 20, 0.96)',
+  },
+  otpInput: {
+    width: '100%',
+    height: '100%',
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 20,
+    lineHeight: 28,
+    textAlign: 'center',
+    letterSpacing: 0.2,
+    color: 'rgba(0, 8, 20, 0.96)',
   },
 
-  // ── Countdown Timer ─────────────────────────────────────────────────────
-  timerContainer: {
+  // ── Resend Timer Row (Figma: 112x24, gap 8) ──
+  timerRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 32,
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 48,
   },
-  timerText: {
-    ...typography.bodyRegular,
-    color: colors.primarySupportText,
+  resendInText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    letterSpacing: 0.3,
+    color: 'rgba(96, 96, 102, 0.96)',
   },
-  resendActiveText: {
-    ...typography.bodyMed,
-    color: colors.primary,
+  countdownText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    textAlign: 'center',
+    letterSpacing: 0.6,
+    color: '#141A33',
+  },
+
+  // ── Verify Button (Figma: 358x48, radius 24) ──
+  verifyButton: {
+    width: '100%',
+    maxWidth: 358,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 88,
+  },
+  verifyButtonActive: {
+    backgroundColor: 'rgba(0, 8, 20, 0.96)',
+    shadowColor: 'rgba(133, 139, 148, 0.08)',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  verifyButtonDisabled: {
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(235, 235, 245, 0.96)',
+  },
+  verifyButtonText: {
+    ...typography.button,
+    textTransform: 'capitalize',
+  },
+  verifyButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  verifyButtonTextDisabled: {
+    color: 'rgba(192, 192, 204, 0.96)',
+  },
+
+  // ── Didn't get OTP? Row (Figma: 335x20, gap 16) ──
+  didntGetOtpRow: {
+    width: 335,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    marginBottom: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(235, 235, 245, 0.96)',
+  },
+  didntGetOtpText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    letterSpacing: 0.3,
+    color: 'rgba(96, 96, 102, 0.96)',
+  },
+
+  // ── Resend Button (Figma: 358x48, radius 24, bg rgba(247, 247, 247, 0.96), border rgba(192, 192, 204, 0.96)) ──
+  resendButton: {
+    width: '100%',
+    maxWidth: 358,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(192, 192, 204, 0.96)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  resendButtonText: {
+    ...typography.button,
+    color: 'rgba(0, 8, 20, 0.96)',
   },
 });

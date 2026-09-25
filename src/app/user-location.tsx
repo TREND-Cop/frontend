@@ -1,9 +1,10 @@
 /**
- * Route: /user-location
+ * Route: /user-location (Step 1 of Profile Setup: Enter Your Location)
  */
 
+import React from 'react';
 import { useRouter } from 'expo-router';
-import { UserLocationScreen } from '@/screens/profile-setup/UserLocationScreen';
+import { UserLocationScreen } from '../screens/profile-setup/UserLocationScreen';
 
 export default function UserLocationRoute() {
   const router = useRouter();

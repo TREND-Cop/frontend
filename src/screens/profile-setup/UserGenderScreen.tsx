@@ -13,10 +13,13 @@
 
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { colors, typography, radius, spacing } from '../../constants/theme';
 import { ProfileSetupHeader } from '../../components/ProfileSetupHeader';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { Ionicons } from '@expo/vector-icons';
+import { useUserContext } from '../../store/UserContext';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GENDER OPTIONS
@@ -34,6 +37,8 @@ const GENDER_OPTIONS = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const UserGenderScreen = ({ navigation }: { navigation?: any }) => {
+  const router = useRouter();
+  const { setGender } = useUserContext();
   // ── State ───────────────────────────────────────────────────────────────
   const [selectedGender, setSelectedGender] = useState<string | null>(null);
 
@@ -41,21 +46,26 @@ export const UserGenderScreen = ({ navigation }: { navigation?: any }) => {
 
   const handleNext = () => {
     if (!selectedGender) return;
-    if (navigation) {
+    setGender(selectedGender === 'male' ? 'Male' : 'Female');
+    if (navigation?.navigate) {
       navigation.navigate('Username');
+    } else {
+      router.push('/username');
     }
   };
 
   const handleBack = () => {
-    if (navigation) {
+    if (navigation?.goBack) {
       navigation.goBack();
+    } else {
+      router.back();
     }
   };
 
   // ── Render ──────────────────────────────────────────────────────────────
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* ─── Header ─────────────────────────────────────────────────── */}
       <ProfileSetupHeader
         onBack={handleBack}
@@ -119,7 +129,7 @@ export const UserGenderScreen = ({ navigation }: { navigation?: any }) => {
         disabled={!selectedGender}
         currentStep={3}
       />
-    </View>
+    </SafeAreaView>
   );
 };
 
