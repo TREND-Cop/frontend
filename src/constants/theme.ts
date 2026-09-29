@@ -214,8 +214,9 @@ export const typography = {
       default: 'DMSans_700Bold',
     }),
     fontWeight: '700' as const,
+    fontStyle: 'normal' as const,
     fontSize: 24,
-    lineHeight: 28,
+    lineHeight: 32,
     letterSpacing: 0.3,
   },
 };

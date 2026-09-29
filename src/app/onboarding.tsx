@@ -13,7 +13,7 @@ export default function OnboardingScreenRoute() {
     <OnboardingScreen
       onSignUp={() => router.push('/sign-up')}
       onSignIn={() => router.push('/sign-in')}
-      onDismiss={() => router.push('/sign-up')}
+      onDismiss={() => router.replace('/home')}
     />
   );
 }

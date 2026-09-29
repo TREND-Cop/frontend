@@ -68,7 +68,7 @@ export const SignUpSuccessScreen = ({ navigation }: { navigation?: any }) => {
     username?: string;
     mode?: 'sign-in' | 'sign-up';
   }>();
-  const { profileData } = useUserContext();
+  const { profileData, updateProfile } = useUserContext();
   const [messageIndex, setMessageIndex] = useState(0);
 
   const isSignIn = mode === 'sign-in';
@@ -390,6 +390,7 @@ export const SignUpSuccessScreen = ({ navigation }: { navigation?: any }) => {
 
     // After 5.2s, transition to /home
     const navTimeout = setTimeout(() => {
+      updateProfile({ isLoggedIn: true });
       router.replace('/home');
     }, 5200);
 

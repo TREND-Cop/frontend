@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNativeDock } from '../utils/useNativeDock';
 import * as ImagePicker from 'expo-image-picker';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -111,7 +112,7 @@ export const ReportBottomSheet: React.FC<ReportBottomSheetProps> = ({
   onClose,
   onSubmit,
 }) => {
-  const insets = useSafeAreaInsets();
+  const { hasDock, dockHeight } = useNativeDock();
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [showMore, setShowMore] = useState(false);
   const [title, setTitle] = useState('');
@@ -250,6 +251,7 @@ export const ReportBottomSheet: React.FC<ReportBottomSheetProps> = ({
       visible={visible}
       transparent
       animationType="slide"
+      statusBarTranslucent={true}
       onRequestClose={handleClose}
     >
       <View style={styles.backdrop}>
@@ -429,7 +431,7 @@ export const ReportBottomSheet: React.FC<ReportBottomSheetProps> = ({
             <View
               style={[
                 styles.submitContainer,
-                { paddingBottom: Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 16) },
+                { paddingBottom: hasDock ? dockHeight + 16 : 16 },
               ]}
             >
               <TouchableOpacity

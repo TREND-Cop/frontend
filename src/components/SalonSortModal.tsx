@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { X, Star } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNativeDock } from '../utils/useNativeDock';
 import { typography } from '../constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -95,6 +96,12 @@ export const SalonSortModal: React.FC<SalonSortModalProps> = ({
   availableItems,
 }) => {
   const insets = useSafeAreaInsets();
+  const { hasDock, dockHeight } = useNativeDock();
+  const screenHeight = Dimensions.get('window').height;
+  const sheetHeight = Math.min(Math.round(screenHeight * 0.90), 740) + (hasDock ? dockHeight : 0);
+  const bottomPadding = hasDock
+    ? Math.max(dockHeight, insets.bottom, 48) + 12
+    : (Platform.OS === 'ios' ? Math.max(insets.bottom, 16) : 16);
 
   // Filters always default to empty unless explicitly clicked/passed
   const [rating, setRating] = useState<number>(currentFilters?.rating ?? 0);
@@ -116,7 +123,7 @@ export const SalonSortModal: React.FC<SalonSortModalProps> = ({
   const [gender, setGender] = useState<'all' | 'men' | 'female'>(currentFilters?.gender || 'all');
   const [duration, setDuration] = useState<string>(currentFilters?.duration || '');
   const [sliderWidth, setSliderWidth] = useState<number>(SCREEN_WIDTH - 32);
-  const [scrollEnabled, setScrollEnabled] = useState<boolean>(true);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState<boolean>(false);
 
   useEffect(() => {
@@ -247,7 +254,7 @@ export const SalonSortModal: React.FC<SalonSortModalProps> = ({
       setGender(currentFilters?.gender || 'all');
       setDuration(currentFilters?.duration || '');
       setCustomAmount('');
-      setScrollEnabled(true);
+      setIsDragging(false);
       setRecentFilterList([...globalRecentFilters]);
     }
   }, [visible, currentFilters]);
@@ -287,12 +294,11 @@ export const SalonSortModal: React.FC<SalonSortModalProps> = ({
   const minPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onStartShouldSetPanResponderCapture: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponderCapture: () => true,
-      onPanResponderTerminationRequest: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        Math.abs(gestureState.dx) > 3 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+      onPanResponderTerminationRequest: () => true,
       onPanResponderGrant: () => {
-        setScrollEnabled(false);
+        setIsDragging(true);
         const ratio = minBarIndexRef.current / 22;
         startDragMinPosRef.current = ratio * trackWidthRef.current;
       },
@@ -305,10 +311,10 @@ export const SalonSortModal: React.FC<SalonSortModalProps> = ({
         setMinBarIndex(Math.max(0, Math.min(maxBarIndexRef.current, newIndex)));
       },
       onPanResponderRelease: () => {
-        setScrollEnabled(true);
+        setIsDragging(false);
       },
       onPanResponderTerminate: () => {
-        setScrollEnabled(true);
+        setIsDragging(false);
       },
     })
   ).current;
@@ -317,12 +323,11 @@ export const SalonSortModal: React.FC<SalonSortModalProps> = ({
   const maxPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onStartShouldSetPanResponderCapture: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponderCapture: () => true,
-      onPanResponderTerminationRequest: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        Math.abs(gestureState.dx) > 3 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+      onPanResponderTerminationRequest: () => true,
       onPanResponderGrant: () => {
-        setScrollEnabled(false);
+        setIsDragging(true);
         const ratio = maxBarIndexRef.current / 22;
         startDragMaxPosRef.current = ratio * trackWidthRef.current;
       },
@@ -335,10 +340,10 @@ export const SalonSortModal: React.FC<SalonSortModalProps> = ({
         setMaxBarIndex(Math.max(minBarIndexRef.current, Math.min(22, newIndex)));
       },
       onPanResponderRelease: () => {
-        setScrollEnabled(true);
+        setIsDragging(false);
       },
       onPanResponderTerminate: () => {
-        setScrollEnabled(true);
+        setIsDragging(false);
       },
     })
   ).current;
@@ -409,10 +414,11 @@ export const SalonSortModal: React.FC<SalonSortModalProps> = ({
       visible={visible}
       transparent
       animationType="slide"
+      statusBarTranslucent={true}
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.modalOverlay}
       >
         <TouchableOpacity
@@ -421,7 +427,7 @@ export const SalonSortModal: React.FC<SalonSortModalProps> = ({
           onPress={onClose}
         />
 
-        <View style={styles.sheetContainer}>
+        <View style={[styles.sheetContainer, { height: sheetHeight }]}>
           {/* Header (Figma: Filter title + Close button, height 40px) */}
           <View style={styles.headerRow}>
             <View style={{ width: 40 }} />
@@ -438,11 +444,12 @@ export const SalonSortModal: React.FC<SalonSortModalProps> = ({
 
           <ScrollView
             style={styles.scrollView}
-            scrollEnabled={scrollEnabled}
+            scrollEnabled={!isDragging}
+            nestedScrollEnabled={true}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[
               styles.scrollContent,
-              { paddingBottom: isKeyboardVisible ? 240 : 16 },
+              { paddingBottom: isKeyboardVisible ? 240 : 40 },
             ]}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
@@ -712,24 +719,33 @@ export const SalonSortModal: React.FC<SalonSortModalProps> = ({
           </ScrollView>
 
           {/* ── Sticky Bottom Footer (Figma: height 80, Clear All 115x48, Show 20+ related 200x48) ── */}
-          <View style={[styles.footer, { paddingBottom: Math.max(16, insets.bottom) }]}>
-            <TouchableOpacity
-              style={styles.clearAllButton}
-              activeOpacity={0.7}
-              onPress={handleClearAll}
-            >
-              <Text style={styles.clearAllButtonText}>Clear All</Text>
-            </TouchableOpacity>
+          <View
+            style={[
+              styles.footerContainer,
+              {
+                paddingBottom: bottomPadding,
+              },
+            ]}
+          >
+            <View style={styles.footerRow}>
+              <TouchableOpacity
+                style={styles.clearAllButton}
+                activeOpacity={0.7}
+                onPress={handleClearAll}
+              >
+                <Text style={styles.clearAllButtonText}>Clear All</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.showRelatedButton}
-              activeOpacity={0.85}
-              onPress={handleApply}
-            >
-              <Text style={styles.showRelatedButtonText}>
-                Show {matchingCountText} related
-              </Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.showRelatedButton}
+                activeOpacity={0.85}
+                onPress={handleApply}
+              >
+                <Text style={styles.showRelatedButtonText}>
+                  Show {matchingCountText} related
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -754,8 +770,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    height: 588,
-    maxHeight: 588,
+    maxHeight: '94%',
     overflow: 'hidden',
     shadowColor: 'rgba(133, 139, 148, 0.12)',
     shadowOffset: { width: 0, height: -8 },
@@ -1083,14 +1098,10 @@ const styles = StyleSheet.create({
   },
 
   // ── Bottom Action Sticky Footer (Figma: height 80, Clear All 115x48, Show 20+ related 200x48) ──
-  footer: {
-    minHeight: 80,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  footerContainer: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    gap: 17,
+    paddingBottom: 16,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: 'rgba(235, 235, 245, 0.96)',
@@ -1099,6 +1110,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 20,
     elevation: 8,
+  },
+  footerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 17,
+    width: '100%',
   },
   clearAllButton: {
     width: 115,

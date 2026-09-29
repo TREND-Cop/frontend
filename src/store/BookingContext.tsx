@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { bookingStore, BookingPaymentDetails } from '../utils/bookingStore';
 import { pendingTimerStore } from '../utils/pendingTimerStore';
 import { getServiceByIdOrName } from '../constants/serviceCatalog';
+import { useUserContext } from './UserContext';
 
 const APPOINTMENTS_STORAGE_KEY = '@trend_appointments_v3';
 
@@ -121,6 +122,7 @@ interface BookingContextType {
 const BookingContext = createContext<BookingContextType | undefined>(undefined);
 
 export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { profileData } = useUserContext();
   const [draft, setDraft] = useState<BookingDraft>(DEFAULT_DRAFT);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
@@ -410,35 +412,41 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     [appointments]
   );
 
+  // In Guest state, guests have no appointments because they must sign in before booking
+  const userAppointments = useMemo(() => {
+    if (!profileData?.isLoggedIn) return [];
+    return appointments;
+  }, [profileData?.isLoggedIn, appointments]);
+
   // Active appointment is the first pending or ongoing appointment
   const activeAppointment = useMemo(() => {
     return (
-      appointments.find((apt) => apt.status === 'pending' || apt.status === 'approved' || apt.status === 'ongoing') ||
+      userAppointments.find((apt) => apt.status === 'pending' || apt.status === 'approved' || apt.status === 'ongoing') ||
       null
     );
-  }, [appointments]);
+  }, [userAppointments]);
 
   const pendingCount = useMemo(
-    () => appointments.filter((a) => a.status === 'pending' || a.status === 'approved').length,
-    [appointments]
+    () => userAppointments.filter((a) => a.status === 'pending' || a.status === 'approved').length,
+    [userAppointments]
   );
 
   const ongoingCount = useMemo(
-    () => appointments.filter((a) => a.status === 'ongoing').length,
-    [appointments]
+    () => userAppointments.filter((a) => a.status === 'ongoing').length,
+    [userAppointments]
   );
 
   const completedCount = useMemo(
-    () => appointments.filter((a) => a.status === 'completed').length,
-    [appointments]
+    () => userAppointments.filter((a) => a.status === 'completed').length,
+    [userAppointments]
   );
 
   const cancelledCount = useMemo(
-    () => appointments.filter((a) => a.status === 'cancelled').length,
-    [appointments]
+    () => userAppointments.filter((a) => a.status === 'cancelled').length,
+    [userAppointments]
   );
 
-  const allBookingsCount = appointments.length;
+  const allBookingsCount = userAppointments.length;
 
   return (
     <BookingContext.Provider
@@ -447,7 +455,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updateDraft,
         resetDraft,
         calculatedTotal,
-        appointments,
+        appointments: userAppointments,
         activeAppointment,
         confirmBooking,
         updateAppointmentStatus,

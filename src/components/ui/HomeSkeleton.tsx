@@ -33,27 +33,72 @@ export const SkeletonBox: React.FC<SkeletonBoxProps> = ({
     return typeof width === 'number' ? width : (typeof SCREEN_WIDTH === 'number' ? SCREEN_WIDTH : 300);
   });
   const shimmerAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const loop = Animated.loop(
+    let isMounted = true;
+
+    // 1. High-speed continuous shimmer sweep
+    const runShimmer = () => {
+      if (!isMounted) return;
+      shimmerAnim.setValue(0);
       Animated.timing(shimmerAnim, {
         toValue: 1,
-        duration: 1300,
-        easing: Easing.linear,
+        duration: 1100,
+        easing: Easing.inOut(Easing.ease),
         useNativeDriver: Platform.OS !== 'web',
-      })
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [shimmerAnim]);
+      }).start(({ finished }) => {
+        if (finished && isMounted) {
+          runShimmer();
+        }
+      });
+    };
+
+    // 2. Continuous breathing pulse animation
+    const runPulse = () => {
+      if (!isMounted) return;
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 650,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 0,
+          duration: 650,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+      ]).start(({ finished }) => {
+        if (finished && isMounted) {
+          runPulse();
+        }
+      });
+    };
+
+    runShimmer();
+    runPulse();
+
+    return () => {
+      isMounted = false;
+      shimmerAnim.stopAnimation();
+      pulseAnim.stopAnimation();
+    };
+  }, [shimmerAnim, pulseAnim]);
 
   const translateX = shimmerAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [-layoutWidth, layoutWidth * 1.5],
+    outputRange: [-layoutWidth * 1.5, layoutWidth * 1.5],
+  });
+
+  const opacity = pulseAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.65, 1],
   });
 
   return (
-    <View
+    <Animated.View
       onLayout={(e) => {
         const w = e.nativeEvent.layout.width;
         if (w > 0 && w !== layoutWidth) {
@@ -65,9 +110,10 @@ export const SkeletonBox: React.FC<SkeletonBoxProps> = ({
           width: width as any,
           height,
           borderRadius,
-          backgroundColor: '#EAECEF',
+          backgroundColor: '#DFE2E6',
           overflow: 'hidden',
           position: 'relative',
+          opacity,
         },
         style,
       ]}
@@ -76,7 +122,7 @@ export const SkeletonBox: React.FC<SkeletonBoxProps> = ({
         style={[
           StyleSheet.absoluteFill,
           {
-            width: layoutWidth * 1.2,
+            width: layoutWidth * 1.6,
             transform: [{ translateX }],
           },
         ]}
@@ -84,15 +130,18 @@ export const SkeletonBox: React.FC<SkeletonBoxProps> = ({
         <LinearGradient
           colors={[
             'rgba(255, 255, 255, 0)',
-            'rgba(255, 255, 255, 0.75)',
+            'rgba(255, 255, 255, 0.45)',
+            'rgba(255, 255, 255, 0.95)',
+            'rgba(255, 255, 255, 0.45)',
             'rgba(255, 255, 255, 0)',
           ]}
+          locations={[0, 0.3, 0.5, 0.7, 1]}
           start={{ x: 0, y: 0.5 }}
           end={{ x: 1, y: 0.5 }}
           style={StyleSheet.absoluteFill}
         />
       </Animated.View>
-    </View>
+    </Animated.View>
   );
 };
 

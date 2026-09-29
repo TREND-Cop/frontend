@@ -1,11 +1,12 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {  View, Text, StyleSheet, TouchableOpacity, Animated, Image, SectionList , Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect, useNavigation } from 'expo-router';
 import { theme } from '../../constants/theme';
 import { BellOff } from 'lucide-react-native';
 import { MOCK_NOTIFICATIONS } from '../../constants/mockData';
 import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
+import { tabSkeletonStore } from '../../utils/tabSkeletonStore';
 
 // --- COMPONENTS ---
 const NotificationSkeleton = () => {
@@ -85,16 +86,69 @@ const EmptyState = ({ onEnablePush }: { onEnablePush: () => void }) => (
 // --- MAIN SCREEN ---
 export const NotificationScreen = () => {
   const router = useRouter();
+  const navigation = useNavigation<any>();
   const [isLoading, setIsLoading] = useState(true);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
   
   // Set to true to test empty state
   const isEmpty = false; 
 
-  useEffect(() => {
-    // Simulate loading fetch
-    const timer = setTimeout(() => setIsLoading(false), 2000);
-    return () => clearTimeout(timer);
+  const startLoading = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setIsLoading(true);
+    timerRef.current = setTimeout(() => {
+      setIsLoading(false);
+    }, 1400);
   }, []);
+
+  const resetToLoading = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setIsLoading(true);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      startLoading();
+      return () => {
+        resetToLoading();
+      };
+    }, [startLoading, resetToLoading])
+  );
+
+  useEffect(() => {
+    if (!navigation) return;
+
+    const unsubFocus = navigation.addListener('focus', () => {
+      startLoading();
+    });
+
+    const unsubBlur = navigation.addListener('blur', () => {
+      resetToLoading();
+    });
+
+    const parentNav = navigation.getParent?.();
+    const unsubParentFocus = parentNav?.addListener?.('focus', () => {
+      if (navigation.isFocused?.()) {
+        startLoading();
+      }
+    });
+
+    const unsubBack = tabSkeletonStore.subscribeBack(() => {
+      setTimeout(() => {
+        if (navigation.isFocused?.()) {
+          startLoading();
+        }
+      }, 50);
+    });
+
+    return () => {
+      unsubFocus?.();
+      unsubBlur?.();
+      unsubParentFocus?.();
+      unsubBack?.();
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [navigation, startLoading, resetToLoading]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>

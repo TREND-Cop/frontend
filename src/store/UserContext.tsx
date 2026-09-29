@@ -26,14 +26,14 @@ export interface UserProfileData {
 }
 
 const DEFAULT_PROFILE: UserProfileData = {
-  fullName: 'Fabulous User',
-  phone: '+234 8019238946',
-  email: 'saulgoodman@gmail.com',
-  username: 'fabulous_nails',
+  fullName: null,
+  phone: null,
+  email: null,
+  username: null,
   avatarUri: null,
-  location: 'Jabi, Lake Mall, Abuja',
-  gender: 'Female',
-  isLoggedIn: true,
+  location: null,
+  gender: null,
+  isLoggedIn: false,
   signupMethod: 'phone',
   joinedAt: Date.now() - 86400000 * 2, // 2 days ago default
   notificationSettings: {

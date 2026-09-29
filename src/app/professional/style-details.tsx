@@ -37,6 +37,8 @@ import { toastStore } from '../../utils/toastStore';
 import { AppointmentTypeModal, AppointmentBookingType } from '../../components/AppointmentTypeModal';
 import { BookmarkBottomSheetModal } from '../../components/BookmarkBottomSheetModal';
 import { SuggestedAddOnsModal } from '../../components/SuggestedAddOnsModal';
+import { AuthPromptModal } from '../../components/AuthPromptModal';
+import { useUserContext } from '../../store/UserContext';
 import { useSkeletonCadence } from '../../hooks/useSkeletonCadence';
 import { TextSkeleton } from '../../components/ui/TextSkeleton';
 
@@ -109,6 +111,8 @@ export default function SelectedStyleScreen() {
   const insets = useSafeAreaInsets();
   const { isSkeletonLoading } = useSkeletonCadence();
   const { isFavorite, toggleFavorite } = useFavoritesContext();
+  const { profileData } = useUserContext();
+  const [isAuthPromptOpen, setIsAuthPromptOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'about' | 'package'>('about');
   const [activePackageDot, setActivePackageDot] = useState(0);
   const packageCarouselRef = React.useRef<ScrollView>(null);
@@ -243,6 +247,11 @@ export default function SelectedStyleScreen() {
   );
 
   const handleBookNow = () => {
+    if (!profileData.isLoggedIn) {
+      setIsAuthPromptOpen(true);
+      return;
+    }
+
     bookingStore.resetBookingSelections();
     const numPrice = parseInt(stylePrice.replace(/[^0-9]/g, ''), 10) || matchedService?.numericPrice || 14200;
     bookingStore.setBasePrice(numPrice);
@@ -261,9 +270,18 @@ export default function SelectedStyleScreen() {
     bookingStore.setSelectedIds(selectedIds);
     setIsAddOnsModalVisible(false);
 
-    // Proceed to appointment type selection
-    setSelectedAppointmentType(null);
-    setIsAppointmentTypeModalOpen(true);
+    // Proceed to full page appointment type selection
+    router.push({
+      pathname: '/appointment-type',
+      params: {
+        serviceId: serviceId,
+        serviceName: styleName,
+        servicePrice: stylePrice,
+        duration: duration,
+        salonName: salonName,
+        salonId: salonId,
+      },
+    } as any);
   };
 
   const handleSelectAppointmentType = (type: AppointmentBookingType) => {
@@ -806,6 +824,12 @@ export default function SelectedStyleScreen() {
         }}
         serviceName={styleName}
         images={topSalonImages.slice(0, 3)}
+      />
+
+      {/* ─── Sign Up / Sign In Authentication Prompt Modal ─── */}
+      <AuthPromptModal
+        visible={isAuthPromptOpen}
+        onClose={() => setIsAuthPromptOpen(false)}
       />
     </SafeAreaView>
   );

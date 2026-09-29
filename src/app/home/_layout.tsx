@@ -132,16 +132,20 @@ const LiquidGlassTabBarBackground = () => {
 };
 
 import { useMessagesContext } from '../../store/MessagesContext';
+import { useUserContext } from '../../store/UserContext';
+import { useNativeDock } from '../../utils/useNativeDock';
 
 export default function TabsLayout() {
-  const insets = useSafeAreaInsets();
+  const { hasDock, dockHeight } = useNativeDock();
+  const { profileData } = useUserContext();
   const [showRateModal, setShowRateModal] = React.useState(false);
   const { totalUnreadCount } = useMessagesContext();
 
-  // Dynamic bottom padding ensuring navigation sits above Android 3-button/gesture system nav & iOS home bar
-  const bottomPadding = insets.bottom > 0
-    ? insets.bottom + (Platform.OS === 'ios' ? 4 : 8)
-    : (Platform.OS === 'ios' ? 32 : 12);
+  // Dynamic bottom padding: strictly adds dock spacing when a native dock exists.
+  // When gesture navigation is used (no dock), stays full with standard 8px padding.
+  const bottomPadding = hasDock
+    ? dockHeight + (Platform.OS === 'ios' ? 4 : 6)
+    : (Platform.OS === 'ios' ? 32 : 8);
   const tabBarHeight = 58 + bottomPadding;
 
   // Check for random 8-9 hour interval rate prompt on mount
@@ -254,6 +258,7 @@ export default function TabsLayout() {
           tabPress: () => tabSkeletonStore.triggerTab('messages'),
         }}
         options={{
+          ...(profileData.isLoggedIn ? {} : { href: null }),
           title: 'Message',
           tabBarIcon: ({ color, focused }) => (
             <AnimatedTabIcon focused={focused} color={color} label="Message" badgeCount={totalUnreadCount}>

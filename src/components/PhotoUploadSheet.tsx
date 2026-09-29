@@ -54,6 +54,7 @@ export const PhotoUploadSheet: React.FC<PhotoUploadSheetProps> = ({
       visible={visible}
       animationType="slide"
       transparent
+      statusBarTranslucent
       onRequestClose={onClose}
     >
       <TouchableOpacity

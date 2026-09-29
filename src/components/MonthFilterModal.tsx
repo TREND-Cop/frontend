@@ -12,6 +12,7 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNativeDock } from '../utils/useNativeDock';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { typography } from '../constants/theme';
@@ -51,8 +52,8 @@ export const MonthFilterModal: React.FC<MonthFilterModalProps> = ({
   onSelect,
   isDayDisabled,
 }) => {
-  const insets = useSafeAreaInsets();
-  const bottomInset = Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(16, insets.bottom);
+  const { hasDock, dockHeight } = useNativeDock();
+  const bottomExtra = hasDock ? dockHeight : 0;
 
   // Dynamic real device date calculation
   const today = useMemo(() => new Date(), [visible]);
@@ -331,6 +332,7 @@ export const MonthFilterModal: React.FC<MonthFilterModalProps> = ({
       visible={visible}
       transparent
       animationType="slide"
+      statusBarTranslucent={true}
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
@@ -341,7 +343,7 @@ export const MonthFilterModal: React.FC<MonthFilterModalProps> = ({
         />
 
         {/* ─── month filter container (Figma: 390x587, radius 24px top, padding 16px 0 0, gap 24px) ─── */}
-        <View style={[styles.monthFilterContainer, { paddingBottom: bottomInset }]}>
+        <View style={[styles.monthFilterContainer, { height: 587 + bottomExtra }]}>
           {/* ─── calender tab (Figma: 358x48, radius 24px, bg rgba(247, 247, 247, 0.96)) ─── */}
           <View style={styles.calenderTab}>
             {/* Animated active pill (Figma: width 105, height 40, top 4, left 229 for Year, 24 for Month) */}
@@ -605,7 +607,7 @@ export const MonthFilterModal: React.FC<MonthFilterModalProps> = ({
             </View>
 
             {/* ─── action button (Figma: 390x80, padding 16px, bg #FFFFFF, radius 0 0 24 24) ─── */}
-            <View style={styles.actionButtonContainer}>
+            <View style={[styles.actionButtonContainer, { height: 80 + bottomExtra, paddingBottom: hasDock ? dockHeight + 16 : 16 }]}>
               <TouchableOpacity
                 style={styles.filledActionButton}
                 activeOpacity={0.85}

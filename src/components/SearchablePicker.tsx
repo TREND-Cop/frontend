@@ -104,6 +104,11 @@ export const SearchablePicker: React.FC<SearchablePickerProps> = ({
     return items.filter((item) => item.label.toLowerCase().includes(query));
   }, [items, searchQuery]);
 
+  const handleClose = useCallback(() => {
+    setSearchQuery('');
+    onClose();
+  }, [onClose]);
+
   const handleItemPress = useCallback((value: string, label: string) => {
     onSelect(value, label);
     setSearchQuery('');
@@ -133,11 +138,15 @@ export const SearchablePicker: React.FC<SearchablePickerProps> = ({
       visible={visible}
       animationType="slide"
       transparent
-      onRequestClose={onClose}
+      statusBarTranslucent
+      onRequestClose={handleClose}
     >
       <View style={styles.overlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <SafeAreaView style={styles.sheetContainer} pointerEvents="box-none">
+        {/* ─── Backdrop: Closes modal when tapping outside ────────────────── */}
+        <Pressable style={styles.backdrop} onPress={handleClose} />
+
+        {/* ─── Bottom Sheet: Fixed height prevents collapse behind keyboard ── */}
+        <SafeAreaView edges={['bottom']} style={styles.sheetContainer}>
           {/* ─── Drag Handle ────────────────────────────────────────────── */}
           <View style={styles.dragHandleContainer}>
             <View style={styles.dragHandle} />
@@ -155,6 +164,14 @@ export const SearchablePicker: React.FC<SearchablePickerProps> = ({
               autoCapitalize="none"
               autoCorrect={false}
             />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setSearchQuery('')}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Feather name="x" size={18} color="rgba(96, 96, 102, 0.96)" />
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* ─── Item List ──────────────────────────────────────────── */}
@@ -169,6 +186,7 @@ export const SearchablePicker: React.FC<SearchablePickerProps> = ({
             removeClippedSubviews={Platform.OS !== 'web'}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
+            style={styles.flatList}
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
@@ -193,14 +211,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
+  backdrop: {
+    ...StyleSheet.absoluteFill,
+  },
 
   // ── Sheet Container ────────────────────────────────────────────────────
   sheetContainer: {
     backgroundColor: colors.appBackground,
     borderTopLeftRadius: radius.large,
     borderTopRightRadius: radius.large,
-    maxHeight: '80%',
+    height: '80%',
     paddingBottom: 20,
+  },
+  flatList: {
+    flex: 1,
   },
 
   // ── Drag Handle ─────────────────────────────────────────────────────────

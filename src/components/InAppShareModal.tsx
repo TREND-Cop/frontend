@@ -14,6 +14,7 @@ import Svg, { Path, Rect } from 'react-native-svg';
 import { Check } from 'lucide-react-native';
 import { SafeImage } from './ui/SafeImage';
 import { useShareStore } from '../utils/shareStore';
+import { useNativeDock } from '../utils/useNativeDock';
 
 // ── Figma Vector Icons ──
 const CloseIcon = () => (
@@ -92,6 +93,7 @@ export const InAppShareModal: React.FC<InAppShareModalProps> = ({
   url: propUrl,
   avatar: propAvatar,
 }) => {
+  const { hasDock, dockHeight } = useNativeDock();
   const store = useShareStore();
 
   const isVisible = propVisible !== undefined ? propVisible : store.isOpen;
@@ -162,7 +164,7 @@ export const InAppShareModal: React.FC<InAppShareModalProps> = ({
           activeOpacity={1}
           onPress={handleClose}
         />
-        <View style={styles.sheetContainer}>
+        <View style={[styles.sheetContainer, { paddingBottom: hasDock ? dockHeight + 16 : (Platform.OS === 'ios' ? 36 : 24) }]}>
           {/* ── Header: Title & Close Button ── */}
           <View style={styles.headerRow}>
             <Text style={styles.headerTitle}>Share with</Text>

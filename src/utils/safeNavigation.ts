@@ -8,6 +8,7 @@
 
 import { router } from 'expo-router';
 import { skeletonCadenceStore } from './skeletonCadenceStore';
+import { tabSkeletonStore } from './tabSkeletonStore';
 
 // Cooldown windows in milliseconds
 const DUPLICATE_TARGET_COOLDOWN_MS = 750; // Dropped if exact same target within 750ms
@@ -140,6 +141,7 @@ export function initSafeNavigation() {
     }
 
     lastBackTime = now;
+    tabSkeletonStore.triggerBack();
     return originalBack();
   };
 
@@ -148,6 +150,7 @@ export function initSafeNavigation() {
     const now = Date.now();
     if (now - lastBackTime < BACK_COOLDOWN_MS) return;
     lastBackTime = now;
+    tabSkeletonStore.triggerBack();
     return originalDismiss(count);
   };
 
@@ -155,6 +158,7 @@ export function initSafeNavigation() {
     const now = Date.now();
     if (now - lastBackTime < BACK_COOLDOWN_MS) return;
     lastBackTime = now;
+    tabSkeletonStore.triggerBack();
     return originalDismissTo(href, options);
   };
 
@@ -162,6 +166,7 @@ export function initSafeNavigation() {
     const now = Date.now();
     if (now - lastBackTime < BACK_COOLDOWN_MS) return;
     lastBackTime = now;
+    tabSkeletonStore.triggerBack();
     return originalDismissAll();
   };
 }

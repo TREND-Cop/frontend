@@ -24,6 +24,7 @@ import {
   Check,
 } from 'lucide-react-native';
 
+import { useNativeDock } from '../utils/useNativeDock';
 import { MOCK_SALONS, SalonItem } from '../screens/home/mockSalons';
 import { typography } from '../constants/theme';
 
@@ -166,9 +167,12 @@ export const FilterModal: React.FC<FilterModalProps> = ({
   countMatcher,
 }) => {
   const insets = useSafeAreaInsets();
-  const bottomInset = Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16);
+  const { hasDock, dockHeight } = useNativeDock();
   const screenHeight = Dimensions.get('window').height;
-  const sheetHeight = Math.min(588 + (bottomInset - 16), screenHeight * 0.9);
+  const sheetHeight = Math.min(Math.round(screenHeight * 0.90), 740) + (hasDock ? dockHeight : 0);
+  const bottomPadding = hasDock
+    ? Math.max(dockHeight, insets.bottom, 48) + 12
+    : (Platform.OS === 'ios' ? Math.max(insets.bottom, 16) : 16);
 
   // ── Recent Filter Chips State (defaults to empty unless provided in currentFilters) ──
   const [recentFilters, setRecentFilters] = useState<string[]>(
@@ -570,90 +574,33 @@ export const FilterModal: React.FC<FilterModalProps> = ({
     };
   }, []);
 
-  const [modalRendered, setModalRendered] = useState(visible);
-  const backdropAnim = useRef(new Animated.Value(0)).current;
-  const sheetTranslateY = useRef(new Animated.Value(800)).current;
-
-  useEffect(() => {
-    if (visible) {
-      setModalRendered(true);
-      backdropAnim.setValue(0);
-      sheetTranslateY.setValue(800);
-      Animated.parallel([
-        Animated.timing(backdropAnim, {
-          toValue: 1,
-          duration: 400,
-          easing: Easing.out(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(sheetTranslateY, {
-          toValue: 0,
-          duration: 350,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else if (modalRendered) {
-      Animated.parallel([
-        Animated.timing(backdropAnim, {
-          toValue: 0,
-          duration: 250,
-          easing: Easing.in(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(sheetTranslateY, {
-          toValue: 800,
-          duration: 250,
-          easing: Easing.in(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setModalRendered(false);
-      });
-    }
-  }, [visible]);
-
-  const handleAnimatedClose = () => {
-    Animated.parallel([
-      Animated.timing(backdropAnim, {
-        toValue: 0,
-        duration: 250,
-        easing: Easing.in(Easing.ease),
-        useNativeDriver: true,
-      }),
-      Animated.timing(sheetTranslateY, {
-        toValue: 800,
-        duration: 250,
-        easing: Easing.in(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setModalRendered(false);
-      onClose();
-    });
-  };
-
   return (
-    <Modal visible={modalRendered} animationType="none" transparent={true} onRequestClose={handleAnimatedClose}>
-      <View style={styles.modalOverlay}>
-        <Animated.View style={[styles.backdrop, { opacity: backdropAnim }]}>
-          <TouchableOpacity style={styles.backdropPressable} activeOpacity={1} onPress={handleAnimatedClose} />
-        </Animated.View>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      statusBarTranslucent={true}
+      onRequestClose={onClose}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.modalOverlay}
+      >
+        <TouchableOpacity
+          style={styles.backdrop}
+          activeOpacity={1}
+          onPress={onClose}
+        />
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.keyboardAvoid}
+        <View
+          style={[
+            styles.modalSheet,
+            {
+              height: sheetHeight,
+              maxHeight: '94%',
+            },
+          ]}
         >
-          <Animated.View
-            style={[
-              styles.modalSheet,
-              {
-                height: sheetHeight,
-                maxHeight: '92%',
-                transform: [{ translateY: sheetTranslateY }],
-              },
-            ]}
-          >
             {/* Top Drag Handle Indicator */}
             <View style={styles.dragHandleContainer}>
               <View style={styles.dragHandle} />
@@ -663,7 +610,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
             <View style={styles.header}>
               <View style={styles.headerPlaceholder} />
               <Text style={styles.headerTitle}>Filter</Text>
-              <TouchableOpacity style={styles.closeButton} activeOpacity={0.7} onPress={handleAnimatedClose}>
+              <TouchableOpacity style={styles.closeButton} activeOpacity={0.7} onPress={onClose}>
                 <X size={20} color="#141B34" />
               </TouchableOpacity>
             </View>
@@ -1292,36 +1239,36 @@ export const FilterModal: React.FC<FilterModalProps> = ({
           {/* ── Bottom Sticky Action Buttons (Figma 1:1: Clear All & Show 16+ related) ── */}
           <View
             style={[
-              styles.footer,
+              styles.footerContainer,
               {
-                paddingBottom: bottomInset,
-                height: 48 + 16 + bottomInset,
+                paddingBottom: bottomPadding,
               },
             ]}
           >
-            {/* Clear All Button (115x48px) */}
-            <TouchableOpacity
-              style={styles.clearAllFooterBtn}
-              activeOpacity={0.7}
-              onPress={handleReset}
-            >
-              <Text style={styles.clearAllFooterBtnText}>Clear All</Text>
-            </TouchableOpacity>
+            <View style={styles.footerRow}>
+              {/* Clear All Button (115x48px) */}
+              <TouchableOpacity
+                style={styles.clearAllFooterBtn}
+                activeOpacity={0.7}
+                onPress={handleReset}
+              >
+                <Text style={styles.clearAllFooterBtnText}>Clear All</Text>
+              </TouchableOpacity>
 
-            {/* Show Related Button (200x48px / flex 1) */}
-            <TouchableOpacity
-              style={styles.showRelatedBtn}
-              activeOpacity={0.85}
-              onPress={handleApply}
-            >
-              <Text style={styles.showRelatedBtnText}>
-                Show {relatedCountText} related
-              </Text>
-            </TouchableOpacity>
+              {/* Show Related Button (200x48px / flex 1) */}
+              <TouchableOpacity
+                style={styles.showRelatedBtn}
+                activeOpacity={0.85}
+                onPress={handleApply}
+              >
+                <Text style={styles.showRelatedBtnText}>
+                  Show {relatedCountText} related
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </Animated.View>
-        </KeyboardAvoidingView>
-      </View>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -1329,6 +1276,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
+    backgroundColor: 'rgba(0, 8, 20, 0.45)',
     justifyContent: 'flex-end',
   },
   backdrop: {
@@ -1337,7 +1285,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
   },
   backdropPressable: {
     flex: 1,
@@ -1778,14 +1725,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  // ── Footer Actions (Dynamic height with bottomInset) ──
-  footer: {
+  // ── Footer Actions (Dynamic dock barrier support) ──
+  footerContainer: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 17,
+    paddingBottom: 16,
     backgroundColor: '#FFFFFF',
     shadowColor: '#858B94',
     shadowOffset: { width: 0, height: -8 },
@@ -1794,6 +1738,13 @@ const styles = StyleSheet.create({
     elevation: 8,
     borderTopWidth: 1,
     borderTopColor: 'rgba(235, 235, 245, 0.96)',
+  },
+  footerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 17,
+    width: '100%',
   },
   clearAllFooterBtn: {
     width: 115,

@@ -17,11 +17,12 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MapPin, Search, BellRing, LayoutGrid, Check } from 'lucide-react-native';
+import { MapPin, Search, BellRing, LayoutGrid, Check, User } from 'lucide-react-native';
 import { theme } from '../../constants/theme';
 import { useRouter } from 'expo-router';
 import { useUserContext } from '../../store/UserContext';
 import { bookingStore } from '../../utils/bookingStore';
+import { useNativeDock } from '../../utils/useNativeDock';
 
 import { GridCardList } from '../../components/ui/GridCardList';
 import { HorizontalCardList } from '../../components/ui/HorizontalCardList';
@@ -35,6 +36,7 @@ import { RankedPlaceCard } from '../../components/ui/RankedPlaceCard';
 import { ProfessionalCard } from '../../components/ui/ProfessionalCard';
 import { ServiceCard } from '../../components/ui/ServiceCard';
 import { HomeSkeleton } from '../../components/ui/HomeSkeleton';
+import { AuthPromptModal } from '../../components/AuthPromptModal';
 import { useTabSkeleton } from '../../utils/tabSkeletonStore';
 import { formatDisplayLocation } from '../../utils/locationFormatter';
 import {
@@ -165,7 +167,8 @@ export const HomeScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const topInset = insets.top > 0 ? insets.top : (Platform.OS === 'android' ? (RNStatusBar.currentHeight || 28) : 20);
-  const bottomInset = insets.bottom > 0 ? insets.bottom : (Platform.OS === 'android' ? 16 : 0);
+  const { hasDock, dockHeight } = useNativeDock();
+  const bottomTabBarHeight = 58 + (hasDock ? dockHeight + (Platform.OS === 'ios' ? 4 : 6) : (Platform.OS === 'ios' ? 32 : 8));
   const { profileData } = useUserContext();
   const { width: windowWidth } = useWindowDimensions();
   const screenWidth = windowWidth || Dimensions.get('window').width || 390;
@@ -174,6 +177,7 @@ export const HomeScreen = () => {
   const [currentDealImageIndex, setCurrentDealImageIndex] = useState(0);
   const isLoading = useTabSkeleton('home', 1100);
   const [isScrolled, setIsScrolled] = useState<boolean>(false);
+  const [isAuthPromptOpen, setIsAuthPromptOpen] = useState<boolean>(false);
 
   const scrollY = useRef(new Animated.Value(0)).current;
   const dealCarouselRef = useRef<ScrollView>(null);
@@ -351,7 +355,7 @@ export const HomeScreen = () => {
         contentContainerStyle={[
           styles.contentContainer,
           {
-            paddingBottom: 58 + (bottomInset > 0 ? bottomInset + (Platform.OS === 'ios' ? 4 : 8) : (Platform.OS === 'ios' ? 32 : 12)) + 24,
+            paddingBottom: bottomTabBarHeight + 24,
           },
         ]}
         showsVerticalScrollIndicator={false}
@@ -427,30 +431,50 @@ export const HomeScreen = () => {
             <TouchableOpacity
               style={styles.userInfo}
               activeOpacity={0.8}
-              onPress={() => router.push('/profile' as any)}
+              onPress={() => {
+                if (profileData.isLoggedIn) {
+                  router.push('/profile' as any);
+                } else {
+                  setIsAuthPromptOpen(true);
+                }
+              }}
             >
               <View style={styles.avatarWrapper}>
-                <Image 
-                  source={
-                    typeof profileData.avatarUri === 'string'
-                      ? { uri: profileData.avatarUri }
-                      : profileData.avatarUri || require('../../../assets/images/profile/05fc2d4379598a2d970225e7fdac24e129516033.jpg')
-                  } 
-                  style={styles.avatar} 
-                />
-                <View style={styles.verifiedBadge}>
-                  <Check size={10} color="#FFFFFF" strokeWidth={3} />
-                </View>
+                {profileData.isLoggedIn ? (
+                  <>
+                    <Image 
+                      source={
+                        typeof profileData.avatarUri === 'string'
+                          ? { uri: profileData.avatarUri }
+                          : profileData.avatarUri || require('../../../assets/images/profile/05fc2d4379598a2d970225e7fdac24e129516033.jpg')
+                      } 
+                      style={styles.avatar} 
+                    />
+                    <View style={styles.verifiedBadge}>
+                      <Check size={10} color="#FFFFFF" strokeWidth={3} />
+                    </View>
+                  </>
+                ) : (
+                  <View style={[styles.avatar, styles.guestAvatar]}>
+                    <User size={20} color="#FFFFFF" strokeWidth={1.8} />
+                  </View>
+                )}
               </View>
 
               <View style={styles.userTextContainer}>
-                <Text style={styles.greetingText}>Hello! {profileData.username || 'Fabulous'}</Text>
-                <View style={styles.locationRow}>
-                  <MapPin size={14} color={theme.colors.appBackground} />
-                  <Text style={styles.locationText} numberOfLines={1} ellipsizeMode="tail">
-                    {formatDisplayLocation(profileData.location)}
-                  </Text>
-                </View>
+                <Text style={[styles.greetingText, !profileData.isLoggedIn && styles.guestGreetingText]}>
+                  {profileData.isLoggedIn
+                    ? `Hello! ${profileData.username || 'Fabulous'}`
+                    : 'Guest'}
+                </Text>
+                {profileData.isLoggedIn ? (
+                  <View style={styles.locationRow}>
+                    <MapPin size={14} color={theme.colors.appBackground} />
+                    <Text style={styles.locationText} numberOfLines={1} ellipsizeMode="tail">
+                      {formatDisplayLocation(profileData.location)}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
             </TouchableOpacity>
 
@@ -832,6 +856,14 @@ export const HomeScreen = () => {
       </View>
 
       </ScrollView>
+
+      {/* Auth Prompt Modal (Sign In / Sign Up) */}
+      <AuthPromptModal
+        visible={isAuthPromptOpen}
+        onClose={() => setIsAuthPromptOpen(false)}
+        title="Sign In or Sign Up"
+        subtitle="Create an account or sign in to connect with top beauty specialists and book appointments."
+      />
     </View>
   );
 };
@@ -902,6 +934,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.appBackground,
   },
+  guestAvatar: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   verifiedBadge: {
     position: 'absolute',
     bottom: -2,
@@ -923,6 +960,14 @@ const styles = StyleSheet.create({
   greetingText: {
     ...theme.typography.bodyRegular,
     color: theme.colors.appBackground,
+  },
+  guestGreetingText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.2,
+    color: '#FFFFFF',
   },
   locationRow: {
     flexDirection: 'row',

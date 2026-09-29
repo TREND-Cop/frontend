@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { SafeImage } from './ui/SafeImage';
+import { useNativeDock } from '../utils/useNativeDock';
 
 import { useRouter } from 'expo-router';
 import { useBookmarkStore } from '../utils/bookmarkStore';
@@ -62,7 +63,7 @@ export const BookmarkBottomSheetModal: React.FC<BookmarkBottomSheetModalProps> =
   serviceName: propServiceName,
   images: propImages,
 }) => {
-  const insets = useSafeAreaInsets();
+  const { hasDock, dockHeight } = useNativeDock();
   const router = useRouter();
   const store = useBookmarkStore();
 
@@ -345,7 +346,7 @@ export const BookmarkBottomSheetModal: React.FC<BookmarkBottomSheetModalProps> =
           style={[
             styles.sheetContainer,
             {
-              paddingBottom: Math.max(insets.bottom, 24),
+              paddingBottom: hasDock ? dockHeight + 16 : 24,
               transform: [{ translateY: sheetTranslateY }],
             },
           ]}

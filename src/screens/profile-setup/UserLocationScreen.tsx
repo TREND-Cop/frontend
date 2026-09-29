@@ -295,27 +295,27 @@ export const UserLocationScreen = ({ navigation }: { navigation?: any }) => {
             />
           </View>
         </ScrollView>
-
-        {/* ─── Country Picker Modal ───────────────────────────────────────── */}
-        <SearchablePicker
-          visible={showCountryPicker}
-          title="Select Country"
-          items={countryItems}
-          selectedValue={selectedCountryCode}
-          onSelect={handleCountrySelect}
-          onClose={() => setShowCountryPicker(false)}
-        />
-
-        {/* ─── State Picker Modal ─────────────────────────────────────────── */}
-        <SearchablePicker
-          visible={showStatePicker}
-          title="Select State"
-          items={stateItems}
-          selectedValue={selectedStateCode}
-          onSelect={handleStateSelect}
-          onClose={() => setShowStatePicker(false)}
-        />
       </KeyboardAvoidingView>
+
+      {/* ─── Country Picker Modal ───────────────────────────────────────── */}
+      <SearchablePicker
+        visible={showCountryPicker}
+        title="Select Country"
+        items={countryItems}
+        selectedValue={selectedCountryCode}
+        onSelect={handleCountrySelect}
+        onClose={() => setShowCountryPicker(false)}
+      />
+
+      {/* ─── State Picker Modal ─────────────────────────────────────────── */}
+      <SearchablePicker
+        visible={showStatePicker}
+        title="Select State"
+        items={stateItems}
+        selectedValue={selectedStateCode}
+        onSelect={handleStateSelect}
+        onClose={() => setShowStatePicker(false)}
+      />
     </SafeAreaView>
   );
 };

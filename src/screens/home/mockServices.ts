@@ -37,6 +37,7 @@ export const MOCK_SERVICES_MEN: Record<string, { id: string, name: string, image
   ],
   '5': [
     { id: '5_0', name: 'Tattoo &\nPiercing', image: { uri: 'https://loremflickr.com/320/320/tattoo,man?lock=0' } },
+    { id: '5_1', name: 'Makeups', image: { uri: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=320&q=80' } },
   ],
   '6': [
     { id: '6_0', name: 'Waxing', image: { uri: 'https://loremflickr.com/320/320/waxing,man?lock=0' } },
@@ -114,6 +115,7 @@ export const MOCK_SERVICES_WOMEN: Record<string, { id: string, name: string, ima
   ],
   '5': [
     { id: 'w5_0', name: 'Tattoo &\nPiercing', image: { uri: 'https://loremflickr.com/320/320/tattoo,woman?lock=0' } },
+    { id: 'w5_1', name: 'Makeups', image: { uri: 'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=320&q=80' } },
   ],
   '6': [
     { id: 'w6_0', name: 'Waxing', image: { uri: 'https://loremflickr.com/320/320/waxing,woman?lock=0' } },

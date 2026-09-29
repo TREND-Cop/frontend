@@ -26,6 +26,9 @@ import { BookingsSkeleton } from '../../components/ui/BookingsSkeleton';
 import { useTabSkeleton } from '../../utils/tabSkeletonStore';
 import { useBookingContext } from '../../store/BookingContext';
 import { useFavoritesContext } from '../../store/FavoritesContext';
+import { useUserContext } from '../../store/UserContext';
+import { AuthPromptModal } from '../../components/AuthPromptModal';
+import { EmptyCalendarGridIllustration } from './EmptyBookedItemScreen';
 import { theme } from '../../constants/theme';
 
 // ── Exact Figma 3D Category PNG Icons ──
@@ -88,6 +91,9 @@ export const BookingsMainScreen: React.FC<{ initialState?: BookingOverviewState 
   const insets = useSafeAreaInsets();
   const isLoading = useTabSkeleton('bookings', 1100);
   const params = useLocalSearchParams();
+  const { profileData } = useUserContext();
+  const isGuest = !profileData?.isLoggedIn;
+  const [isAuthModalVisible, setIsAuthModalVisible] = React.useState(false);
   const { pendingCount, ongoingCount, completedCount, cancelledCount, activeAppointment } = useBookingContext();
   const { favoritesCount } = useFavoritesContext();
 
@@ -167,6 +173,57 @@ export const BookingsMainScreen: React.FC<{ initialState?: BookingOverviewState 
 
   if (isLoading) {
     return <BookingsSkeleton />;
+  }
+
+  // In the Guest state, the page is empty without mock bookings because the user must sign in before booking
+  if (isGuest) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        {/* ── Page Header (Figma: Section Header, Bookings, 24px) ── */}
+        <View style={styles.headerContainer}>
+          <Text style={styles.headerTitle}>Bookings</Text>
+        </View>
+
+        <View style={styles.emptyGuestContent}>
+          {/* ── Figma Stacked Calendar with Empty Grid Illustration ── */}
+          <EmptyCalendarGridIllustration size={160} />
+
+          {/* ── Text Content ── */}
+          <View style={styles.emptyTextContainer}>
+            <Text style={styles.emptyTitleText}>No Booked item</Text>
+            <Text style={styles.emptySubtitleText}>
+              You must sign in before booking an appointment. Your appointments will appear here.
+            </Text>
+          </View>
+
+          {/* ── Primary Action Button: Sign In or Sign Up ── */}
+          <TouchableOpacity
+            style={styles.emptyActionButton}
+            activeOpacity={0.85}
+            onPress={() => setIsAuthModalVisible(true)}
+          >
+            <Text style={styles.emptyActionButtonText}>Sign In or Sign Up</Text>
+          </TouchableOpacity>
+
+          {/* ── Secondary Link: Explore Services ── */}
+          <TouchableOpacity
+            style={styles.emptySecondaryButton}
+            activeOpacity={0.7}
+            onPress={() => router.push('/home/explore' as any)}
+          >
+            <Text style={styles.emptySecondaryButtonText}>Explore Services</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Sign In / Sign Up Modal ── */}
+        <AuthPromptModal
+          visible={isAuthModalVisible}
+          onClose={() => setIsAuthModalVisible(false)}
+          title="Sign In or Sign Up"
+          subtitle="Create an account or sign in to book your appointment and connect with top beauty specialists."
+        />
+      </SafeAreaView>
+    );
   }
 
   return (
@@ -461,6 +518,75 @@ const styles = StyleSheet.create({
     lineHeight: Platform.OS === 'ios' ? 32 : 28,
     letterSpacing: Platform.OS === 'ios' ? 0.5 : 0.2,
     color: '#000000',
+  },
+
+  // ── Guest Empty State ──
+  emptyGuestContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    gap: 28,
+    marginTop: -40,
+  },
+  emptyTextContainer: {
+    alignItems: 'center',
+    gap: 12,
+    maxWidth: 320,
+  },
+  emptyTitleText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_600SemiBold',
+    fontWeight: '600',
+    fontSize: 20,
+    lineHeight: 28,
+    letterSpacing: 0.2,
+    color: '#000814',
+    textAlign: 'center',
+  },
+  emptySubtitleText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.3,
+    color: 'rgba(96, 96, 102, 0.96)',
+    textAlign: 'center',
+  },
+  emptyActionButton: {
+    width: 220,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0, 8, 20, 0.96)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+    shadowColor: 'rgba(133, 139, 148, 0.08)',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 24,
+    elevation: 4,
+  },
+  emptyActionButtonText: {
+    fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.15,
+    color: '#FFFFFF',
+  },
+  emptySecondaryButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptySecondaryButtonText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.2,
+    color: 'rgba(96, 96, 102, 0.96)',
   },
 
   // ── Menu List ──

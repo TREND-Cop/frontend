@@ -67,12 +67,11 @@ const OrangeAlertCircleIcon = () => (
   </Svg>
 );
 
-// ── 4-Dots Loading Indicator (● ● ● ●) Identical to Card Payment ──
-const FourDotsLoader = () => {
+// ── 3-Dots Loading Indicator (● ● ●) ──
+const ThreeDotsLoader = () => {
   const dot1 = useRef(new Animated.Value(0.3)).current;
   const dot2 = useRef(new Animated.Value(0.3)).current;
   const dot3 = useRef(new Animated.Value(0.3)).current;
-  const dot4 = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
     const createAnim = (val: Animated.Value) =>
@@ -94,13 +93,12 @@ const FourDotsLoader = () => {
         createAnim(dot1),
         createAnim(dot2),
         createAnim(dot3),
-        createAnim(dot4),
       ])
     );
 
     loop.start();
     return () => loop.stop();
-  }, [dot1, dot2, dot3, dot4]);
+  }, [dot1, dot2, dot3]);
 
   return (
     <View style={styles.dotsLoaderContainer}>
@@ -144,22 +142,6 @@ const FourDotsLoader = () => {
             transform: [
               {
                 scale: dot3.interpolate({
-                  inputRange: [0.3, 1],
-                  outputRange: [0.8, 1.25],
-                }),
-              },
-            ],
-          },
-        ]}
-      />
-      <Animated.View
-        style={[
-          styles.loaderDot,
-          {
-            opacity: dot4,
-            transform: [
-              {
-                scale: dot4.interpolate({
                   inputRange: [0.3, 1],
                   outputRange: [0.8, 1.25],
                 }),
@@ -390,10 +372,10 @@ export const BankTransferScreen = ({ navigation }: { navigation?: any }) => {
         </TouchableOpacity>
       </View>
 
-      {/* ── Transparent Verifying Overlay (4 Dots floating in front) ── */}
+      {/* ── Transparent Verifying Overlay (3 Dots floating in front) ── */}
       {(transactionState === 'verifying' || transactionState === 'success') && (
         <View style={styles.verifyingOverlay} pointerEvents="none">
-          <FourDotsLoader />
+          <ThreeDotsLoader />
         </View>
       )}
       <NativeDockSpacer />
@@ -505,7 +487,7 @@ const styles = StyleSheet.create({
     color: 'rgba(0, 8, 20, 0.96)',
   },
 
-  // ── 4-Dots Loading Indicator ──
+  // ── 3-Dots Loading Indicator ──
   dotsLoaderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -520,7 +502,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 8, 20, 0.96)',
   },
 
-  // ── Verifying Screen Overlay (Only 4 Dots floating in front) ──
+  // ── Verifying Screen Overlay (Only 3 Dots floating in front) ──
   verifyingOverlay: {
     position: 'absolute',
     top: 0,

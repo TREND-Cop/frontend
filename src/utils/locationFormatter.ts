@@ -57,11 +57,23 @@ export function formatDisplayLocation(raw: string | null | undefined): string {
     }
   }
 
+  // Handle common landmark patterns like 'NNPC Tower Asokoro' -> 'Asokoro'
+  const landmarkWords = ['tower', 'mall', 'plaza', 'building', 'centre', 'center', 'house', 'hotel'];
+  if (landmarkWords.some((w) => district.toLowerCase().includes(w))) {
+    const words = district.split(/\s+/);
+    if (words.length > 1) {
+      district = words[words.length - 1];
+    }
+  }
+
   const capitalize = (str: string) =>
     str
       .split(' ')
       .filter(Boolean)
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .map((w) => {
+        if (/^(ii|iii|iv|v|vi|vii|viii|ix|x)$/i.test(w)) return w.toUpperCase();
+        return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+      })
       .join(' ');
 
   const finalDistrict = capitalize(district) || 'Maitama';

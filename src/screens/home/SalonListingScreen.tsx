@@ -37,6 +37,7 @@ import { SafeImage } from '../../components/ui/SafeImage';
 import { ShareIcon } from '../../components/ShareIcon';
 import { shareStore } from '../../utils/shareStore';
 import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
+import { formatDisplayLocation } from '../../utils/locationFormatter';
 
 interface SalonListingScreenProps {
   categoryId?: string;
@@ -211,7 +212,9 @@ const SalonCardItem: React.FC<SalonCardItemProps> = ({
         <View style={styles.locationTimeRow}>
           <View style={styles.infoSubItem}>
             <MapPin size={14} color="rgba(96, 96, 102, 0.96)" />
-            <Text style={styles.infoSubText}>{salon.location}</Text>
+            <Text style={styles.infoSubText} numberOfLines={1}>
+              {formatDisplayLocation(salon.location)}
+            </Text>
           </View>
           <View style={styles.dotSeparator} />
           <View style={styles.infoSubItem}>
@@ -282,8 +285,19 @@ export const SalonListingScreen: React.FC<SalonListingScreenProps> = ({
     rating: 0,
   });
 
-  // Track how many times user has used the filter page for filtering
-  const [filterUsageCount, setFilterUsageCount] = useState<number>(0);
+  // Compute actual active filters count dynamically
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (filterState.distance !== 'all') count++;
+    if (filterState.verification !== 'all') count++;
+    if (filterState.gender !== 'all') count++;
+    if (filterState.amenities && filterState.amenities.length > 0) count += filterState.amenities.length;
+    if (filterState.rating > 0) count++;
+    if (filterState.minPrice > PRICE_STEPS[0] || filterState.maxPrice < PRICE_STEPS[22]) count++;
+    if (filterState.openingTime) count++;
+    if (filterState.closingTime) count++;
+    return count;
+  }, [filterState]);
 
   // In-app share handler
   const handleShare = () => {
@@ -297,7 +311,6 @@ export const SalonListingScreen: React.FC<SalonListingScreenProps> = ({
 
   // Reset filters
   const handleResetFilters = () => {
-    setFilterUsageCount(0);
     setHasAppliedFilters(false);
     setFilterState({
       recentFilters: [],
@@ -421,9 +434,9 @@ export const SalonListingScreen: React.FC<SalonListingScreenProps> = ({
             activeOpacity={0.7}
           >
             <Filter size={20} color="rgba(0, 8, 20, 0.96)" />
-            {filterUsageCount > 0 && (
+            {activeFiltersCount > 0 && (
               <View style={styles.filterBadge}>
-                <Text style={styles.filterBadgeText}>{filterUsageCount}</Text>
+                <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -444,7 +457,7 @@ export const SalonListingScreen: React.FC<SalonListingScreenProps> = ({
           <Text style={styles.resultsSummaryText}>
             Showing {filteredSalons.length} {filteredSalons.length === 1 ? 'salon' : 'salons'}
           </Text>
-          {filterUsageCount > 0 && (
+          {activeFiltersCount > 0 && (
             <TouchableOpacity onPress={handleResetFilters}>
               <Text style={styles.clearFiltersText}>Reset filters</Text>
             </TouchableOpacity>
@@ -501,21 +514,6 @@ export const SalonListingScreen: React.FC<SalonListingScreenProps> = ({
         onApply={(newFilters) => {
           setFilterState(newFilters);
           setHasAppliedFilters(newFilters.recentFilters && newFilters.recentFilters.length > 0);
-          const hasFilters =
-            newFilters.distance !== 'all' ||
-            newFilters.verification !== 'all' ||
-            newFilters.gender !== 'all' ||
-            (newFilters.amenities && newFilters.amenities.length > 0) ||
-            newFilters.rating > 0 ||
-            newFilters.minPrice > PRICE_STEPS[0] ||
-            newFilters.maxPrice < PRICE_STEPS[22] ||
-            !!newFilters.openingTime ||
-            !!newFilters.closingTime;
-          if (hasFilters) {
-            setFilterUsageCount((prev) => prev + 1);
-          } else {
-            setFilterUsageCount(0);
-          }
         }}
       />
     </SafeAreaView>

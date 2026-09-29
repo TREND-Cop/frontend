@@ -39,11 +39,10 @@ class SkeletonCadenceStore {
   }
 
   /**
-   * Returns true if the current screen should show the text skeleton loader
-   * (every 3rd screen transition), and false for screens 1 & 2.
+   * Universal skeleton loading: always returns true so skeleton displays on every entry/back navigation.
    */
   public shouldShowSkeleton(): boolean {
-    return this.screenCount > 0 && this.screenCount % 3 === 0;
+    return true;
   }
 
   /**

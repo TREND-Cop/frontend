@@ -14,10 +14,13 @@ import { MessagesSkeleton } from '../../components/ui/MessagesSkeleton';
 import { useTabSkeleton } from '../../utils/tabSkeletonStore';
 
 import { useMessagesContext, MessageConversation } from '../../store/MessagesContext';
+import { useUserContext } from '../../store/UserContext';
+import { MessageSquare } from 'lucide-react-native';
 
 export const MessagesScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { profileData } = useUserContext();
   const isLoading = useTabSkeleton('messages', 1100);
   const { conversations, markAsRead } = useMessagesContext();
 
@@ -32,6 +35,37 @@ export const MessagesScreen = () => {
       },
     } as any);
   };
+
+  if (!profileData.isLoggedIn) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        {/* ─── Top Screen Header (Figma: Message, 24px SemiBold) ─── */}
+        <View style={styles.headerContainer}>
+          <Text style={styles.headerTitle}>Message</Text>
+        </View>
+
+        {/* Top Divider (Line 135: 390px, top: 118px) */}
+        <View style={styles.topDivider} />
+
+        <View style={styles.guestContainer}>
+          <View style={styles.guestIconCircle}>
+            <MessageSquare size={32} color="#000814" strokeWidth={1.5} />
+          </View>
+          <Text style={styles.guestTitle}>Sign in to view messages</Text>
+          <Text style={styles.guestSubtitle}>
+            Please sign in or create an account to view and send messages with service providers.
+          </Text>
+          <TouchableOpacity
+            style={styles.guestButton}
+            activeOpacity={0.85}
+            onPress={() => router.push('/sign-in')}
+          >
+            <Text style={styles.guestButtonText}>Sign In / Sign Up</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (isLoading) {
     return <MessagesSkeleton />;
@@ -252,6 +286,59 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: 'rgba(235, 235, 245, 0.96)',
     marginTop: 16,
+  },
+
+  // ── Guest State ──
+  guestContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    paddingBottom: 80,
+  },
+  guestIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(247, 247, 247, 0.98)',
+    borderWidth: 1,
+    borderColor: 'rgba(235, 235, 245, 0.96)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  guestTitle: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 20,
+    lineHeight: 28,
+    color: '#000814',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  guestSubtitle: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 14,
+    lineHeight: 20,
+    color: 'rgba(96, 96, 102, 0.96)',
+    textAlign: 'center',
+    marginBottom: 28,
+  },
+  guestButton: {
+    width: '100%',
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#000814',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guestButtonText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#FFFFFF',
   },
 });
 

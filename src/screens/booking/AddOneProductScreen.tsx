@@ -7,6 +7,8 @@ import {
   ScrollView,
   Image,
   Platform,
+  useWindowDimensions,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getSafeBottomPadding } from '../../utils/safeArea';
@@ -31,29 +33,29 @@ interface ProductItem {
 const INITIAL_PRODUCTS: ProductItem[] = [
   {
     id: 'prod_dry_wow_classic',
-    name: 'Dry Wow Classic Shampoo',
+    name: 'Dry Wow Shampoo',
     category: 'Dry shampoo',
-    price: 6500,
-    rating: 4.8,
-    image: require('../../../assets/images/profile/cont1.jpg'),
-    isSelected: false,
-  },
-  {
-    id: 'prod_tea_tree_wash',
-    name: 'Organic Tea Tree Wash',
-    category: 'Clarifying wash',
     price: 8500,
+    rating: 4.8,
+    image: require('../../../assets/images/products/shampoo_white.png'),
+    isSelected: true,
+  },
+  {
+    id: 'prod_whine',
+    name: 'Whine Shampoo',
+    category: 'Dry shampoo',
+    price: 11900,
     rating: 4.9,
-    image: require('../../../assets/images/profile/cont2.jpg'),
+    image: require('../../../assets/images/products/shampoo_red.png'),
     isSelected: false,
   },
   {
-    id: 'prod_keratin_moisture',
-    name: 'Keratin Moisture Soap',
-    category: 'Moisturizing care',
-    price: 11500,
+    id: 'prod_diamond_black',
+    name: 'Diamond Black Shampoo',
+    category: 'Dry shampoo',
+    price: 20500,
     rating: 5.0,
-    image: require('../../../assets/images/profile/cont3.jpg'),
+    image: require('../../../assets/images/products/shampoo_black.png'),
     isSelected: false,
   },
 ];
@@ -61,6 +63,13 @@ const INITIAL_PRODUCTS: ProductItem[] = [
 export const AddOneProductScreen = ({ navigation }: { navigation?: any }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const screenWidth = windowWidth || Dimensions.get('window').width || 390;
+  const horizontalPadding = 16 * 2;
+  const gridGap = screenWidth < 380 ? 12 : 20;
+  const itemWidth = Math.floor((screenWidth - horizontalPadding - gridGap) / 2);
+  const imageBoxHeight = Math.round(itemWidth * (178 / 169));
+
   const [selectedIds, setSelectedIds] = useState<string[]>(bookingStore.getSelectedIds());
 
   useEffect(() => {
@@ -145,16 +154,16 @@ export const AddOneProductScreen = ({ navigation }: { navigation?: any }) => {
           showsVerticalScrollIndicator={false}
         >
           {/* ─── Product Grid ──────────────────────────────────────────── */}
-          <View style={styles.productsGrid}>
+          <View style={[styles.productsGrid, { columnGap: gridGap }]}>
             {products.map((item, index) => (
               <TouchableOpacity
                 key={item.id}
-                style={styles.productCardContainer}
+                style={[styles.productCardContainer, { width: itemWidth }]}
                 activeOpacity={0.9}
                 onPress={() => handleToggleSelect(item.id)}
               >
                 {/* Image Frame */}
-                <View style={styles.imageFrame}>
+                <View style={[styles.imageFrame, { width: itemWidth, height: imageBoxHeight }]}>
                   <Image source={item.image} style={styles.productImage} resizeMode="contain" />
 
                   {/* Top-Left Selection Check Badge */}
@@ -266,16 +275,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 16,
+    rowGap: 36,
   },
   productCardContainer: {
-    width: '47.5%',
-    marginBottom: 16,
     gap: 8,
   },
   imageFrame: {
     width: '100%',
-    height: 178,
     borderRadius: 24,
     borderWidth: 1,
     borderColor: 'rgba(235, 235, 245, 0.96)',
@@ -286,8 +292,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   productImage: {
-    width: '80%',
-    height: '80%',
+    width: 80,
+    height: 145,
+    maxHeight: '82%',
+    maxWidth: '70%',
   },
   checkCircle: {
     position: 'absolute',
@@ -321,13 +329,15 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   productInfo: {
-    gap: 4,
+    width: '100%',
+    gap: 8,
   },
   productName: {
     fontWeight: '400',
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
     fontSize: 16,
-    lineHeight: 22,
+    lineHeight: 24,
+    letterSpacing: 0.4,
     color: 'rgba(0, 8, 20, 0.96)',
   },
   productCategory: {
@@ -335,20 +345,24 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
     fontSize: 14,
     lineHeight: 20,
+    letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
   },
   priceRatingRow: {
+    width: '100%',
+    height: 20,
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     gap: 8,
-    marginTop: 4,
   },
   priceText: {
     fontWeight: '500',
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
-    fontSize: 16,
-    lineHeight: 22,
-    color: 'rgba(0, 8, 20, 0.96)',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.4,
+    color: 'rgba(96, 96, 102, 0.96)',
   },
   ratingRow: {
     flexDirection: 'row',

@@ -11,8 +11,7 @@ import { useRouter } from 'expo-router';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
 import { typography } from '../../constants/theme';
 
-// ── Figma Stacked Calendar with Empty Grid Illustration ──
-const EmptyCalendarGridIllustration = ({ size = 160 }: { size?: number }) => (
+export const EmptyCalendarGridIllustration = ({ size = 160 }: { size?: number }) => (
   <View style={styles.illustrationContainer}>
     {/* Soft Glow/Circle Backdrop */}
     <View style={styles.circleBackdrop} />

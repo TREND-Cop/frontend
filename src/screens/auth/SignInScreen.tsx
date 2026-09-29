@@ -31,6 +31,7 @@ import { AuthFooter } from '../../components/AuthFooter';
 import { supabase } from '../../lib/supabase';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useUserContext } from '../../store/UserContext';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STUB FUNCTIONS
@@ -69,6 +70,7 @@ const onSignIn = async (
 
 export const SignInScreen = ({ navigation }: { navigation?: any }) => {
   const router = useRouter();
+  const { updateProfile } = useUserContext();
 
   // ── Form State ──────────────────────────────────────────────────────────
   const [usernameOrPhone, setUsernameOrPhone] = useState('');
@@ -165,13 +167,14 @@ export const SignInScreen = ({ navigation }: { navigation?: any }) => {
     }
 
     if (data?.session || data?.user) {
+      updateProfile({ isLoggedIn: true, phone: usernameOrPhone });
       if (navigation?.navigate) {
         navigation.navigate('SignInSuccess');
       } else {
         router.replace({ pathname: '/sign-in-success', params: { mode: 'sign-in' } } as any);
       }
     }
-  }, [formValid, usernameOrPhone, password, navigation, router]);
+  }, [formValid, usernameOrPhone, password, navigation, router, updateProfile]);
 
   /**
    * Navigates to the Forgot Password screen.

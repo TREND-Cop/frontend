@@ -18,6 +18,7 @@ import { colors, typography } from '../../constants/theme';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { MOCK_SERVICES_MEN, MOCK_SERVICES_WOMEN, getServiceNameById } from './mockServices';
 import { previewStore } from '../../utils/previewStore';
+import { useNativeDock } from '../../utils/useNativeDock';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CUSTOM ICONS
@@ -59,8 +60,8 @@ const SIDEBAR_CATEGORIES = [
 
 export const CategoryScreen = ({ categoryId }: { categoryId?: string }) => {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const tabBottomPadding = 64 + Math.max(insets.bottom, Platform.OS === 'android' ? 16 : 0) + 32;
+  const { hasDock, dockHeight } = useNativeDock();
+  const tabBottomPadding = 58 + (hasDock ? dockHeight + 8 : 16) + 24;
   const isLoading = useTabSkeleton('category', 1100);
   const [selectedCategory, setSelectedCategory] = useState(categoryId || SIDEBAR_CATEGORIES[0].id);
   const [activeTab, setActiveTab] = useState<'Services' | 'Men' | 'Women'>('Men');

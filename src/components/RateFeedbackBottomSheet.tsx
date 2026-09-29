@@ -11,6 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNativeDock } from '../utils/useNativeDock';
 import { X } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -123,7 +124,7 @@ export const RateFeedbackBottomSheet: React.FC<RateFeedbackBottomSheetProps> = (
   onClose,
   onSubmit,
 }) => {
-  const insets = useSafeAreaInsets();
+  const { hasDock, dockHeight } = useNativeDock();
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
   const [feedbackText, setFeedbackText] = useState('');
 
@@ -152,6 +153,7 @@ export const RateFeedbackBottomSheet: React.FC<RateFeedbackBottomSheetProps> = (
       visible={visible}
       transparent
       animationType="slide"
+      statusBarTranslucent={true}
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
@@ -166,7 +168,7 @@ export const RateFeedbackBottomSheet: React.FC<RateFeedbackBottomSheetProps> = (
         />
 
         {/* Bottom Sheet Card (Figma: 390x535, borderRadius 24px 24px 0px 0px) */}
-        <View style={[styles.sheetContainer, { paddingBottom: Math.max(24, insets.bottom + 16) }]}>
+        <View style={[styles.sheetContainer, { paddingBottom: hasDock ? dockHeight + 16 : 24 }]}>
           {/* Close Button (Figma: 30x30, radius 16px, bg rgba(247, 247, 247, 0.96), top-right) */}
           <TouchableOpacity
             style={styles.closeButton}

@@ -9,6 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNativeDock } from '../utils/useNativeDock';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 export type AppointmentBookingType = 'In-Person' | 'Home Service';
@@ -101,7 +102,7 @@ export const AppointmentTypeModal: React.FC<AppointmentTypeModalProps> = ({
   onSelectType,
   onClose,
 }) => {
-  const insets = useSafeAreaInsets();
+  const { hasDock, dockHeight } = useNativeDock();
 
   const finalInPersonPrice = inPersonPrice ?? (basePrice !== undefined && basePrice !== 2200 ? basePrice : 1500);
   const finalHomeServicePrice = homeServicePrice ?? (basePrice !== undefined && basePrice !== 1500 ? basePrice : 2200);
@@ -117,6 +118,7 @@ export const AppointmentTypeModal: React.FC<AppointmentTypeModalProps> = ({
       visible={visible}
       transparent
       animationType="slide"
+      statusBarTranslucent={true}
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
@@ -129,7 +131,7 @@ export const AppointmentTypeModal: React.FC<AppointmentTypeModalProps> = ({
         <View
           style={[
             styles.sheetContainer,
-            { paddingBottom: Math.max(insets.bottom, 24) },
+            { paddingBottom: hasDock ? dockHeight + 16 : 24 },
           ]}
         >
           {/* Top Drag Handle (56x5 radius 2.5) */}

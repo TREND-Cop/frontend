@@ -13,8 +13,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { LinearGradient } from 'expo-linear-gradient';
-import { X } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import { useUserContext } from '../../store/UserContext';
 
 // Video source from assets/videos/
 const VIDEO_SOURCE = require('../../../assets/videos/lv_0_20260903090731.mp4');
@@ -152,11 +152,16 @@ export const OnboardingScreen = ({
     }
   };
 
+  const { updateProfile } = useUserContext();
+
   const handleDismiss = () => {
+    try {
+      updateProfile({ isLoggedIn: false });
+    } catch {}
     if (onDismiss) {
       onDismiss();
     } else {
-      router.push('/sign-up' as any);
+      router.replace('/home' as any);
     }
   };
 
@@ -209,14 +214,14 @@ export const OnboardingScreen = ({
           pointerEvents="none"
         />
 
-        {/* ── Cancel / X Button (Figma: 40x40, padding 8px, top 53px, right 15px) ── */}
+        {/* ── Skip Button (Replaces X button) ── */}
         <TouchableOpacity
-          style={[styles.cancelButton, { top: Math.max(insets.top + 6, 53) }]}
+          style={[styles.skipButton, { top: Math.max(insets.top + 8, 53) }]}
           onPress={handleDismiss}
-          activeOpacity={0.7}
+          activeOpacity={0.75}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <X size={24} color="#FFFFFF" strokeWidth={1.5} />
+          <Text style={styles.skipButtonText}>Skip</Text>
         </TouchableOpacity>
       </View>
 
@@ -280,17 +285,34 @@ const styles = StyleSheet.create({
     height: 110,
   },
 
-  // ── Cancel Button (Figma: 40x40, padding 8px, top 53px, right 15px, vector 24x24 1.5px solid #FFFFFF) ──
-  cancelButton: {
+  // ── Skip Button (Replaces X button, top right 16px) ──
+  skipButton: {
     position: 'absolute',
     top: 53,
-    right: 15,
-    width: 40,
-    height: 40,
-    padding: 8,
+    right: 16,
+    height: 36,
+    paddingHorizontal: 16,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 8, 20, 0.45)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 20,
+  },
+  skipButtonText: {
+    fontFamily: Platform.select({
+      ios: 'SF Pro',
+      android: 'DMSans_500Medium',
+      web: "'DM Sans', sans-serif",
+      default: 'DMSans_500Medium',
+    }),
+    fontWeight: '500',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.2,
+    color: '#FFFFFF',
+    includeFontPadding: false,
   },
 
   // ── Bottom Section ──
@@ -314,7 +336,7 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
 
-  // ── Brand Title ──
+  // ── Brand Title (DM Sans Bold, 24px, line-height 28px, letter-spacing 0.3px) ──
   brandTitleContainer: {
     alignSelf: 'flex-start',
   },
@@ -323,9 +345,11 @@ const styles = StyleSheet.create({
     fontFamily: Platform.select({
       ios: 'DMSans_700Bold',
       android: 'DMSans_700Bold',
+      web: "'DM Sans', DMSans_700Bold, sans-serif",
       default: 'DMSans_700Bold',
     }),
     fontWeight: '700',
+    fontStyle: 'normal',
     fontSize: 24,
     lineHeight: 28,
     letterSpacing: 0.3,
@@ -336,6 +360,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.select({
       ios: 'SF Pro',
       android: 'DMSans_400Regular',
+      web: "'DM Sans', sans-serif",
       default: 'DMSans_400Regular',
     }),
     fontWeight: '400',

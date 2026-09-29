@@ -33,18 +33,20 @@ import { MessagesProvider } from '../store/MessagesContext';
 import { InAppShareModal } from '../components/InAppShareModal';
 import { BookmarkBottomSheetModal } from '../components/BookmarkBottomSheetModal';
 import { GlobalTopToast } from '../components/ui/GlobalTopToast';
+import { calculateNativeDock } from '../utils/useNativeDock';
 
 /**
- * Ensures a minimum safe bottom inset on Android to prevent UI and buttons
- * from being obscured by the Android 3-button navigation dock (~48dp–56dp).
+ * Ensures safe bottom insets strictly when an Android 3-button navigation dock (~48dp–56dp)
+ * or iOS home bar is active. When gesture navigation is used (no dock), leaves it full (0).
  */
 function GlobalSafeAreaInsetsAdapter({ children }: { children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
   const adjustedInsets = useMemo(() => {
     if (!insets) return insets;
+    const { hasDock, dockHeight } = calculateNativeDock(insets.bottom);
     return {
       ...insets,
-      bottom: Platform.OS === 'android' ? Math.max(insets.bottom, 52) : insets.bottom,
+      bottom: hasDock ? dockHeight : 0,
     };
   }, [insets]);
 
@@ -61,6 +63,8 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     const style = document.createElement('style');
     style.id = styleId;
     style.textContent = `
+      @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Inter:wght@400;500;600;700&display=swap');
+
       html, body, #root {
         scroll-behavior: smooth;
         -webkit-overflow-scrolling: touch;
@@ -99,6 +103,8 @@ export default function RootLayout() {
     'DMSans-Medium': DMSans_500Medium,
     'DMSans-SemiBold': DMSans_600SemiBold,
     'DMSans-Bold': DMSans_700Bold,
+    'DMSans': DMSans_700Bold,
+    'DM Sans': DMSans_700Bold,
     Inter_400Regular,
     Inter_500Medium,
     Inter: Inter_500Medium,

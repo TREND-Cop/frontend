@@ -259,6 +259,7 @@ export const AppointmentTimeScreen = ({ navigation }: { navigation?: any }) => {
   // Reset selection on focus if coming fresh
   useFocusEffect(
     React.useCallback(() => {
+      setIsLoading(false);
       if (!bookingStore.getAppointmentDate()) {
         setSelectedDay(null);
       }

@@ -12,6 +12,8 @@ import {
   Animated,
   PanResponder,
   useWindowDimensions,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -33,6 +35,7 @@ import { shareStore } from '../../utils/shareStore';
 import { toastStore } from '../../utils/toastStore';
 import { useFavoritesContext } from '../../store/FavoritesContext';
 import { bookmarkStore } from '../../utils/bookmarkStore';
+import { useNativeDock } from '../../utils/useNativeDock';
 
 const { width, height } = Dimensions.get('window');
 
@@ -275,12 +278,57 @@ export const SalonLocationScreen = () => {
     }
   };
 
-  const serviceHeroImage = useMemo(() => {
-    if (salon.id === 'salon2' || !salon.images || salon.images.length === 0) {
-      return require('../../../assets/images/custom/salon_pilatius_hero.png');
+  // ── 1:1 Figma Carousel Banner Images ──
+  const bannerImages = useMemo(() => {
+    const list: any[] = [];
+    if (salon.id === 'salon2') {
+      list.push(require('../../../assets/images/custom/salon_pilatius_hero.png'));
     }
-    return typeof salon.images[0] === 'string' ? { uri: salon.images[0] } : salon.images[0];
+    if (Array.isArray(salon.images) && salon.images.length > 0) {
+      salon.images.forEach((img) => {
+        list.push(typeof img === 'string' ? { uri: img } : img);
+      });
+    }
+    // Also include gallery items if needed so there are always multiple slides
+    if (list.length < 4) {
+      GALLERY_ITEMS.forEach((g) => {
+        if (list.length < 4) {
+          list.push(g.image);
+        }
+      });
+    }
+    return list;
   }, [salon]);
+
+  const serviceHeroImage = bannerImages[0];
+  const [activeBannerIndex, setActiveBannerIndex] = useState(0);
+  const [bannerWidth, setBannerWidth] = useState<number>(() => (Dimensions.get('window').width || 390) - 32);
+
+  const handleBannerScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetX = e.nativeEvent.contentOffset.x;
+    const w = e.nativeEvent.layoutMeasurement?.width || bannerWidth;
+    if (w > 0) {
+      const idx = Math.min(
+        bannerImages.length - 1,
+        Math.max(0, Math.round(offsetX / w))
+      );
+      if (idx !== activeBannerIndex) {
+        setActiveBannerIndex(idx);
+      }
+    }
+  };
+
+  const handleBannerMomentumEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offsetX = e.nativeEvent.contentOffset.x;
+    const w = e.nativeEvent.layoutMeasurement?.width || bannerWidth;
+    if (w > 0) {
+      const idx = Math.min(
+        bannerImages.length - 1,
+        Math.max(0, Math.round(offsetX / w))
+      );
+      setActiveBannerIndex(idx);
+    }
+  };
 
   const handleToggleWishlist = async () => {
     const heroImage = serviceHeroImage;
@@ -462,6 +510,11 @@ export const SalonLocationScreen = () => {
   const SNAP_HALF = Math.max(0, EXPANDED_HEIGHT - DEFAULT_HEIGHT);
   const SNAP_COLLAPSED = Math.max(0, EXPANDED_HEIGHT - COLLAPSED_HEIGHT);
 
+  const { hasDock, dockHeight } = useNativeDock();
+  const effectiveBottom = hasDock ? Math.max(safeBottom, dockHeight) : Math.max(safeBottom, 16);
+  // Full bottom padding compensating for SNAP_HALF offset and native dock so reviews/ratings are fully visible
+  const scrollBottomPadding = SNAP_HALF + effectiveBottom + 140;
+
   const panY = useRef(new Animated.Value(SNAP_HALF)).current;
   const currentPanY = useRef(SNAP_HALF);
   const startDragY = useRef(SNAP_HALF);
@@ -481,12 +534,13 @@ export const SalonLocationScreen = () => {
     };
   }, [panY, SNAP_HALF]);
 
-  const animateToSnap = (toValue: number) => {
+  const animateToSnap = (toValue: number, velocity?: number) => {
     Animated.spring(panY, {
       toValue,
+      velocity: velocity ?? 0,
+      tension: 80,
+      friction: 9,
       useNativeDriver: false,
-      friction: 8,
-      tension: 65,
     }).start();
   };
 
@@ -508,32 +562,48 @@ export const SalonLocationScreen = () => {
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
       onMoveShouldSetPanResponder: (_, gestureState) =>
-        Math.abs(gestureState.dy) > 4,
+        Math.abs(gestureState.dy) > 3 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.2,
       onMoveShouldSetPanResponderCapture: (_, gestureState) =>
-        Math.abs(gestureState.dy) > 4,
+        Math.abs(gestureState.dy) > 3 && Math.abs(gestureState.dy) > Math.abs(gestureState.dx) * 1.2,
       onPanResponderGrant: () => {
         panY.stopAnimation((val) => {
-          startDragY.current = val;
+          startDragY.current = typeof val === 'number' ? val : currentPanY.current;
         });
       },
       onPanResponderMove: (_, gestureState) => {
         let newY = startDragY.current + gestureState.dy;
-        if (newY < -10) newY = -10;
-        if (newY > SNAP_COLLAPSED + 10) {
-          newY = SNAP_COLLAPSED + 10;
+        if (newY < SNAP_EXPANDED) {
+          // Rubber band resistance past top expanded limit
+          const overdrag = SNAP_EXPANDED - newY;
+          newY = SNAP_EXPANDED - Math.pow(overdrag, 0.75);
+        } else if (newY > SNAP_COLLAPSED) {
+          // Rubber band resistance past collapsed bottom limit
+          const overdrag = newY - SNAP_COLLAPSED;
+          newY = SNAP_COLLAPSED + Math.pow(overdrag, 0.75);
         }
         panY.setValue(newY);
       },
       onPanResponderRelease: (_, gestureState) => {
         const current = currentPanY.current;
-        const projected = current + gestureState.vy * 80;
+        const vy = gestureState.vy;
+
+        // Tapping the handle cycles snap state
+        if (Math.abs(gestureState.dy) < 6 && Math.abs(gestureState.dx) < 6) {
+          cycleSnapState();
+          return;
+        }
 
         let targetSnap = SNAP_HALF;
-        if (gestureState.vy > 0.6) {
-          targetSnap = current < SNAP_HALF ? SNAP_HALF : SNAP_COLLAPSED;
-        } else if (gestureState.vy < -0.6) {
-          targetSnap = current > SNAP_HALF ? SNAP_HALF : SNAP_EXPANDED;
+        // Directional momentum based on velocity
+        if (vy > 0.25) {
+          // Fling downward
+          targetSnap = current < SNAP_HALF - 20 ? SNAP_HALF : SNAP_COLLAPSED;
+        } else if (vy < -0.25) {
+          // Fling upward
+          targetSnap = current > SNAP_HALF + 20 ? SNAP_HALF : SNAP_EXPANDED;
         } else {
+          // Positional snapping with projection
+          const projected = current + vy * 60;
           const distToExpanded = Math.abs(projected - SNAP_EXPANDED);
           const distToHalf = Math.abs(projected - SNAP_HALF);
           const distToCollapsed = Math.abs(projected - SNAP_COLLAPSED);
@@ -547,7 +617,7 @@ export const SalonLocationScreen = () => {
           }
         }
 
-        animateToSnap(targetSnap);
+        animateToSnap(targetSnap, vy);
       },
     })
   ).current;
@@ -636,7 +706,7 @@ export const SalonLocationScreen = () => {
         {/* Floating Action Buttons over Map (Positioned inside container bounds, moves with sheet, 100% touchable on Android) */}
         <View
           style={styles.floatingButtonsWrapper}
-          {...panResponder.panHandlers}
+          pointerEvents="box-none"
         >
           {/* Filled action Button: Show Direction (Centered horizontally) */}
           <TouchableOpacity
@@ -667,42 +737,80 @@ export const SalonLocationScreen = () => {
           <ScrollView
             style={styles.sheetScroll}
             showsVerticalScrollIndicator={false}
+            nestedScrollEnabled={true}
             contentContainerStyle={[
               styles.sheetContentContainer,
-              { paddingBottom: 60 + safeBottom },
+              { paddingBottom: scrollBottomPadding },
             ]}
           >
           {/* ──────── SECTION 1: Service Center Banner & Details ──────── */}
           <View style={styles.serviceCenterSection}>
-            {/* Banner Image Frame */}
-            <View style={styles.imageFrame}>
-              <SafeImage
-                source={serviceHeroImage}
-                style={styles.bannerImage}
-                resizeMode="cover"
-              />
-
-              {/* Bookmark Button (Top Right 1:1 Figma) */}
-              <TouchableOpacity
-                style={styles.bookmarkButton}
-                activeOpacity={0.8}
-                onPress={handleToggleWishlist}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            {/* Banner Image Frame (Horizontal Image Carousel) */}
+            <View
+              style={styles.imageFrame}
+              onLayout={(e) => {
+                const w = e.nativeEvent.layout.width;
+                if (w > 0 && Math.abs(w - bannerWidth) > 1) {
+                  setBannerWidth(w);
+                }
+              }}
+            >
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                nestedScrollEnabled={true}
+                directionalLockEnabled={true}
+                decelerationRate="fast"
+                snapToInterval={bannerWidth}
+                snapToAlignment="center"
+                disableIntervalMomentum={true}
+                scrollEventThrottle={16}
+                onScroll={handleBannerScroll}
+                onMomentumScrollEnd={handleBannerMomentumEnd}
+                style={{ width: '100%', height: '100%' }}
+                contentContainerStyle={{ alignItems: 'center' }}
               >
-                <BookmarkHeartIcon isBookmarked={isBookmarked} size={24} />
-              </TouchableOpacity>
+                {bannerImages.map((img, idx) => (
+                  <View key={`banner-${idx}`} style={{ width: bannerWidth, height: 176 }}>
+                    <SafeImage
+                      source={img}
+                      style={styles.bannerImage}
+                      resizeMode="cover"
+                    />
+                  </View>
+                ))}
+              </ScrollView>
 
               {/* "Open" Status Tag (Bottom Left) */}
-              <View style={styles.openStatusBadge}>
-                <Text style={styles.openStatusText}>Open</Text>
+              <View
+                style={[
+                  styles.openStatusBadge,
+                  !salon.isOpen && styles.closedStatusBadge,
+                ]}
+                pointerEvents="none"
+              >
+                <Text
+                  style={[
+                    styles.openStatusText,
+                    !salon.isOpen && styles.closedStatusText,
+                  ]}
+                >
+                  {salon.isOpen ? 'Open' : 'Closed'}
+                </Text>
               </View>
 
               {/* Carousel Indicator Dots (Bottom Center) */}
-              <View style={styles.carouselIndicator}>
-                <View style={[styles.carouselDot, styles.carouselDotActive]} />
-                <View style={styles.carouselDot} />
-                <View style={styles.carouselDot} />
-                <View style={styles.carouselDot} />
+              <View style={styles.carouselIndicator} pointerEvents="none">
+                {bannerImages.map((_, idx) => (
+                  <View
+                    key={`dot-${idx}`}
+                    style={[
+                      styles.carouselDot,
+                      idx === activeBannerIndex && styles.carouselDotActive,
+                    ]}
+                  />
+                ))}
               </View>
             </View>
 
@@ -731,12 +839,6 @@ export const SalonLocationScreen = () => {
                 <View style={styles.priceRow}>
                   <View style={styles.priceGroup}>
                     <Text style={styles.primaryPriceText}>{salon.priceFrom || '₦27,000'}</Text>
-                    {salon.priceTo ? (
-                      <View style={styles.discountPriceContainer}>
-                        <Text style={styles.discountPriceText}>{salon.priceTo}</Text>
-                        <View style={styles.strikethroughLine} />
-                      </View>
-                    ) : null}
                   </View>
                 </View>
 
@@ -1186,6 +1288,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     color: 'rgba(12, 121, 12, 0.96)',
   },
+  closedStatusBadge: {
+    backgroundColor: 'rgba(254, 242, 242, 0.8)',
+  },
+  closedStatusText: {
+    color: 'rgba(204, 41, 41, 0.96)',
+  },
   carouselIndicator: {
     position: 'absolute',
     bottom: 8,
@@ -1460,7 +1568,7 @@ const styles = StyleSheet.create({
     padding: 8,
     gap: 8,
     width: 316,
-    height: 112,
+    minHeight: 112,
   },
   userAvatar: {
     width: 32,

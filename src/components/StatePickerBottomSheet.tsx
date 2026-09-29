@@ -14,6 +14,7 @@ import {
 import { Search } from 'lucide-react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { State } from 'country-state-city';
+import { useNativeDock } from '../utils/useNativeDock';
 
 export interface StateItem {
   name: string;
@@ -92,6 +93,7 @@ export const StatePickerBottomSheet: React.FC<StatePickerBottomSheetProps> = ({
   countryIsoCode = 'NG',
   countryName = 'Nigeria',
 }) => {
+  const { hasDock, dockHeight } = useNativeDock();
   const [searchQuery, setSearchQuery] = useState('');
 
   // Dynamically load states based on the active country
@@ -139,6 +141,7 @@ export const StatePickerBottomSheet: React.FC<StatePickerBottomSheetProps> = ({
       visible={visible}
       transparent={true}
       animationType="slide"
+      statusBarTranslucent={true}
       onRequestClose={handleClose}
     >
       <KeyboardAvoidingView
@@ -148,7 +151,7 @@ export const StatePickerBottomSheet: React.FC<StatePickerBottomSheetProps> = ({
         <Pressable style={styles.backdrop} onPress={handleClose} />
 
         {/* ── Bottom Sheet (Figma: width 390px, height 467px, border-radius 24px 24px 0px 0px) ── */}
-        <View style={styles.sheetContainer}>
+        <View style={[styles.sheetContainer, { height: 467 + (hasDock ? dockHeight : 0) }]}>
           {/* Top Grab Handle Indicator */}
           <View style={styles.grabHandle} />
 
@@ -172,7 +175,7 @@ export const StatePickerBottomSheet: React.FC<StatePickerBottomSheetProps> = ({
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, { paddingBottom: hasDock ? dockHeight + 16 : 24 }]}
             renderItem={({ item }) => {
               const isSelected =
                 item.name.toLowerCase().replace(/[^a-z]/g, '') ===

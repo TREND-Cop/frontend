@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Check, ChevronDown } from 'lucide-react-native';
+import { Check, ChevronDown, X } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { SearchablePicker } from '../../components/SearchablePicker';
 import { supabase } from '../../lib/supabase';
@@ -43,26 +43,26 @@ try {
 
 // ── Google Gmail SVG Icon (Figma: logos:google-gmail 31.84x24) ──
 const GoogleGmailIcon = () => (
-  <Svg width={32} height={24} viewBox="0 0 32 24" fill="none">
+  <Svg width={32} height={24} viewBox="0 0 256 193" fill="none">
     <Path
-      d="M0.003 6.156V23.883C0.003 23.948 0.056 24 0.121 24H7.269V11.666L0.003 6.156Z"
+      d="M58.182 192.05V93.54L0 50.05v120c0 12.15 9.85 22 22 22h36.182Z"
       fill="#4285F4"
     />
     <Path
-      d="M24.731 11.666V24H31.879C31.944 24 31.997 23.948 31.997 23.883V6.156L24.731 11.666Z"
+      d="M197.818 192.05h36.182c12.15 0 22-9.85 22-22V50.05l-58.182 43.49v98.51Z"
       fill="#34A853"
     />
     <Path
-      d="M24.731 11.666L32 6.156L27.604 2.822C25.86 1.499 23.411 2.378 22.84 4.451L24.731 11.666Z"
+      d="M58.182 93.54l69.818 52.273 69.818-52.273V22c0-18.04-20.73-27.87-34.46-16.18L128 35.82 92.64 5.82C78.91-5.87 58.182 3.96 58.182 22v71.54Z"
+      fill="#EA4335"
+    />
+    <Path
+      d="M197.818 22v71.54l58.182-43.49V34.05c0-17.65-20.17-27.42-33.68-16.03L197.818 22Z"
       fill="#FBBC04"
     />
     <Path
-      d="M7.269 11.666L0 6.156L4.396 2.822C6.14 1.499 8.589 2.378 9.16 4.451L7.269 11.666Z"
+      d="M0 50.05l58.182 43.49V22L33.68 5.97C20.17-5.42 0 4.35 0 22v28.05Z"
       fill="#C5221F"
-    />
-    <Path
-      d="M7.269 11.666V4.451C7.269 2.176 9.584 0.655 11.657 1.638L16 3.693L20.343 1.638C22.416 0.655 24.731 2.176 24.731 4.451V11.666L16 18.286L7.269 11.666Z"
-      fill="#EA4335"
     />
   </Svg>
 );
@@ -167,8 +167,24 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
     router.push('/user-location');
   }, [formValid, selectedCountry, phone, password, updateProfile, router]);
 
+  const handleSkip = useCallback(() => {
+    router.replace('/home');
+  }, [router]);
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      {/* ── Top-Right Skip / X Button ── */}
+      <TouchableOpacity
+        style={styles.skipButton}
+        onPress={handleSkip}
+        activeOpacity={0.7}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        accessibilityLabel="Skip Sign Up"
+        accessibilityRole="button"
+      >
+        <X size={20} color="#141A33" strokeWidth={1.8} />
+      </TouchableOpacity>
+
       <KeyboardAvoidingView
         style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -399,6 +415,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+    position: 'relative',
+  },
+  skipButton: {
+    position: 'absolute',
+    top: 12,
+    right: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 30,
   },
   keyboardContainer: {
     flex: 1,
