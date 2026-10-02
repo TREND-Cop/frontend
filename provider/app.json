@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "TREND Partner",
+    "slug": "trend-partner",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "trendpartner",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.trend.partner"
+    },
+    "android": {
+      "package": "com.trend.partner",
+      "softwareKeyboardLayoutMode": "resize",
+      "predictiveBackGestureEnabled": false
+    },
+    "androidNavigationBar": {
+      "visible": "visible",
+      "barStyle": "dark-content",
+      "backgroundColor": "#FFFFFF"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-video"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "fe45092e-957e-4d0f-a13e-bbaccc719215"
+      }
+    }
+  }
+}

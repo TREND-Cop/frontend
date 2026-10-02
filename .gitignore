@@ -45,7 +45,6 @@ example
 
 # dev tools & user temp folders
 tools/
-provider/
 .agents/
 .idea/
 New/
@@ -63,5 +62,5 @@ AGENTS.md
 clean_styles.js
 *.log
 *.txt
-.easignore
-eas.json
+
+

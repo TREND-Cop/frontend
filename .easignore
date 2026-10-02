@@ -1,0 +1,40 @@
+# Git & IDE
+.git
+.git/**
+.idea/
+.vscode/
+.DS_Store
+
+# Native prebuild folders (EAS creates a clean prebuild during cloud build)
+android/
+ios/
+
+# Dependencies (EAS installs these in the cloud)
+node_modules/
+
+# Local tools & dev utilities (149MB CSS converter)
+tools/
+
+# Temporary & build caches
+.expo/
+dist/
+web-build/
+.kotlin/
+*.log
+
+# Audio and temporary media files not used in bundle
+*.wav
+*.mp3
+*.opus
+VID-*.mp4
+
+# Unnecessary document downloads, zips, and specs
+*.crdownload
+*.zip
+*.docx
+*.pdf
+specs/
+New/
+scratch/
+provider/
+

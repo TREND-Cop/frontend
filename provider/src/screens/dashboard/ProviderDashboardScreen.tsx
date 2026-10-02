@@ -1,0 +1,1075 @@
+import React, { useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Platform,
+  Dimensions,
+} from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import Svg, { Path, Rect, Circle } from 'react-native-svg';
+import { NativeDockSpacer } from '../../components/NativeDockSpacer';
+import { CategoryFourDotLoader } from '../../components/CategoryFourDotLoader';
+import { ProviderDashboardSkeleton } from '../../components/ProviderDashboardSkeleton';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// ── 1:1 Vector Icons ──────────────────────────────────────────────────────────
+
+function Location01Icon({ size = 16, color = 'rgba(96, 96, 102, 0.96)' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <Path
+        d="M8 1.333c-2.761 0-5 2.239-5 5 0 3.889 5 8.334 5 8.334s5-4.445 5-8.334c0-2.761-2.239-5-5-5z"
+        stroke={color}
+        strokeWidth="1.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="8" cy="6.333" r="1.8" stroke={color} strokeWidth="1.2" />
+    </Svg>
+  );
+}
+
+function SquareLock02Icon({ size = 16, color = 'rgba(204, 41, 41, 0.9)' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <Rect x="2.67" y="6" width="10.66" height="8" rx="2" stroke={color} strokeWidth="1.5" />
+      <Path d="M5 6V3.833a3 3 0 016 0V6" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+      <Path d="M8 9.67v1.66" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function CalendarDaysIcon({ size = 20, color = 'rgba(248, 155, 24, 0.96)' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <Rect x="2.5" y="3.33" width="15" height="14.17" rx="2.5" stroke={color} strokeWidth="1.5" />
+      <Path d="M2.5 8.33h15" stroke={color} strokeWidth="1.5" />
+      <Path d="M6.67 1.67v3.33M13.33 1.67v3.33" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+      <Circle cx="6" cy="11.5" r="0.75" fill={color} />
+      <Circle cx="10" cy="11.5" r="0.75" fill={color} />
+      <Circle cx="14" cy="11.5" r="0.75" fill={color} />
+      <Circle cx="6" cy="14.5" r="0.75" fill={color} />
+      <Circle cx="10" cy="14.5" r="0.75" fill={color} />
+    </Svg>
+  );
+}
+
+function LoaderIcon({ size = 20, color = 'rgba(12, 121, 12, 0.96)' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <Path
+        d="M10 2.5v2.5M10 15v2.5M15 10h2.5M2.5 10H5M13.53 6.46l1.77-1.76M4.69 15.31l1.77-1.77M13.53 13.54l1.77 1.77M4.69 4.7l1.77 1.76"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+function UserMultipleIcon({ size = 20, color = 'rgba(115, 3, 124, 0.96)' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="147 1028 20 20" fill="none">
+      <Path
+        d="M157.833 1037.17C157.833 1035.33 156.341 1033.83 154.5 1033.83C152.659 1033.83 151.167 1035.33 151.167 1037.17C151.167 1039.01 152.659 1040.5 154.5 1040.5C156.341 1040.5 157.833 1039.01 157.833 1037.17Z"
+        stroke={color}
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M156.199 1034.3C156.177 1034.15 156.167 1033.99 156.167 1033.83C156.167 1031.99 157.659 1030.5 159.5 1030.5C161.341 1030.5 162.833 1031.99 162.833 1033.83C162.833 1035.67 161.341 1037.17 159.5 1037.17C158.879 1037.17 158.299 1037 157.801 1036.7"
+        stroke={color}
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M159.5 1045.5C159.5 1042.74 157.261 1040.5 154.5 1040.5C151.739 1040.5 149.5 1042.74 149.5 1045.5"
+        stroke={color}
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M164.5 1042.17C164.5 1039.41 162.261 1037.17 159.5 1037.17"
+        stroke={color}
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function DashboardCircleIcon({ size = 20, color = '#141B34' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <Rect x="2.5" y="2.5" width="6.25" height="6.25" rx="1.5" stroke={color} strokeWidth="1.25" />
+      <Rect x="11.25" y="2.5" width="6.25" height="6.25" rx="1.5" stroke={color} strokeWidth="1.25" />
+      <Rect x="2.5" y="11.25" width="6.25" height="6.25" rx="1.5" stroke={color} strokeWidth="1.25" />
+      <Rect x="11.25" y="11.25" width="6.25" height="6.25" rx="1.5" stroke={color} strokeWidth="1.25" />
+    </Svg>
+  );
+}
+
+function AddCircleIcon({ size = 20 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="147 856 20 20" fill="none">
+      <Path
+        d="M165.333 866C165.333 861.398 161.602 857.667 157 857.667C152.397 857.667 148.667 861.398 148.667 866C148.667 870.602 152.397 874.333 157 874.333C161.602 874.333 165.333 870.602 165.333 866Z"
+        fill="#1A82FF"
+        fillOpacity="0.9"
+        stroke="#1A82FF"
+        strokeOpacity="0.9"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M157 862.667V869.333M160.333 866H153.667" stroke="white" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function Album02Icon({ size = 20, color = '#141B34' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="338 852 20 20" fill="none">
+      <Path
+        d="M352.583 856.775V857.243M352.817 857.001H352.375M353 857.001C353 857.231 352.813 857.417 352.583 857.417C352.353 857.417 352.167 857.231 352.167 857.001C352.167 856.771 352.353 856.584 352.583 856.584C352.813 856.584 353 856.771 353 857.001Z"
+        stroke={color}
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M345.917 858.666C345.917 856.309 345.917 855.131 346.649 854.398C347.381 853.666 348.56 853.666 350.917 853.666C353.274 853.666 354.452 853.666 355.184 854.398C355.917 855.131 355.917 856.309 355.917 858.666V862C355.917 864.357 355.917 865.535 355.184 866.267C354.452 867 353.274 867 350.917 867C348.56 867 347.381 867 346.649 866.267C345.917 865.535 345.917 864.357 345.917 862V858.666Z"
+        stroke={color}
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M343.519 856.999C341.743 857.484 340.804 857.815 340.347 858.606C339.829 859.503 340.134 860.641 340.744 862.918L341.607 866.137C342.217 868.414 342.522 869.552 343.419 870.07C344.316 870.588 345.454 870.283 347.731 869.673C348.133 869.565 348.499 869.467 348.833 869.373"
+        stroke={color}
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M345.917 863.666L348.724 860.858C349.061 860.522 349.517 860.333 349.993 860.333C350.573 860.333 351.116 860.613 351.453 861.084L355.083 866.166"
+        stroke={color}
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function TriangleIcon({ size = 12 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="315 1036 12 12" fill="none">
+      <Path
+        d="M317.797 1040.61C318.919 1038.81 319.481 1037.91 320.216 1037.64C320.723 1037.45 321.278 1037.45 321.784 1037.64C322.519 1037.91 323.081 1038.81 324.203 1040.61C325.467 1042.64 326.099 1043.65 325.987 1044.49C325.911 1045.06 325.626 1045.59 325.188 1045.96C324.55 1046.5 323.366 1046.5 321 1046.5C318.634 1046.5 317.45 1046.5 316.812 1045.96C316.374 1045.59 316.089 1045.06 316.013 1044.49C315.901 1043.65 316.533 1042.64 317.797 1040.61Z"
+        fill="#0C790C"
+        fillOpacity="0.96"
+      />
+    </Svg>
+  );
+}
+
+function Comment01Icon({ size = 20, color = '#141B34' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="147 1204 20 20" fill="none">
+      <Path
+        d="M153.667 1215.25H160.333M153.667 1211.08H157"
+        stroke={color}
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M152.082 1219.83C150.999 1219.73 150.187 1219.4 149.643 1218.86C148.667 1217.88 148.667 1216.31 148.667 1213.17V1212.75C148.667 1209.61 148.667 1208.04 149.643 1207.06C150.619 1206.08 152.19 1206.08 155.333 1206.08H158.667C161.809 1206.08 163.381 1206.08 164.357 1207.06C165.333 1208.04 165.333 1209.61 165.333 1212.75V1213.17C165.333 1216.31 165.333 1217.88 164.357 1218.86C163.381 1219.83 161.809 1219.83 158.667 1219.83C158.199 1219.84 157.827 1219.88 157.462 1219.96C156.463 1220.19 155.539 1220.7 154.625 1221.15C153.323 1221.78 152.672 1222.1 152.263 1221.8C151.481 1221.22 152.245 1219.42 152.417 1218.58"
+        stroke={color}
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+function TaskEdit02Icon({ size = 20, color = '#141B34' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="338 1208 20 20" fill="none">
+      <Path
+        d="M353.833 1218V1214.67C353.833 1212.31 353.833 1211.13 353.101 1210.4C352.369 1209.67 351.19 1209.67 348.833 1209.67H345.5C343.143 1209.67 341.964 1209.67 341.232 1210.4C340.5 1211.13 340.5 1212.31 340.5 1214.67V1221.33C340.5 1223.69 340.5 1224.87 341.232 1225.6C341.964 1226.33 343.143 1226.33 345.5 1226.33H347.167"
+        stroke={color}
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M350.083 1209.67H344.25C344.25 1210.85 344.25 1211.43 344.616 1211.8C344.982 1212.17 345.571 1212.17 346.75 1212.17H347.583C348.762 1212.17 349.351 1212.17 349.717 1211.8C350.083 1211.43 350.083 1210.85 350.083 1209.67Z"
+        stroke={color}
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M343.833 1220.5H347.167M343.833 1217.17H350.5"
+        stroke={color}
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M351.114 1226.04L349.667 1226.33L349.956 1224.89C350.015 1224.59 350.159 1224.32 350.371 1224.11L353.759 1220.72C354.056 1220.43 354.536 1220.43 354.833 1220.72L355.278 1221.17C355.574 1221.46 355.574 1221.94 355.278 1222.24L351.89 1225.63C351.678 1225.84 351.408 1225.99 351.114 1226.04Z"
+        stroke={color}
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function DashboardNavIcon({ size = 24, active = true }: { size?: number; active?: boolean }) {
+  const color = active ? 'rgba(0, 8, 20, 0.96)' : 'rgba(96, 96, 102, 0.96)';
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="7.5" height="7.5" rx="2" fill={active ? color : 'none'} stroke={color} strokeWidth="1.5" />
+      <Rect x="13.5" y="3" width="7.5" height="7.5" rx="2" fill={active ? color : 'none'} stroke={color} strokeWidth="1.5" />
+      <Rect x="3" y="13.5" width="7.5" height="7.5" rx="2" fill={active ? color : 'none'} stroke={color} strokeWidth="1.5" />
+      <Rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2" fill={active ? color : 'none'} stroke={color} strokeWidth="1.5" />
+    </Svg>
+  );
+}
+
+function ChattingNavIcon({ size = 24, active = false }: { size?: number; active?: boolean }) {
+  const color = active ? 'rgba(0, 8, 20, 0.96)' : 'rgba(96, 96, 102, 0.96)';
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M2 12C2 7.029 6.029 3 11 3h2c4.971 0 9 4.029 9 9 0 4.971-4.029 9-9 9H8l-4.5 1.5L5 18C3.12 16.32 2 14.28 2 12z"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M8 10h8M8 14h5" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function ProfileNavIcon({ size = 24, active = false }: { size?: number; active?: boolean }) {
+  const color = active ? 'rgba(0, 8, 20, 0.96)' : 'rgba(96, 96, 102, 0.96)';
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.5" />
+      <Circle cx="12" cy="9" r="3" stroke={color} strokeWidth="1.5" />
+      <Path d="M6.5 18c1.5-2.5 3.5-3.5 5.5-3.5s4 1 5.5 3.5" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+// ── Screen Component ─────────────────────────────────────────────────────────
+
+export const ProviderDashboardScreen: React.FC = () => {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const [isClosed, setIsClosed] = useState(true);
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'messages' | 'profile'>('dashboard');
+  const [isDashboardLoading, setIsDashboardLoading] = useState(true);
+  const [showCategoryOverlay, setShowCategoryOverlay] = useState(false);
+
+  // Figma Annotation: "All screens returning back to the dashboard should go through a skeleton loader beforing seeing the dashboard"
+  useFocusEffect(
+    useCallback(() => {
+      setIsDashboardLoading(true);
+      const timer = setTimeout(() => {
+        setIsDashboardLoading(false);
+      }, 900);
+      return () => {
+        clearTimeout(timer);
+        setIsDashboardLoading(true);
+      };
+    }, [])
+  );
+
+  const handleCategoriesPress = () => {
+    setShowCategoryOverlay(true);
+    setTimeout(() => {
+      router.push('/category' as any);
+      setTimeout(() => {
+        setShowCategoryOverlay(false);
+      }, 350);
+    }, 850);
+  };
+
+  if (isDashboardLoading) {
+    return <ProviderDashboardSkeleton />;
+  }
+
+  return (
+    <View style={styles.screenContainer}>
+      <StatusBar style="dark" />
+
+      {/* Main Scroll Content */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingTop: Math.max(insets.top + 16, 56),
+            paddingBottom: 160 + Math.max(insets.bottom, 16),
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Business Name and Open/Closed Button (width: 358px, height: 52px) ── */}
+        <View style={styles.businessHeader}>
+          {/* Dashboard and Date / Address Info (width: 200px, height: 52px) */}
+          <View style={styles.businessInfoColumn}>
+            {/* Luminous Lux (width: 149px, height: 32px) */}
+            <Text style={styles.businessName} numberOfLines={1}>
+              Luminous Lux
+            </Text>
+
+            {/* Business Address Row (width: 200px, height: 16px) */}
+            <View style={styles.addressRow}>
+              <Location01Icon size={16} color="rgba(96, 96, 102, 0.96)" />
+              <Text style={styles.addressText} numberOfLines={1}>
+                Street 11, off okiki road abuja.
+              </Text>
+            </View>
+          </View>
+
+          {/* Closed / Open Business Toggle Button (width: 104px, height: 40px) */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={[
+              styles.statusToggleButton,
+              isClosed ? styles.statusButtonClosed : styles.statusButtonOpen,
+            ]}
+            onPress={() => setIsClosed(!isClosed)}
+          >
+            {/* Toggle Circle (24x24) */}
+            <View style={styles.toggleCircle}>
+              <SquareLock02Icon size={16} color={isClosed ? 'rgba(204, 41, 41, 0.9)' : 'rgba(12, 121, 12, 0.96)'} />
+            </View>
+
+            {/* Status Label (55x24) */}
+            <Text style={styles.statusLabelText}>
+              {isClosed ? 'Closed' : 'Open'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Appointment Dashboard Section (width: 358px) ── */}
+        <View style={styles.sectionContainer}>
+          {/* Section Heading: Appointment Dashboard */}
+          <Text style={styles.sectionTitle}>Appointment Dashboard</Text>
+
+          {/* Booking Dashboard 2x2 Grid (358px wide, 24px col gap, 40px row gap) */}
+          <View style={styles.cardsGrid}>
+            {/* ── Card 1: Appointments (167x120) with Notification Badge ── */}
+            <View style={styles.cardWrapper}>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={styles.card120}
+                onPress={() => router.push('/appointments' as any)}
+              >
+                {/* Top Row: Appointments */}
+                <View style={styles.cardHeaderRow}>
+                  <Text style={styles.cardTitleText}>Appointments</Text>
+                </View>
+
+                {/* Bottom Row: 10 Pending + Calendar Icon */}
+                <View style={styles.cardFooterRow}>
+                  <View style={styles.statTagRow}>
+                    <Text style={styles.statNumberText}>10</Text>
+                    <Text style={styles.statLabelText}>Pending</Text>
+                  </View>
+                  <CalendarDaysIcon size={20} color="rgba(248, 155, 24, 0.96)" />
+                </View>
+              </TouchableOpacity>
+
+              {/* Notification Badge: 102 (width: 26px, height: 20px, top: -3px, left: 143px) */}
+              <View style={styles.notificationBadge} pointerEvents="none">
+                <Text style={styles.notificationBadgeText}>102</Text>
+              </View>
+            </View>
+
+            {/* ── Card 2: In Progress (167x120) ── */}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.card120}
+              onPress={() => router.push('/ongoing-appointments')}
+            >
+              <View style={styles.cardHeaderRow}>
+                <Text style={styles.cardTitleText}>In Progress</Text>
+              </View>
+
+              <View style={styles.cardFooterRow}>
+                <View style={styles.statTagRow}>
+                  <Text style={styles.statNumberText}>3</Text>
+                  <Text style={styles.statLabelText}>Ongoing</Text>
+                </View>
+                <LoaderIcon size={20} color="rgba(12, 121, 12, 0.96)" />
+              </View>
+            </TouchableOpacity>
+
+            {/* ── Card 3: My Staffs (167x120) ── */}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.card120}
+              onPress={() => router.push('/staffs')}
+            >
+              <View style={styles.cardHeaderRow}>
+                <Text style={styles.cardTitleText}>My Staffs</Text>
+              </View>
+
+              <View style={styles.cardFooterRow}>
+                <View style={styles.statTagRow}>
+                  <Text style={styles.statNumberText}>4</Text>
+                  <Text style={styles.statLabelText}>On Duty</Text>
+                </View>
+                <UserMultipleIcon size={20} color="rgba(115, 3, 124, 0.96)" />
+              </View>
+            </TouchableOpacity>
+
+            {/* ── Card 4: Categories (167x120) ── */}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.card120}
+              onPress={handleCategoriesPress}
+            >
+              <View style={styles.cardHeaderRow}>
+                <Text style={styles.cardTitleText}>Categories</Text>
+              </View>
+
+              <View style={styles.cardFooterRow}>
+                <View style={styles.statTagRow}>
+                  <Text style={styles.statLabelText}>More Options</Text>
+                </View>
+                <DashboardCircleIcon size={20} color="#141B34" />
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ── Ads Banner Frame 1000006443 (width: 358px, height: 116px, radius: 24px) ── */}
+        <View style={styles.adsBanner}>
+          <Text style={styles.adsText}>Ads</Text>
+        </View>
+
+        {/* ── Business Dashboard Section (width: 358px) ── */}
+        <View style={styles.sectionContainer}>
+          {/* Section Heading: Business Dashboard */}
+          <Text style={styles.sectionTitle}>Business Dashborad</Text>
+
+          {/* Business Dashboard 3x2 Grid (358px wide, 24px col gap, 40px row gap) */}
+          <View style={styles.cardsGrid}>
+            {/* ── Card 1: Manage Business Service (167x136) ── */}
+            <TouchableOpacity activeOpacity={0.85} style={styles.card136}>
+              <View style={styles.cardHeaderRowMultiLine}>
+                <Text style={styles.cardTitleTextMultiLine}>
+                  Manage Business Service
+                </Text>
+              </View>
+
+              <View style={styles.cardFooterRow}>
+                <View style={styles.statTagRow}>
+                  <Text style={styles.statNumberText}>3</Text>
+                  <Text style={styles.statLabelText}>Services</Text>
+                </View>
+                <AddCircleIcon size={20} />
+              </View>
+            </TouchableOpacity>
+
+            {/* ── Card 2: Post Service Photos (167x136) ── */}
+            <TouchableOpacity activeOpacity={0.85} style={styles.card136}>
+              <View style={styles.cardHeaderRowMultiLine}>
+                <Text style={styles.cardTitleTextMultiLine}>
+                  Post Service Photos
+                </Text>
+              </View>
+
+              <View style={styles.cardFooterRow}>
+                <View style={styles.statTagRow}>
+                  <Text style={styles.statNumberText}>3</Text>
+                  <Text style={styles.statLabelText}>Photos</Text>
+                </View>
+                <Album02Icon size={20} color="#141B34" />
+              </View>
+            </TouchableOpacity>
+
+            {/* ── Card 3: Staff Management (167x136) ── */}
+            <TouchableOpacity activeOpacity={0.85} style={styles.card136}>
+              <View style={styles.cardHeaderRowMultiLine}>
+                <Text style={styles.cardTitleTextMultiLine}>
+                  Staff Management
+                </Text>
+              </View>
+
+              <View style={styles.cardFooterRow}>
+                <View style={styles.statTagRow}>
+                  <Text style={styles.statNumberText}>2</Text>
+                  <Text style={styles.statLabelText}>Staffs</Text>
+                </View>
+                <UserMultipleIcon size={20} color="rgba(115, 3, 124, 0.96)" />
+              </View>
+            </TouchableOpacity>
+
+            {/* ── Card 4: Business Statistics (167x136) ── */}
+            <TouchableOpacity activeOpacity={0.85} style={styles.card136}>
+              <View style={styles.cardHeaderRowMultiLine}>
+                <Text style={styles.cardTitleTextMultiLine}>
+                  Business Statistics
+                </Text>
+              </View>
+
+              <View style={styles.cardFooterRow}>
+                <Text style={styles.statLabelText}>Today</Text>
+
+                {/* Performance Stake: Triangle + 12% */}
+                <View style={styles.performanceStake}>
+                  <TriangleIcon size={12} />
+                  <Text style={styles.performancePercentText}>12%</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            {/* ── Card 5: Clients Reviews and Comments (167x136) ── */}
+            <TouchableOpacity activeOpacity={0.85} style={styles.card136}>
+              <View style={styles.cardHeaderRowMultiLine}>
+                <Text style={styles.cardTitleTextMultiLine}>
+                  Clients Reviews and Comments
+                </Text>
+              </View>
+
+              <View style={styles.cardFooterRow}>
+                <View style={styles.statTagRow}>
+                  <Text style={styles.statNumberText}>3</Text>
+                  <Text style={styles.statLabelText}>Reviews</Text>
+                </View>
+                <Comment01Icon size={20} color="#141B34" />
+              </View>
+            </TouchableOpacity>
+
+            {/* ── Card 6: Business Management (167x136) ── */}
+            <TouchableOpacity activeOpacity={0.85} style={styles.card136}>
+              <View style={styles.cardHeaderRowMultiLine}>
+                <Text style={styles.cardTitleTextMultiLine}>
+                  Business Management
+                </Text>
+              </View>
+
+              <View style={styles.cardFooterRow}>
+                <Text style={styles.statLabelText}>Edit Information</Text>
+                <TaskEdit02Icon size={20} color="#141B34" />
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* ── Bottom Backdrop Blur & Gradient Blend Overlay (Rectangle 281: height: 91px, backdrop-filter: blur(2px)) ── */}
+      <View
+        style={[
+          styles.bottomBlurWrapper,
+          {
+            bottom: Platform.OS === 'android' ? Math.max(insets.bottom, 56) : 0,
+            height: Platform.OS === 'ios' ? 91 + insets.bottom : 91,
+          },
+        ]}
+        pointerEvents="none"
+      >
+        <BlurView
+          intensity={Platform.OS === 'ios' ? 25 : 40}
+          tint="light"
+          style={StyleSheet.absoluteFill}
+        />
+        <LinearGradient
+          colors={['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0.72)', '#FFFFFF']}
+          locations={[0.1374, 0.5034, 1.0]}
+          style={StyleSheet.absoluteFill}
+        />
+      </View>
+
+      {/* ── App Navigation Bar (width: 300px, height: 80px, radius: 40px) ── */}
+      <View
+        style={[
+          styles.bottomNavContainer,
+          {
+            bottom:
+              Platform.OS === 'android'
+                ? Math.max(insets.bottom, 56) + 16
+                : Math.max(insets.bottom + 8, 32),
+          },
+        ]}
+      >
+        <View style={styles.bottomNavBar}>
+          {/* Tab 1: Dashboard (Active) */}
+          <TouchableOpacity
+            style={styles.navTabItem}
+            activeOpacity={0.8}
+            onPress={() => setActiveTab('dashboard')}
+          >
+            <View style={styles.navTabContent}>
+              <DashboardNavIcon size={24} active={activeTab === 'dashboard'} />
+              <Text
+                style={[
+                  styles.navTabText,
+                  activeTab === 'dashboard'
+                    ? styles.navTabTextActive
+                    : styles.navTabTextInactive,
+                ]}
+              >
+                Dashboard
+              </Text>
+            </View>
+
+            {/* Active Indicator Bar: Rectangle 299 (width: 65px, height: 5px, radius: 8px) */}
+            {activeTab === 'dashboard' && <View style={styles.activeTabIndicator} />}
+          </TouchableOpacity>
+
+          {/* Tab 2: Messages */}
+          <TouchableOpacity
+            style={styles.navTabItem}
+            activeOpacity={0.8}
+            onPress={() => setActiveTab('messages')}
+          >
+            <View style={styles.navTabContent}>
+              <ChattingNavIcon size={24} active={activeTab === 'messages'} />
+              <Text
+                style={[
+                  styles.navTabText,
+                  activeTab === 'messages'
+                    ? styles.navTabTextActive
+                    : styles.navTabTextInactive,
+                ]}
+              >
+                Messages
+              </Text>
+            </View>
+
+            {activeTab === 'messages' && <View style={styles.activeTabIndicator} />}
+          </TouchableOpacity>
+
+          {/* Tab 3: Profile */}
+          <TouchableOpacity
+            style={styles.navTabItem}
+            activeOpacity={0.8}
+            onPress={() => setActiveTab('profile')}
+          >
+            <View style={styles.navTabContent}>
+              <ProfileNavIcon size={24} active={activeTab === 'profile'} />
+              <Text
+                style={[
+                  styles.navTabText,
+                  activeTab === 'profile'
+                    ? styles.navTabTextActive
+                    : styles.navTabTextInactive,
+                ]}
+              >
+                Profile
+              </Text>
+            </View>
+
+            {activeTab === 'profile' && <View style={styles.activeTabIndicator} />}
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Android System Dock Barrier */}
+      <NativeDockSpacer backgroundColor="#FFFFFF" />
+
+      {/* ── Category 4-Dot Loader Overlay (displayed over screen, not a new page) ── */}
+      <CategoryFourDotLoader visible={showCategoryOverlay} />
+    </View>
+  );
+};
+
+export default ProviderDashboardScreen;
+
+const styles = StyleSheet.create({
+  /* ── Screen Container ── */
+  screenContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+
+  scrollView: {
+    flex: 1,
+  },
+
+  scrollContent: {
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+
+  /* ── Header: Business Name & Open/Closed Toggle ── */
+  businessHeader: {
+    width: 358,
+    height: 52,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 48,
+  },
+
+  businessInfoColumn: {
+    width: 200,
+    height: 52,
+    justifyContent: 'flex-start',
+    gap: 4,
+  },
+
+  businessName: {
+    width: 149,
+    height: 32,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 24,
+    lineHeight: 32,
+    letterSpacing: 0.1,
+    color: '#000000',
+    includeFontPadding: false,
+  },
+
+  addressRow: {
+    width: 200,
+    height: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+
+  addressText: {
+    width: 180,
+    height: 16,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0.4,
+    color: 'rgba(96, 96, 102, 0.96)',
+    includeFontPadding: false,
+  },
+
+  statusToggleButton: {
+    width: 104,
+    height: 40,
+    borderRadius: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    justifyContent: 'space-between',
+  },
+
+  statusButtonClosed: {
+    backgroundColor: 'rgba(204, 41, 41, 0.9)',
+  },
+
+  statusButtonOpen: {
+    backgroundColor: 'rgba(12, 121, 12, 0.96)',
+  },
+
+  toggleCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+
+  statusLabelText: {
+    width: 55,
+    height: 24,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.4,
+    color: 'rgba(255, 255, 255, 0.9)',
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
+
+  /* ── Section Container ── */
+  sectionContainer: {
+    width: 358,
+    gap: 24,
+    marginBottom: 40,
+  },
+
+  sectionTitle: {
+    width: 358,
+    height: 28,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 20,
+    lineHeight: 28,
+    letterSpacing: 0.2,
+    color: '#000000',
+    includeFontPadding: false,
+  },
+
+  /* ── Cards Grid (2-column layout) ── */
+  cardsGrid: {
+    width: 358,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 24,
+  },
+
+  cardWrapper: {
+    position: 'relative',
+    width: 167,
+    height: 120,
+  },
+
+  /* ── 120px Card (Appointment Dashboard) ── */
+  card120: {
+    width: 167,
+    height: 120,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(192, 192, 204, 0.96)',
+    borderRadius: 24,
+    padding: 16,
+    justifyContent: 'space-between',
+  },
+
+  /* ── 136px Card (Business Dashboard) ── */
+  card136: {
+    width: 167,
+    height: 136,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(192, 192, 204, 0.96)',
+    borderRadius: 24,
+    padding: 16,
+    justifyContent: 'space-between',
+  },
+
+  cardHeaderRow: {
+    width: 135,
+    height: 24,
+    justifyContent: 'center',
+  },
+
+  cardHeaderRowMultiLine: {
+    width: 135,
+    height: 48,
+    justifyContent: 'flex-start',
+  },
+
+  cardTitleText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.4,
+    color: 'rgba(0, 8, 20, 0.96)',
+    includeFontPadding: false,
+  },
+
+  cardTitleTextMultiLine: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.4,
+    color: 'rgba(0, 8, 20, 0.96)',
+    includeFontPadding: false,
+  },
+
+  cardFooterRow: {
+    width: 135,
+    height: 28,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+  },
+
+  statTagRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+
+  statNumberText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 20,
+    lineHeight: 28,
+    letterSpacing: 0.2,
+    color: 'rgba(0, 8, 20, 0.96)',
+    includeFontPadding: false,
+  },
+
+  statLabelText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.4,
+    color: 'rgba(96, 96, 102, 0.96)',
+    includeFontPadding: false,
+  },
+
+  notificationBadge: {
+    position: 'absolute',
+    width: 26,
+    height: 20,
+    right: -2,
+    top: -3,
+    backgroundColor: 'rgba(204, 41, 41, 0.9)',
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+
+  notificationBadgeText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0.4,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
+
+  performanceStake: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    height: 20,
+  },
+
+  performancePercentText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.4,
+    color: 'rgba(12, 121, 12, 0.96)',
+    includeFontPadding: false,
+  },
+
+  /* ── Ads Banner Frame 1000006443 ── */
+  adsBanner: {
+    width: 358,
+    height: 116,
+    borderRadius: 24,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+
+  adsText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 20,
+    lineHeight: 28,
+    letterSpacing: 0.2,
+    color: '#000000',
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
+
+  /* ── Bottom Backdrop Blur & Gradient Blend Overlay (Rectangle 281) ── */
+  bottomBlurWrapper: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    overflow: 'hidden',
+    zIndex: 5,
+  },
+
+  /* ── App Navigation Bar (Floating Island) ── */
+  bottomNavContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 20,
+  },
+
+  bottomNavBar: {
+    width: 300,
+    height: 80,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    shadowColor: 'rgba(133, 139, 148, 0.08)',
+    shadowOffset: { width: 4, height: 10 },
+    shadowOpacity: 0.16,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+
+  navTabItem: {
+    width: 72,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+
+  navTabContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+
+  navTabText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0.4,
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
+
+  navTabTextActive: {
+    color: 'rgba(0, 8, 20, 0.96)',
+  },
+
+  navTabTextInactive: {
+    color: 'rgba(96, 96, 102, 0.96)',
+  },
+
+  activeTabIndicator: {
+    position: 'absolute',
+    bottom: -10,
+    width: 65,
+    height: 5,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 8, 20, 0.96)',
+  },
+});
