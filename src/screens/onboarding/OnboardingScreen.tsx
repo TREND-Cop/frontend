@@ -40,19 +40,17 @@ const AnimatedTrendTitle = () => {
   }, [fadeAnim, translateYAnim]);
 
   return (
-    <View style={styles.brandTitleContainer}>
-      <Animated.Text
-        style={[
-          styles.brandTitle,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: translateYAnim }],
-          },
-        ]}
-      >
-        TREND
-      </Animated.Text>
-    </View>
+    <Animated.View
+      style={[
+        styles.brandTitleContainer,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: translateYAnim }],
+        },
+      ]}
+    >
+      <Text style={styles.brandTitle}>TREND</Text>
+    </Animated.View>
   );
 };
 
@@ -348,14 +346,14 @@ const styles = StyleSheet.create({
       web: "'DM Sans', DMSans_700Bold, sans-serif",
       default: 'DMSans_700Bold',
     }),
-    fontWeight: '700',
-    fontStyle: 'normal',
+    ...(Platform.OS === 'ios' || Platform.OS === 'web' ? { fontWeight: '700' as const } : {}),
     fontSize: 24,
     lineHeight: 28,
     letterSpacing: 0.3,
+    includeFontPadding: false,
   },
 
-  // ── Subtitle (16px, line-height 24px, letter-spacing 0.2px, weight 400) ──
+  // ── Subtitle (16px, line-height 24px, letter-spacing 0.2px Android / 0.4px iOS, weight 400) ──
   brandDescription: {
     fontFamily: Platform.select({
       ios: 'SF Pro',
@@ -366,7 +364,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     fontSize: 16,
     lineHeight: 24,
-    letterSpacing: 0.2,
+    letterSpacing: Platform.OS === 'ios' ? 0.4 : 0.2,
     color: 'rgba(0, 8, 20, 0.96)',
   },
 

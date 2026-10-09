@@ -20,6 +20,7 @@ import { useBookingContext } from '../../store/BookingContext';
 import { pendingTimerStore } from '../../utils/pendingTimerStore';
 import { getServiceByIdOrName } from '../../constants/serviceCatalog';
 import { typography } from '../../constants/theme';
+import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
 
 // ── Exact Figma Vector Icons ──
 
@@ -277,6 +278,7 @@ const LaurelWreathRightIcon = ({ size = 24, color = '#FFFFFF' }: { size?: number
 export const PendingAppointmentDetailScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const bottomInset = Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16);
   const params = useLocalSearchParams();
   const { appointments, activeAppointment, updateAppointmentStatus, cancelAppointment } = useBookingContext();
 
@@ -503,7 +505,7 @@ export const PendingAppointmentDetailScreen = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: Math.max(insets.bottom, 24) + 100 },
+          { paddingBottom: 130 + bottomInset },
         ]}
       >
         {/* ── 1. Top Card: Booking Type Indicator (Figma: 358x82, radius 24px) ── */}
@@ -636,7 +638,7 @@ export const PendingAppointmentDetailScreen = () => {
       </ScrollView>
 
       {/* ── Sticky Bottom Action Bar (Figma: height 80px, shadow) ── */}
-      <View style={[styles.bottomActionBar, { paddingBottom: Math.max(16, insets.bottom) }]}>
+      <View style={[styles.bottomActionBar, { paddingBottom: bottomInset }]}>
         {appointmentState === 'pending' ? (
           <>
             {/* Left: Message Button */}
@@ -678,6 +680,8 @@ export const PendingAppointmentDetailScreen = () => {
           </>
         )}
       </View>
+
+      <NativeDockSpacer />
 
       {/* ── Cancel Booking Pop-up Modal (Figma: Cancel Booking, Discard, Cancel) ── */}
       <Modal

@@ -1,22 +1,29 @@
-import React, { useState, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Platform,
-  Dimensions,
-} from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import Svg, { Path, Rect, Circle } from 'react-native-svg';
-import { NativeDockSpacer } from '../../components/NativeDockSpacer';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import React, { useCallback, useState } from 'react';
+import {
+  Dimensions,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { BusinessStatusSwitch } from '../../components/BusinessStatusSwitch';
 import { CategoryFourDotLoader } from '../../components/CategoryFourDotLoader';
 import { ProviderDashboardSkeleton } from '../../components/ProviderDashboardSkeleton';
+import { useAppointments, useOngoingAppointments } from '../../store/appointmentStore';
+import { useBusinessStore } from '../../store/businessStore';
+import { useStaffStore } from '../../store/staffStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -33,16 +40,6 @@ function Location01Icon({ size = 16, color = 'rgba(96, 96, 102, 0.96)' }: { size
         strokeLinejoin="round"
       />
       <Circle cx="8" cy="6.333" r="1.8" stroke={color} strokeWidth="1.2" />
-    </Svg>
-  );
-}
-
-function SquareLock02Icon({ size = 16, color = 'rgba(204, 41, 41, 0.9)' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
-      <Rect x="2.67" y="6" width="10.66" height="8" rx="2" stroke={color} strokeWidth="1.5" />
-      <Path d="M5 6V3.833a3 3 0 016 0V6" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-      <Path d="M8 9.67v1.66" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -174,13 +171,13 @@ function Album02Icon({ size = 20, color = '#141B34' }: { size?: number; color?: 
   );
 }
 
-function TriangleIcon({ size = 12 }: { size?: number }) {
+function TriangleIcon({ size = 10 }: { size?: number }) {
   return (
-    <Svg width={size} height={size} viewBox="315 1036 12 12" fill="none">
+    <Svg width={10} height={9} viewBox="93.01 5.45 9.98 9.05" fill="none">
       <Path
-        d="M317.797 1040.61C318.919 1038.81 319.481 1037.91 320.216 1037.64C320.723 1037.45 321.278 1037.45 321.784 1037.64C322.519 1037.91 323.081 1038.81 324.203 1040.61C325.467 1042.64 326.099 1043.65 325.987 1044.49C325.911 1045.06 325.626 1045.59 325.188 1045.96C324.55 1046.5 323.366 1046.5 321 1046.5C318.634 1046.5 317.45 1046.5 316.812 1045.96C316.374 1045.59 316.089 1045.06 316.013 1044.49C315.901 1043.65 316.533 1042.64 317.797 1040.61Z"
+        d="M94.7967 8.61237C95.9194 6.81161 96.4807 5.91123 97.2163 5.64C97.7225 5.45333 98.2775 5.45333 98.7837 5.64C99.5193 5.91123 100.081 6.81161 101.203 8.61237C102.467 10.6392 103.099 11.6527 102.987 12.4889C102.911 13.0625 102.626 13.5865 102.188 13.9581C101.55 14.5 100.366 14.5 98 14.5C95.6336 14.5 94.4504 14.5 93.8119 13.9581C93.374 13.5865 93.0889 13.0625 93.0125 12.4889C92.9013 11.6527 93.5331 10.6392 94.7967 8.61237Z"
         fill="#0C790C"
-        fillOpacity="0.96"
+        fillOpacity={0.96}
       />
     </Svg>
   );
@@ -285,7 +282,42 @@ function ProfileNavIcon({ size = 24, active = false }: { size?: number; active?:
 export const ProviderDashboardScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [isClosed, setIsClosed] = useState(true);
+
+  // Locked Bottom Navigation Bar offset:
+  // Strictly locked at its designated bottom coordinate so it never moves when scrolling.
+  // On iOS: safely above the Home Indicator (Math.max(insets.bottom, 20)).
+  // On Android: locked 16dp above the bottom navigation bar.
+  const lockedBottomOffset = Platform.OS === 'ios' ? Math.max(insets.bottom, 20) : 16;
+  const { business, toggleIsOpen, updateProfile } = useBusinessStore();
+  const { appointments } = useAppointments();
+  const { ongoingAppointments } = useOngoingAppointments();
+  const { staffList } = useStaffStore();
+
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [editName, setEditName] = useState(business.name);
+  const [editAddress, setEditAddress] = useState(business.address);
+
+  const handleOpenEditModal = () => {
+    setEditName(business.name);
+    setEditAddress(business.address);
+    setIsEditModalVisible(true);
+  };
+
+  const handleSaveBusinessDetails = () => {
+    if (editName.trim()) {
+      updateProfile({
+        name: editName.trim(),
+        address: editAddress.trim() || business.address,
+      });
+    }
+    setIsEditModalVisible(false);
+  };
+
+  const pendingAppointmentsCount = appointments.length;
+  const ongoingAppointmentsCount = ongoingAppointments.length;
+  const onDutyStaffCount = staffList.filter((s) => s.statusCode !== 'closed').length;
+  const totalStaffCount = staffList.length;
+
   const [activeTab, setActiveTab] = useState<'dashboard' | 'messages' | 'profile'>('dashboard');
   const [isDashboardLoading, setIsDashboardLoading] = useState(true);
   const [showCategoryOverlay, setShowCategoryOverlay] = useState(false);
@@ -314,69 +346,58 @@ export const ProviderDashboardScreen: React.FC = () => {
     }, 850);
   };
 
-  if (isDashboardLoading) {
-    return <ProviderDashboardSkeleton />;
-  }
-
   return (
     <View style={styles.screenContainer}>
       <StatusBar style="dark" />
 
-      {/* Main Scroll Content */}
-      <ScrollView
+      {isDashboardLoading ? (
+        <ProviderDashboardSkeleton />
+      ) : (
+        /* Main Scroll Content */
+        <ScrollView
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
           {
             paddingTop: Math.max(insets.top + 16, 56),
-            paddingBottom: 160 + Math.max(insets.bottom, 16),
+            paddingBottom: 130 + lockedBottomOffset,
           },
         ]}
         showsVerticalScrollIndicator={false}
       >
         {/* ── Business Name and Open/Closed Button (width: 358px, height: 52px) ── */}
         <View style={styles.businessHeader}>
-          {/* Dashboard and Date / Address Info (width: 200px, height: 52px) */}
-          <View style={styles.businessInfoColumn}>
-            {/* Luminous Lux (width: 149px, height: 32px) */}
+          {/* Dashboard and Date / Address Info (Interactive - Tap to edit) */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={styles.businessInfoColumn}
+            onPress={handleOpenEditModal}
+          >
+            {/* Luminous Lux (Full dynamic name) */}
             <Text style={styles.businessName} numberOfLines={1}>
-              Luminous Lux
+              {business.name}
             </Text>
 
-            {/* Business Address Row (width: 200px, height: 16px) */}
+            {/* Business Address Row */}
             <View style={styles.addressRow}>
               <Location01Icon size={16} color="rgba(96, 96, 102, 0.96)" />
               <Text style={styles.addressText} numberOfLines={1}>
-                Street 11, off okiki road abuja.
+                {business.address}
               </Text>
             </View>
-          </View>
-
-          {/* Closed / Open Business Toggle Button (width: 104px, height: 40px) */}
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={[
-              styles.statusToggleButton,
-              isClosed ? styles.statusButtonClosed : styles.statusButtonOpen,
-            ]}
-            onPress={() => setIsClosed(!isClosed)}
-          >
-            {/* Toggle Circle (24x24) */}
-            <View style={styles.toggleCircle}>
-              <SquareLock02Icon size={16} color={isClosed ? 'rgba(204, 41, 41, 0.9)' : 'rgba(12, 121, 12, 0.96)'} />
-            </View>
-
-            {/* Status Label (55x24) */}
-            <Text style={styles.statusLabelText}>
-              {isClosed ? 'Closed' : 'Open'}
-            </Text>
           </TouchableOpacity>
+
+          {/* Closed / Open Business Switch Toggle (width: 104px, height: 40px) */}
+          <BusinessStatusSwitch
+            isOpen={business.isOpen}
+            onToggle={toggleIsOpen}
+          />
         </View>
 
-        {/* ── Appointment Dashboard Section (width: 358px) ── */}
+        {/* ── Staff Dashboard Section (width: 358px) ── */}
         <View style={styles.sectionContainer}>
-          {/* Section Heading: Appointment Dashboard */}
-          <Text style={styles.sectionTitle}>Appointment Dashboard</Text>
+          {/* Section Heading: Staff Dashboard */}
+          <Text style={styles.sectionTitle}>Staff Dashboard</Text>
 
           {/* Booking Dashboard 2x2 Grid (358px wide, 24px col gap, 40px row gap) */}
           <View style={styles.cardsGrid}>
@@ -392,19 +413,25 @@ export const ProviderDashboardScreen: React.FC = () => {
                   <Text style={styles.cardTitleText}>Appointments</Text>
                 </View>
 
-                {/* Bottom Row: 10 Pending + Calendar Icon */}
+                {/* Bottom Row: Pending count + Calendar Icon (24x24 in Figma) */}
                 <View style={styles.cardFooterRow}>
                   <View style={styles.statTagRow}>
-                    <Text style={styles.statNumberText}>10</Text>
+                    <Text style={styles.statNumberText}>{pendingAppointmentsCount}</Text>
                     <Text style={styles.statLabelText}>Pending</Text>
                   </View>
-                  <CalendarDaysIcon size={20} color="rgba(248, 155, 24, 0.96)" />
+                  <Image
+                    source={require('../../../assets/images/dashboard/appointments_calendar.png')}
+                    style={styles.calendarIconImage}
+                    resizeMode="contain"
+                  />
                 </View>
               </TouchableOpacity>
 
-              {/* Notification Badge: 102 (width: 26px, height: 20px, top: -3px, left: 143px) */}
+              {/* Notification Badge: (width: 26px, height: 20px, top: -3px, left: 143px) */}
               <View style={styles.notificationBadge} pointerEvents="none">
-                <Text style={styles.notificationBadgeText}>102</Text>
+                <Text style={styles.notificationBadgeText}>
+                  {business.notificationBadgeCount || pendingAppointmentsCount + ongoingAppointmentsCount}
+                </Text>
               </View>
             </View>
 
@@ -420,11 +447,16 @@ export const ProviderDashboardScreen: React.FC = () => {
 
               <View style={styles.cardFooterRow}>
                 <View style={styles.statTagRow}>
-                  <Text style={styles.statNumberText}>3</Text>
+                  <Text style={styles.statNumberText}>{ongoingAppointmentsCount}</Text>
                   <Text style={styles.statLabelText}>Ongoing</Text>
                 </View>
-                <LoaderIcon size={20} color="rgba(12, 121, 12, 0.96)" />
               </View>
+
+              <Image
+                source={require('../../../assets/images/dashboard/in_progress_spinner.png')}
+                style={styles.spinnerIconImage}
+                resizeMode="contain"
+              />
             </TouchableOpacity>
 
             {/* ── Card 3: My Staffs (167x120) ── */}
@@ -439,10 +471,14 @@ export const ProviderDashboardScreen: React.FC = () => {
 
               <View style={styles.cardFooterRow}>
                 <View style={styles.statTagRow}>
-                  <Text style={styles.statNumberText}>4</Text>
+                  <Text style={styles.statNumberText}>{onDutyStaffCount}</Text>
                   <Text style={styles.statLabelText}>On Duty</Text>
                 </View>
-                <UserMultipleIcon size={20} color="rgba(115, 3, 124, 0.96)" />
+                <Image
+                  source={require('../../../assets/images/dashboard/my_staffs_group.png')}
+                  style={{ width: 32, height: 32 }}
+                  resizeMode="contain"
+                />
               </View>
             </TouchableOpacity>
 
@@ -460,7 +496,11 @@ export const ProviderDashboardScreen: React.FC = () => {
                 <View style={styles.statTagRow}>
                   <Text style={styles.statLabelText}>More Options</Text>
                 </View>
-                <DashboardCircleIcon size={20} color="#141B34" />
+                <Image
+                  source={require('../../../assets/images/dashboard/categories_grid.png')}
+                  style={{ width: 26, height: 26 }}
+                  resizeMode="contain"
+                />
               </View>
             </TouchableOpacity>
           </View>
@@ -474,12 +514,16 @@ export const ProviderDashboardScreen: React.FC = () => {
         {/* ── Business Dashboard Section (width: 358px) ── */}
         <View style={styles.sectionContainer}>
           {/* Section Heading: Business Dashboard */}
-          <Text style={styles.sectionTitle}>Business Dashborad</Text>
+          <Text style={styles.sectionTitle}>Business Dashboard</Text>
 
           {/* Business Dashboard 3x2 Grid (358px wide, 24px col gap, 40px row gap) */}
           <View style={styles.cardsGrid}>
             {/* ── Card 1: Manage Business Service (167x136) ── */}
-            <TouchableOpacity activeOpacity={0.85} style={styles.card136}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.card136}
+              onPress={() => router.push('/category' as any)}
+            >
               <View style={styles.cardHeaderRowMultiLine}>
                 <Text style={styles.cardTitleTextMultiLine}>
                   Manage Business Service
@@ -488,15 +532,23 @@ export const ProviderDashboardScreen: React.FC = () => {
 
               <View style={styles.cardFooterRow}>
                 <View style={styles.statTagRow}>
-                  <Text style={styles.statNumberText}>3</Text>
+                  <Text style={styles.statNumberText}>{business.servicesCount}</Text>
                   <Text style={styles.statLabelText}>Services</Text>
                 </View>
-                <AddCircleIcon size={20} />
+                <Image
+                  source={require('../../../assets/images/dashboard/manage_service_add.png')}
+                  style={{ width: 35, height: 35 }}
+                  resizeMode="contain"
+                />
               </View>
             </TouchableOpacity>
 
             {/* ── Card 2: Post Service Photos (167x136) ── */}
-            <TouchableOpacity activeOpacity={0.85} style={styles.card136}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.card136}
+              onPress={() => router.push('/category' as any)}
+            >
               <View style={styles.cardHeaderRowMultiLine}>
                 <Text style={styles.cardTitleTextMultiLine}>
                   Post Service Photos
@@ -505,15 +557,23 @@ export const ProviderDashboardScreen: React.FC = () => {
 
               <View style={styles.cardFooterRow}>
                 <View style={styles.statTagRow}>
-                  <Text style={styles.statNumberText}>3</Text>
+                  <Text style={styles.statNumberText}>{business.photosCount}</Text>
                   <Text style={styles.statLabelText}>Photos</Text>
                 </View>
-                <Album02Icon size={20} color="#141B34" />
+                <Image
+                  source={require('../../../assets/images/dashboard/post_photos_camera.png')}
+                  style={{ width: 31, height: 22 }}
+                  resizeMode="contain"
+                />
               </View>
             </TouchableOpacity>
 
             {/* ── Card 3: Staff Management (167x136) ── */}
-            <TouchableOpacity activeOpacity={0.85} style={styles.card136}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.card136}
+              onPress={() => router.push('/staffs' as any)}
+            >
               <View style={styles.cardHeaderRowMultiLine}>
                 <Text style={styles.cardTitleTextMultiLine}>
                   Staff Management
@@ -522,15 +582,23 @@ export const ProviderDashboardScreen: React.FC = () => {
 
               <View style={styles.cardFooterRow}>
                 <View style={styles.statTagRow}>
-                  <Text style={styles.statNumberText}>2</Text>
+                  <Text style={styles.statNumberText}>{totalStaffCount}</Text>
                   <Text style={styles.statLabelText}>Staffs</Text>
                 </View>
-                <UserMultipleIcon size={20} color="rgba(115, 3, 124, 0.96)" />
+                <Image
+                  source={require('../../../assets/images/dashboard/staff_management_users.png')}
+                  style={{ width: 32, height: 32 }}
+                  resizeMode="contain"
+                />
               </View>
             </TouchableOpacity>
 
             {/* ── Card 4: Business Statistics (167x136) ── */}
-            <TouchableOpacity activeOpacity={0.85} style={styles.card136}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.card136}
+              onPress={() => router.push('/category' as any)}
+            >
               <View style={styles.cardHeaderRowMultiLine}>
                 <Text style={styles.cardTitleTextMultiLine}>
                   Business Statistics
@@ -540,16 +608,20 @@ export const ProviderDashboardScreen: React.FC = () => {
               <View style={styles.cardFooterRow}>
                 <Text style={styles.statLabelText}>Today</Text>
 
-                {/* Performance Stake: Triangle + 12% */}
+                {/* Performance Stake: Triangle + percentage */}
                 <View style={styles.performanceStake}>
                   <TriangleIcon size={12} />
-                  <Text style={styles.performancePercentText}>12%</Text>
+                  <Text style={styles.performancePercentText}>{business.performanceStake}</Text>
                 </View>
               </View>
             </TouchableOpacity>
 
             {/* ── Card 5: Clients Reviews and Comments (167x136) ── */}
-            <TouchableOpacity activeOpacity={0.85} style={styles.card136}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.card136}
+              onPress={() => router.push('/category' as any)}
+            >
               <View style={styles.cardHeaderRowMultiLine}>
                 <Text style={styles.cardTitleTextMultiLine}>
                   Clients Reviews and Comments
@@ -558,15 +630,23 @@ export const ProviderDashboardScreen: React.FC = () => {
 
               <View style={styles.cardFooterRow}>
                 <View style={styles.statTagRow}>
-                  <Text style={styles.statNumberText}>3</Text>
+                  <Text style={styles.statNumberText}>{business.reviewsCount}</Text>
                   <Text style={styles.statLabelText}>Reviews</Text>
                 </View>
-                <Comment01Icon size={20} color="#141B34" />
+                <Image
+                  source={require('../../../assets/images/dashboard/reviews_chat_bubbles.png')}
+                  style={{ width: 32, height: 32 }}
+                  resizeMode="contain"
+                />
               </View>
             </TouchableOpacity>
 
             {/* ── Card 6: Business Management (167x136) ── */}
-            <TouchableOpacity activeOpacity={0.85} style={styles.card136}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.card136}
+              onPress={() => router.push('/category' as any)}
+            >
               <View style={styles.cardHeaderRowMultiLine}>
                 <Text style={styles.cardTitleTextMultiLine}>
                   Business Management
@@ -575,126 +655,188 @@ export const ProviderDashboardScreen: React.FC = () => {
 
               <View style={styles.cardFooterRow}>
                 <Text style={styles.statLabelText}>Edit Information</Text>
-                <TaskEdit02Icon size={20} color="#141B34" />
+                <Image
+                  source={require('../../../assets/images/dashboard/business_folder.png')}
+                  style={{ width: 30, height: 30 }}
+                  resizeMode="contain"
+                />
               </View>
             </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
+      )}
 
-      {/* ── Bottom Backdrop Blur & Gradient Blend Overlay (Rectangle 281: height: 91px, backdrop-filter: blur(2px)) ── */}
-      <View
-        style={[
-          styles.bottomBlurWrapper,
-          {
-            bottom: Platform.OS === 'android' ? Math.max(insets.bottom, 56) : 0,
-            height: Platform.OS === 'ios' ? 91 + insets.bottom : 91,
-          },
-        ]}
-        pointerEvents="none"
-      >
-        <BlurView
-          intensity={Platform.OS === 'ios' ? 25 : 40}
-          tint="light"
-          style={StyleSheet.absoluteFill}
-        />
-        <LinearGradient
-          colors={['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0.72)', '#FFFFFF']}
-          locations={[0.1374, 0.5034, 1.0]}
-          style={StyleSheet.absoluteFill}
-        />
-      </View>
+      {/* ── Fixed Bottom Navigation Container (Locked at bottom, 100% stationary) ── */}
+      <View pointerEvents="box-none" style={styles.bottomFixedContainer}>
+        {/* Backdrop Fade & Solid White Shield to completely mask scrolling cards */}
+        <View
+          style={[
+            styles.bottomBackdropShield,
+            {
+              height: lockedBottomOffset + 80 + 36,
+            },
+          ]}
+          pointerEvents="none"
+        >
+          {Platform.OS === 'ios' && (
+            <BlurView
+              intensity={25}
+              tint="light"
+              style={StyleSheet.absoluteFill}
+            />
+          )}
+          <LinearGradient
+            colors={['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0.85)', '#FFFFFF']}
+            locations={[0, 0.4, 1.0]}
+            style={styles.backdropGradient}
+          />
+          <View style={styles.backdropSolidWhite} />
+        </View>
 
-      {/* ── App Navigation Bar (width: 300px, height: 80px, radius: 40px) ── */}
-      <View
-        style={[
-          styles.bottomNavContainer,
-          {
-            bottom:
-              Platform.OS === 'android'
-                ? Math.max(insets.bottom, 56) + 16
-                : Math.max(insets.bottom + 8, 32),
-          },
-        ]}
-      >
-        <View style={styles.bottomNavBar}>
-          {/* Tab 1: Dashboard (Active) */}
-          <TouchableOpacity
-            style={styles.navTabItem}
-            activeOpacity={0.8}
-            onPress={() => setActiveTab('dashboard')}
-          >
-            <View style={styles.navTabContent}>
-              <DashboardNavIcon size={24} active={activeTab === 'dashboard'} />
-              <Text
-                style={[
-                  styles.navTabText,
-                  activeTab === 'dashboard'
-                    ? styles.navTabTextActive
-                    : styles.navTabTextInactive,
-                ]}
-              >
-                Dashboard
-              </Text>
-            </View>
+        {/* ── App Navigation Bar (width: 300px, height: 80px, radius: 40px, locked) ── */}
+        <View
+          pointerEvents="box-none"
+          style={[
+            styles.bottomNavContainer,
+            {
+              bottom: lockedBottomOffset,
+            },
+          ]}
+        >
+          <View style={styles.bottomNavBar}>
+            {/* Tab 1: Dashboard (Active) */}
+            <TouchableOpacity
+              style={styles.navTabItem}
+              activeOpacity={0.8}
+              onPress={() => setActiveTab('dashboard')}
+            >
+              <View style={styles.navTabContent}>
+                <DashboardNavIcon size={24} active={activeTab === 'dashboard'} />
+                <Text
+                  style={[
+                    styles.navTabText,
+                    activeTab === 'dashboard'
+                      ? styles.navTabTextActive
+                      : styles.navTabTextInactive,
+                  ]}
+                >
+                  Dashboard
+                </Text>
+              </View>
 
-            {/* Active Indicator Bar: Rectangle 299 (width: 65px, height: 5px, radius: 8px) */}
-            {activeTab === 'dashboard' && <View style={styles.activeTabIndicator} />}
-          </TouchableOpacity>
+              {/* Active Indicator Bar: Rectangle 299 (width: 65px, height: 5px, radius: 8px) */}
+              {activeTab === 'dashboard' && <View style={styles.activeTabIndicator} />}
+            </TouchableOpacity>
 
-          {/* Tab 2: Messages */}
-          <TouchableOpacity
-            style={styles.navTabItem}
-            activeOpacity={0.8}
-            onPress={() => setActiveTab('messages')}
-          >
-            <View style={styles.navTabContent}>
-              <ChattingNavIcon size={24} active={activeTab === 'messages'} />
-              <Text
-                style={[
-                  styles.navTabText,
-                  activeTab === 'messages'
-                    ? styles.navTabTextActive
-                    : styles.navTabTextInactive,
-                ]}
-              >
-                Messages
-              </Text>
-            </View>
+            {/* Tab 2: Messages */}
+            <TouchableOpacity
+              style={styles.navTabItem}
+              activeOpacity={0.8}
+              onPress={() => router.push('/messages' as any)}
+            >
+              <View style={styles.navTabContent}>
+                <ChattingNavIcon size={24} active={activeTab === 'messages'} />
+                <Text
+                  style={[
+                    styles.navTabText,
+                    activeTab === 'messages'
+                      ? styles.navTabTextActive
+                      : styles.navTabTextInactive,
+                  ]}
+                >
+                  Messages
+                </Text>
+              </View>
 
-            {activeTab === 'messages' && <View style={styles.activeTabIndicator} />}
-          </TouchableOpacity>
+              {activeTab === 'messages' && <View style={styles.activeTabIndicator} />}
+            </TouchableOpacity>
 
-          {/* Tab 3: Profile */}
-          <TouchableOpacity
-            style={styles.navTabItem}
-            activeOpacity={0.8}
-            onPress={() => setActiveTab('profile')}
-          >
-            <View style={styles.navTabContent}>
-              <ProfileNavIcon size={24} active={activeTab === 'profile'} />
-              <Text
-                style={[
-                  styles.navTabText,
-                  activeTab === 'profile'
-                    ? styles.navTabTextActive
-                    : styles.navTabTextInactive,
-                ]}
-              >
-                Profile
-              </Text>
-            </View>
+            {/* Tab 3: Profile */}
+            <TouchableOpacity
+              style={styles.navTabItem}
+              activeOpacity={0.8}
+              onPress={() => setActiveTab('profile')}
+            >
+              <View style={styles.navTabContent}>
+                <ProfileNavIcon size={24} active={activeTab === 'profile'} />
+                <Text
+                  style={[
+                    styles.navTabText,
+                    activeTab === 'profile'
+                      ? styles.navTabTextActive
+                      : styles.navTabTextInactive,
+                  ]}
+                >
+                  Profile
+                </Text>
+              </View>
 
-            {activeTab === 'profile' && <View style={styles.activeTabIndicator} />}
-          </TouchableOpacity>
+              {activeTab === 'profile' && <View style={styles.activeTabIndicator} />}
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
-      {/* Android System Dock Barrier */}
-      <NativeDockSpacer backgroundColor="#FFFFFF" />
-
       {/* ── Category 4-Dot Loader Overlay (displayed over screen, not a new page) ── */}
       <CategoryFourDotLoader visible={showCategoryOverlay} />
+
+      {/* ── Edit Business Details Modal ── */}
+      <Modal
+        visible={isEditModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsEditModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={styles.editModalContainer}>
+            <Text style={styles.editModalTitle}>Edit Business Details</Text>
+
+            <View style={styles.editInputGroup}>
+              <Text style={styles.editInputLabel}>Business Name</Text>
+              <TextInput
+                style={styles.editTextInput}
+                value={editName}
+                onChangeText={setEditName}
+                placeholder="Enter business name"
+                placeholderTextColor="rgba(96, 96, 102, 0.96)"
+              />
+            </View>
+
+            <View style={styles.editInputGroup}>
+              <Text style={styles.editInputLabel}>Business Address</Text>
+              <TextInput
+                style={styles.editTextInput}
+                value={editAddress}
+                onChangeText={setEditAddress}
+                placeholder="Enter business address"
+                placeholderTextColor="rgba(96, 96, 102, 0.96)"
+              />
+            </View>
+
+            <View style={styles.editButtonsRow}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                style={styles.editCancelButton}
+                onPress={() => setIsEditModalVisible(false)}
+              >
+                <Text style={styles.editCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={styles.editSaveButton}
+                onPress={handleSaveBusinessDetails}
+              >
+                <Text style={styles.editSaveText}>Save Changes</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 };
@@ -728,15 +870,14 @@ const styles = StyleSheet.create({
   },
 
   businessInfoColumn: {
-    width: 200,
+    flex: 1,
     height: 52,
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     gap: 4,
+    marginRight: 12,
   },
 
   businessName: {
-    width: 149,
-    height: 32,
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
     fontWeight: '500',
     fontSize: 24,
@@ -747,67 +888,19 @@ const styles = StyleSheet.create({
   },
 
   addressRow: {
-    width: 200,
-    height: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
 
   addressText: {
-    width: 180,
-    height: 16,
+    flex: 1,
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
     fontWeight: '400',
     fontSize: 12,
     lineHeight: 16,
     letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
-    includeFontPadding: false,
-  },
-
-  statusToggleButton: {
-    width: 104,
-    height: 40,
-    borderRadius: 32,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    justifyContent: 'space-between',
-  },
-
-  statusButtonClosed: {
-    backgroundColor: 'rgba(204, 41, 41, 0.9)',
-  },
-
-  statusButtonOpen: {
-    backgroundColor: 'rgba(12, 121, 12, 0.96)',
-  },
-
-  toggleCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-
-  statusLabelText: {
-    width: 55,
-    height: 24,
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
-    fontWeight: '400',
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: 0.4,
-    color: 'rgba(255, 255, 255, 0.9)',
-    textAlign: 'center',
     includeFontPadding: false,
   },
 
@@ -847,6 +940,7 @@ const styles = StyleSheet.create({
 
   /* ── 120px Card (Appointment Dashboard) ── */
   card120: {
+    position: 'relative',
     width: 167,
     height: 120,
     backgroundColor: 'rgba(247, 247, 247, 0.96)',
@@ -903,10 +997,23 @@ const styles = StyleSheet.create({
 
   cardFooterRow: {
     width: 135,
-    height: 28,
+    minHeight: 28,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
+  },
+  calendarIconImage: {
+    width: 24,
+    height: 24,
+  },
+  spinnerIconImage: {
+    position: 'absolute',
+    width: 26,
+    height: 26,
+    left: 128.61,
+    top: 78.4,
+    transform: [{ rotate: '67.75deg' }],
+    zIndex: 2,
   },
 
   statTagRow: {
@@ -999,21 +1106,46 @@ const styles = StyleSheet.create({
   },
 
   /* ── Bottom Backdrop Blur & Gradient Blend Overlay (Rectangle 281) ── */
-  bottomBlurWrapper: {
+  /* ── Fixed Bottom Navigation Container & Backdrop Shield ── */
+  bottomFixedContainer: {
     position: 'absolute',
     left: 0,
     right: 0,
-    overflow: 'hidden',
-    zIndex: 5,
+    bottom: 0,
+    zIndex: 99,
+    ...Platform.select({
+      android: {
+        elevation: 10,
+      },
+    }),
   },
 
-  /* ── App Navigation Bar (Floating Island) ── */
+  bottomBackdropShield: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    overflow: 'hidden',
+  },
+
+  backdropGradient: {
+    height: 36,
+    width: '100%',
+  },
+
+  backdropSolidWhite: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    width: '100%',
+  },
+
+  /* ── App Navigation Bar (Floating Island Locked at Bottom) ── */
   bottomNavContainer: {
     position: 'absolute',
     left: 0,
     right: 0,
     alignItems: 'center',
-    zIndex: 20,
+    zIndex: 100,
   },
 
   bottomNavBar: {
@@ -1025,11 +1157,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    shadowColor: 'rgba(133, 139, 148, 0.08)',
-    shadowOffset: { width: 4, height: 10 },
-    shadowOpacity: 0.16,
-    shadowRadius: 24,
-    elevation: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(133, 139, 148, 0.08)',
+        shadowOffset: { width: 4, height: 10 },
+        shadowOpacity: 0.16,
+        shadowRadius: 24,
+      },
+      android: {
+        elevation: 12,
+      },
+      web: {
+        shadowColor: 'rgba(133, 139, 148, 0.08)',
+        shadowOffset: { width: 4, height: 10 },
+        shadowOpacity: 0.16,
+        shadowRadius: 24,
+      },
+    }),
   },
 
   navTabItem: {
@@ -1071,5 +1215,94 @@ const styles = StyleSheet.create({
     height: 5,
     borderRadius: 8,
     backgroundColor: 'rgba(0, 8, 20, 0.96)',
+  },
+
+  /* ── Edit Business Modal ── */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 8, 20, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  editModalContainer: {
+    width: '100%',
+    maxWidth: 358,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  editModalTitle: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 20,
+    lineHeight: 28,
+    letterSpacing: 0.2,
+    color: '#000814',
+    textAlign: 'center',
+  },
+  editInputGroup: {
+    gap: 6,
+  },
+  editInputLabel: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 14,
+    lineHeight: 20,
+    color: 'rgba(96, 96, 102, 0.96)',
+  },
+  editTextInput: {
+    height: 48,
+    borderWidth: 1,
+    borderColor: 'rgba(192, 192, 204, 0.96)',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontSize: 15,
+    color: '#000814',
+    backgroundColor: '#F8F9FA',
+  },
+  editButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 8,
+  },
+  editCancelButton: {
+    flex: 1,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(192, 192, 204, 0.96)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  editCancelText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 15,
+    color: 'rgba(96, 96, 102, 0.96)',
+  },
+  editSaveButton: {
+    flex: 1,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 8, 20, 0.96)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editSaveText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 15,
+    color: '#FFFFFF',
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -82,11 +82,11 @@ function SearchIcon({ size = 24, color = '#000000' }: { size?: number; color?: s
   );
 }
 
-function FilterFunnelIcon({ size = 24, color = '#141B34' }: { size?: number; color?: string }) {
+function FilterFunnelIcon({ size = 20, color = 'rgba(0, 8, 20, 0.96)' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M4 5h16c.55 0 .83.67.44 1.06L14 12.5v5.5a1 1 0 01-.55.89l-2 1A1 1 0 0110 19v-6.5L3.56 6.06A.75.75 0 014 5z"
+        d="M22 3H2L10 12.46V19L14 21V12.46L22 3Z"
         stroke={color}
         strokeWidth={1.5}
         strokeLinecap="round"
@@ -336,12 +336,12 @@ const INITIAL_STAFF_MEMBERS: StaffDutyItem[] = [
   },
   {
     id: 'staff-4',
-    name: 'Godwill Thomas',
+    name: 'Gavin Nwosi',
     role: 'Nail Artist',
     hours: '8am - 10pm',
     status: 'Lunch Break',
     statusCode: 'on_break',
-    avatar: require('../../../assets/images/profile/1007604717.jpg'),
+    avatar: require('../../../assets/images/profile/gavin_nwosis_avatar.png'),
     service: {
       title: 'Nail Repair',
       rating: '4.1',
@@ -352,12 +352,12 @@ const INITIAL_STAFF_MEMBERS: StaffDutyItem[] = [
   },
   {
     id: 'staff-5',
-    name: 'Godwill Thomas',
+    name: 'Emmanuel Kalu',
     role: 'Nail Artist',
     hours: '8am - 10pm',
     status: 'Closed',
     statusCode: 'closed',
-    avatar: require('../../../assets/images/profile/1007604717.jpg'),
+    avatar: require('../../../assets/images/profile/1007618600.jpg'),
     service: {
       title: 'Pedicure Care',
       rating: '4.1',
@@ -368,18 +368,31 @@ const INITIAL_STAFF_MEMBERS: StaffDutyItem[] = [
   },
 ];
 
+import {
+  useStaffStore,
+  StaffMember,
+  StaffStatusCode,
+} from '../../store/staffStore';
+
 export function ProviderStaffOnDutyScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<StaffStatusFilter>('all');
-  const [staffList, setStaffList] = useState<StaffDutyItem[]>(INITIAL_STAFF_MEMBERS);
+  const [selectedFilters, setSelectedFilters] = useState<StaffStatusFilter[]>([]);
+  const [recentFilters, setRecentFilters] = useState<StaffStatusFilter[]>([]);
+
+  useEffect(() => {
+    if (selectedFilters.length > 0) {
+      setRecentFilters((prev) => Array.from(new Set([...selectedFilters, ...prev])));
+    }
+  }, [selectedFilters]);
+  const { staffList, addStaffMember } = useStaffStore();
 
   const filteredStaff = useMemo(() => {
     let result = staffList;
-    if (statusFilter !== 'all') {
-      result = result.filter((s) => s.statusCode === statusFilter);
+    if (selectedFilters.length > 0) {
+      result = result.filter((s) => selectedFilters.includes(s.statusCode));
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -391,31 +404,65 @@ export function ProviderStaffOnDutyScreen() {
       );
     }
     return result;
-  }, [staffList, searchQuery, statusFilter]);
+  }, [staffList, searchQuery, selectedFilters]);
 
   const handleAddStaffPress = () => {
-    // Restore initial staff or add new staff member
-    if (staffList.length === 0) {
-      setStaffList(INITIAL_STAFF_MEMBERS);
-    } else {
-      const newStaff: StaffDutyItem = {
-        id: `staff-${Date.now()}`,
-        name: 'Blessing Udoh',
-        role: 'Hair Stylist',
-        status: 'Attending to client',
-        statusCode: 'attending',
-        avatar: require('../../../assets/images/profile/1007655253.jpg'),
-        service: {
-          title: 'Full Hair Grooming',
-          rating: '5.0',
-          duration: '1hr 30min',
-          price: '₦30,000',
-          image: require('../../../assets/images/appointments/hair_cut.jpg'),
-        },
-      };
-      setStaffList((prev) => [...prev, newStaff]);
-    }
-    setStatusFilter('all');
+    const newStaff: StaffMember = {
+      id: `staff-${Date.now()}`,
+      name: 'Blessing Udoh',
+      role: 'Hair Stylist',
+      status: 'Attending to client',
+      statusCode: 'attending',
+      hours: '8am - 10pm',
+      avatar: require('../../../assets/images/profile/1007655253.jpg'),
+      client: {
+        name: 'Jessica Amadi',
+        badge: 'New Client',
+        avatar: require('../../../assets/images/appointments/jude_fabulous.png'),
+        gender: 'Female',
+        badgeStatus: 'Non',
+        membership: '1 Day ago',
+      },
+      service: {
+        title: 'Full Hair Grooming',
+        rating: '5.0',
+        duration: '1hr 30min',
+        price: '₦30,000',
+        image: require('../../../assets/images/appointments/hair_cut.jpg'),
+      },
+      appointmentInfo: {
+        date: 'Today',
+        time: '11:30am',
+        type: 'In-Shop Service',
+      },
+      addOn: {
+        title: 'Hair Treatment',
+        price: '₦10,000',
+        duration: '30min',
+        rating: '5.0',
+        image: require('../../../assets/images/appointments/nail_art.png'),
+      },
+      note: {
+        text: '',
+        count: '0/120',
+      },
+      package: {
+        price: '₦5,500',
+        images: [
+          require('../../../assets/images/packages/shampoo_wash.png'),
+          require('../../../assets/images/packages/facial_sheet_mask.png'),
+        ],
+        items: ['Full Grooming', 'Scalp Wash', 'Conditioning'],
+      },
+      summary: {
+        appointmentCost: '₦40,000',
+        trendPoints: '-₦2,000',
+        paymentType: 'Opay (Transfer)',
+        total: '₦38,000',
+      },
+    };
+    addStaffMember(newStaff);
+    setSelectedFilters([]);
     setSearchQuery('');
   };
 
@@ -425,14 +472,12 @@ export function ProviderStaffOnDutyScreen() {
     if (isNoJobState) {
       return '3 Available staff';
     }
-    if (statusFilter === 'available') {
-      return `${filteredStaff.length} Available staff`;
-    }
-    if (statusFilter === 'on_break') {
-      return `${filteredStaff.length} Staff on break`;
-    }
-    if (statusFilter === 'closed') {
-      return `${filteredStaff.length} Closed staff`;
+    if (selectedFilters.length === 1) {
+      const f = selectedFilters[0];
+      if (f === 'available') return `${filteredStaff.length} Available staff`;
+      if (f === 'on_break') return `${filteredStaff.length} Staff on break`;
+      if (f === 'closed') return `${filteredStaff.length} Closed staff`;
+      if (f === 'attending') return `${filteredStaff.length} In-service staff`;
     }
     return `${filteredStaff.length} Staff on duty`;
   };
@@ -471,33 +516,31 @@ export function ProviderStaffOnDutyScreen() {
         {/* ── Search & Filter Bar (358x48px, top: 132px in Figma) ── */}
         <View style={styles.searchRow}>
           {/* Search Input Bar (288x48px) */}
-          <View style={styles.searchInputContainer}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.searchInputContainer}
+            onPress={() => router.push('/staff-search')}
+          >
             <SearchIcon size={24} color="#000000" />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search here.."
-              placeholderTextColor="rgba(96, 96, 102, 0.96)"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              returnKeyType="search"
-            />
-          </View>
+            <Text style={styles.searchPlaceholderText}>
+              {searchQuery.trim() ? searchQuery : 'Search here..'}
+            </Text>
+          </TouchableOpacity>
 
           {/* Filter Button (48x48px) */}
           <TouchableOpacity
             activeOpacity={0.8}
-            style={[
-              styles.filterButton,
-              statusFilter !== 'all' && styles.filterButtonActive,
-            ]}
+            style={styles.filterButton}
             onPress={() => setIsFilterModalOpen(true)}
           >
             <FilterFunnelIcon
-              size={24}
-              color={statusFilter !== 'all' ? 'rgba(0, 8, 20, 0.96)' : '#141B34'}
+              size={20}
+              color="rgba(0, 8, 20, 0.96)"
             />
-            {statusFilter !== 'all' && (
-              <View style={styles.filterNotificationDot} />
+            {selectedFilters.length > 0 && (
+              <View style={styles.filterBadge}>
+                <Text style={styles.filterBadgeText}>{selectedFilters.length}</Text>
+              </View>
             )}
           </TouchableOpacity>
         </View>
@@ -540,18 +583,57 @@ export function ProviderStaffOnDutyScreen() {
           <View style={styles.staffCardsList}>
             {filteredStaff.map((staff) => {
               const handleStaffPress = () => {
-                router.push({
-                  pathname: '/staff/[id]',
-                  params: {
-                    id: staff.id,
-                    name: staff.name,
-                    role: staff.role,
-                    serviceTitle: staff.service.title,
-                    servicePrice: staff.service.price,
-                    serviceDuration: staff.service.duration,
-                    serviceRating: staff.service.rating,
-                  },
-                });
+                if (staff.statusCode === 'attending') {
+                  router.push({
+                    pathname: '/staff/[id]',
+                    params: {
+                      id: staff.id,
+                      name: staff.name,
+                      role: staff.role,
+                      status: staff.status,
+                      statusCode: staff.statusCode,
+                      hours: staff.hours || '8am - 10pm',
+                      gender: staff.gender || 'Male',
+                      badge: staff.badge || staff.role,
+                      experience: staff.experience || '2 Years',
+                      serviceTitle: staff.service.title,
+                      servicePrice: staff.service.price,
+                      serviceDuration: staff.service.duration,
+                      serviceRating: staff.service.rating,
+                      clientName: staff.client.name,
+                      clientBadge: staff.client.badge,
+                      clientGender: staff.client.gender,
+                      clientMembership: staff.client.membership,
+                      appointmentDate: staff.appointmentInfo.date,
+                      appointmentTime: staff.appointmentInfo.time,
+                      appointmentType: staff.appointmentInfo.type,
+                      addOnTitle: staff.addOn.title,
+                      addOnPrice: staff.addOn.price,
+                      totalCost: staff.summary.total,
+                    },
+                  });
+                } else {
+                  // Staff not attending to client: route to staff profile with status clearly showing
+                  router.push({
+                    pathname: '/staff-profile',
+                    params: {
+                      id: staff.id,
+                      name: staff.name,
+                      staffName: staff.name,
+                      role: staff.role,
+                      staffRole: staff.role,
+                      status: staff.status,
+                      staffStatus: staff.status,
+                      statusCode: staff.statusCode,
+                      hours: staff.hours || '8am - 10pm',
+                      staffHours: staff.hours || '8am - 10pm',
+                      gender: staff.gender || 'Male',
+                      badge: staff.badge || staff.role,
+                      experience: staff.experience || '2 Years',
+                      rating: staff.service.rating || '4.1',
+                    },
+                  });
+                }
               };
 
               // ── 1:1 Figma Compact Status Card for Available, On Break & Closed ──
@@ -701,14 +783,24 @@ export function ProviderStaffOnDutyScreen() {
       {/* ── Filter Bottom Sheet Modal (1:1 Figma) ── */}
       <ProviderStaffFilterModal
         visible={isFilterModalOpen}
-        selectedFilter={statusFilter}
+        selectedFilters={selectedFilters}
+        recentFilters={recentFilters}
+        onRemoveRecentFilter={(filter) => {
+          setRecentFilters((prev) => prev.filter((f) => f !== filter));
+          setSelectedFilters((prev) => prev.filter((f) => f !== filter));
+        }}
+        staffList={staffList}
         onClose={() => setIsFilterModalOpen(false)}
-        onApply={(filter) => {
-          setStatusFilter(filter);
+        onApply={(filters) => {
+          const applied = Array.isArray(filters) ? filters : (filters === 'all' ? [] : [filters]);
+          setSelectedFilters(applied);
+          if (applied.length > 0) {
+            setRecentFilters((prev) => Array.from(new Set([...applied, ...prev])));
+          }
           setIsFilterModalOpen(false);
         }}
         onClear={() => {
-          setStatusFilter('all');
+          setSelectedFilters([]);
           setIsFilterModalOpen(false);
         }}
       />
@@ -807,10 +899,18 @@ const styles = StyleSheet.create({
     color: '#000000',
     paddingVertical: 0,
   },
+  searchPlaceholderText: {
+    flex: 1,
+    fontFamily: FONT_REGULAR,
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.4,
+    color: 'rgba(96, 96, 102, 0.96)',
+  },
   filterButton: {
     width: 48,
     height: 48,
-    backgroundColor: 'rgba(248, 249, 250, 0.98)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: 'rgba(192, 192, 204, 0.96)',
     borderRadius: 24,
@@ -818,18 +918,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'relative',
   },
-  filterButtonActive: {
-    borderColor: 'rgba(0, 8, 20, 0.96)',
-    backgroundColor: '#FFFFFF',
-  },
-  filterNotificationDot: {
+  filterBadge: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FF3B30',
+    top: -2,
+    right: -2,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#CC2929',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    zIndex: 2,
+  },
+  filterBadgeText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_600SemiBold',
+    fontWeight: '600',
+    fontSize: 11,
+    lineHeight: 14,
+    color: '#FFFFFF',
+    includeFontPadding: false,
+    textAlign: 'center',
   },
 
   /* ── Staff Subheader Label (14px, top: 196px / 220px) ── */

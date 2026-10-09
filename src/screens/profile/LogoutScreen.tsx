@@ -92,11 +92,6 @@ export const LogoutScreen: React.FC = () => {
         >
           <Text style={styles.logoutButtonText}>Logout</Text>
         </TouchableOpacity>
-
-        {/* ── Home Indicator (shown on devices without home indicator insets) ── */}
-        {insets.bottom === 0 && (
-          <View style={styles.homeIndicator} />
-        )}
       </View>
     </SafeAreaView>
   );
@@ -208,17 +203,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.15,
     color: 'rgba(204, 41, 41, 0.9)',
     includeFontPadding: false,
-  },
-
-  // ── Home Indicator (Figma: 134 x 5, bottom 8px) ──
-  homeIndicator: {
-    position: 'absolute',
-    bottom: 8,
-    left: (SCREEN_WIDTH - 134) / 2,
-    width: 134,
-    height: 5,
-    backgroundColor: '#000000',
-    borderRadius: 100,
   },
 });
 

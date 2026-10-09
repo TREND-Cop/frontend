@@ -14,7 +14,12 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
-import { ProviderAppointmentFilterModal } from '../../components/ProviderAppointmentFilterModal';
+import {
+  ProviderAppointmentFilterModal,
+  ProviderFilterState,
+  PRICE_STEPS,
+  matchAppointment,
+} from '../../components/ProviderAppointmentFilterModal';
 import { ProviderDateFilterModal } from '../../components/ProviderDateFilterModal';
 import { CategoryFourDotLoader } from '../../components/CategoryFourDotLoader';
 import { NoRecordedAppointmentsEmptyState } from '../../components/NoRecordedAppointmentsEmptyState';
@@ -137,34 +142,58 @@ function CancelCircleIcon({ size = 16 }: { size?: number }) {
 // ── Sample Cancelled Appointments Data (Matching Figma & Real Provider DB) ──
 const CANCELLED_APPOINTMENTS_DATA = [
   {
-    id: 'ca-1',
-    title: 'Crystal Nail Art',
-    duration: '1hr',
-    rating: '3.5',
-    price: '₦22,700',
-    image: require('../../../assets/images/appointments/nail_art.png'),
+    id: 'canc-201',
+    title: 'Full Men Grooming Package',
+    duration: '1hr 30m',
+    rating: '4.2',
+    price: '₦35,000',
+    image: require('../../../assets/images/appointments/hair_cut.jpg'),
     cancelledDate: '9 May, 2024',
-    clientName: 'Ayobami Isaac',
+    time: '11:00 AM',
+    clientName: 'Ibrahim Danjuma',
+    clientStatus: 'New Client',
+    gender: 'Male',
+    membership: 'Joined 2 wks ago',
+    specialist: 'Tunde Adebayo',
+    specialistRole: 'Master Barber',
+    type: 'In-Person',
+    paymentType: 'Inter - Bank Transfer',
   },
   {
-    id: 'ca-2',
-    title: 'Crystal Nail Art',
-    duration: '1hr',
-    rating: '3.5',
-    price: '₦22,700',
+    id: 'canc-202',
+    title: 'Deluxe Pedicure & Foot Scrub',
+    duration: '50m',
+    rating: '3.8',
+    price: '₦25,000',
     image: require('../../../assets/images/appointments/nail_art.png'),
     cancelledDate: '9 May, 2024',
-    clientName: 'Ayobami Isaac',
+    time: '01:30 PM',
+    clientName: 'Zainab Aliyu',
+    clientStatus: 'Non Subscriber',
+    gender: 'Female',
+    membership: 'Joined 1 mo ago',
+    specialist: 'Adaeze Nwosu',
+    specialistRole: 'Pedicurist',
+    type: 'Home Service',
+    paymentType: 'Cash Payment',
   },
   {
-    id: 'ca-3',
-    title: 'Crystal Nail Art',
-    duration: '1hr',
-    rating: '3.5',
-    price: '₦22,700',
-    image: require('../../../assets/images/appointments/nail_art.png'),
+    id: 'canc-203',
+    title: 'Men Braids & Styling',
+    duration: '2hrs',
+    rating: '4.6',
+    price: '₦32,000',
+    image: require('../../../assets/images/appointments/men_braids.jpg'),
     cancelledDate: '9 May, 2024',
-    clientName: 'Ayobami Isaac',
+    time: '04:00 PM',
+    clientName: 'Kelechi Amadi',
+    clientStatus: 'Subscriber Client',
+    gender: 'Male',
+    membership: 'Joined 4 mos ago',
+    specialist: 'Aisha Bello',
+    specialistRole: 'Braider',
+    type: 'In-Person',
+    paymentType: 'Card Payment',
   },
 ];
 
@@ -177,16 +206,93 @@ export default function ProviderCancelledAppointmentsScreen() {
   const [selectedDate, setSelectedDate] = useState('9 May, 2024');
   const [isNavigatingBack, setIsNavigatingBack] = useState(false);
 
+  const parsedInitialDate = useMemo(() => {
+    const yrMatch = selectedDate.match(/\b(19\d\d|20\d\d)\b/);
+    const yr = yrMatch ? parseInt(yrMatch[0], 10) : 2024;
+
+    const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+    const sLower = selectedDate.toLowerCase();
+    const moIdx = months.findIndex((m) => sLower.includes(m));
+    const mo = moIdx !== -1 ? moIdx : 4; // default May (4)
+
+    const dayMatch = selectedDate.match(/\b([1-9]|[12]\d|3[01])\b/);
+    const dy = dayMatch && !selectedDate.startsWith(dayMatch[0] + '9') ? parseInt(dayMatch[0], 10) : 9;
+
+    return { day: dy, month: mo, year: yr };
+  }, [selectedDate]);
+
+  const [appliedFilters, setAppliedFilters] = useState<ProviderFilterState | undefined>();
+
+  const activeFiltersCount = useMemo(() => {
+    if (!appliedFilters) return 0;
+    let count = 0;
+    if (
+      appliedFilters.minPrice > PRICE_STEPS[0] ||
+      appliedFilters.maxPrice < PRICE_STEPS[17] ||
+      (appliedFilters.customAmount && appliedFilters.customAmount.trim().length > 0)
+    ) {
+      count++;
+    }
+    if (appliedFilters.selectedServices && appliedFilters.selectedServices.length > 0) {
+      count += appliedFilters.selectedServices.length;
+    }
+    if (appliedFilters.selectedStaff && appliedFilters.selectedStaff.length > 0) {
+      count += appliedFilters.selectedStaff.length;
+    }
+    if (appliedFilters.customerType) count++;
+    if (appliedFilters.paymentMethod) count++;
+    if (appliedFilters.appointmentType) count++;
+    if (appliedFilters.bookedPackage) count++;
+    return count;
+  }, [appliedFilters]);
+
   const filteredAppointments = useMemo(() => {
-    if (!searchQuery.trim()) return CANCELLED_APPOINTMENTS_DATA;
-    const q = searchQuery.toLowerCase().trim();
-    return CANCELLED_APPOINTMENTS_DATA.filter(
-      (item) =>
-        item.title.toLowerCase().includes(q) ||
-        item.clientName.toLowerCase().includes(q) ||
-        item.price.toLowerCase().includes(q)
-    );
-  }, [searchQuery]);
+    let result = CANCELLED_APPOINTMENTS_DATA;
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(
+        (item) =>
+          item.title.toLowerCase().includes(q) ||
+          item.clientName.toLowerCase().includes(q) ||
+          item.price.toLowerCase().includes(q) ||
+          item.specialist?.toLowerCase().includes(q)
+      );
+    }
+
+    if (appliedFilters) {
+      result = result.filter((item) => matchAppointment(item, appliedFilters));
+    }
+
+    // Dynamic filtering by selectedDate (e.g. "9 May, 2024", or "2024")
+    if (selectedDate && selectedDate.trim().length > 0) {
+      const normSelected = selectedDate.toLowerCase().replace(/,/g, '').trim();
+      result = result.filter((item) => {
+        const itemDate = (item.cancelledDate || '').toLowerCase().replace(/,/g, '').trim();
+        // Exact or substring match (e.g. "9 may 2024" matches "9 may 2024")
+        if (itemDate.includes(normSelected) || normSelected.includes(itemDate)) {
+          return true;
+        }
+
+        // Year only match (e.g. user selected "2024")
+        if (/^\d{4}$/.test(normSelected)) {
+          return itemDate.includes(normSelected);
+        }
+
+        // Match month and year if formatted as "May 2024"
+        const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+        const matchedMonth = months.find((m) => normSelected.includes(m));
+        const matchedYear = normSelected.match(/\b(19\d\d|20\d\d)\b/)?.[0];
+        if (matchedMonth && matchedYear) {
+          return itemDate.includes(matchedMonth) && itemDate.includes(matchedYear);
+        }
+
+        return false;
+      });
+    }
+
+    return result;
+  }, [searchQuery, appliedFilters, selectedDate]);
 
   const appointmentCountText =
     filteredAppointments.length === 0
@@ -252,10 +358,18 @@ export default function ProviderCancelledAppointmentsScreen() {
           {/* Filter Button (48x48px, radius: 24px) */}
           <TouchableOpacity
             activeOpacity={0.8}
-            style={styles.filterButton}
+            style={[
+              styles.filterButton,
+              activeFiltersCount > 0 && styles.filterButtonActive,
+            ]}
             onPress={() => setFilterModalVisible(true)}
           >
-            <FilterFunnelIcon size={24} color="#141B34" />
+            <FilterFunnelIcon size={24} color={activeFiltersCount > 0 ? '#FFFFFF' : '#141B34'} />
+            {activeFiltersCount > 0 && (
+              <View style={styles.filterBadge}>
+                <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -279,10 +393,12 @@ export default function ProviderCancelledAppointmentsScreen() {
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={[
-            styles.scrollContent,
+            styles.emptyScrollContent,
             { paddingBottom: Math.max(insets.bottom, 24) + 40 },
           ]}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           <NoRecordedAppointmentsEmptyState />
         </ScrollView>
@@ -294,6 +410,8 @@ export default function ProviderCancelledAppointmentsScreen() {
             { paddingBottom: Math.max(insets.bottom, 24) + 40 },
           ]}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           <View style={styles.cardsList}>
             {filteredAppointments.map((item) => (
@@ -316,11 +434,21 @@ export default function ProviderCancelledAppointmentsScreen() {
                     params: {
                       id: item.id,
                       title: item.title,
+                      serviceTitle: item.title,
                       clientName: item.clientName,
+                      clientStatus: item.clientStatus,
+                      gender: item.gender,
+                      membership: item.membership,
+                      specialist: item.specialist,
+                      specialistRole: item.specialistRole,
+                      date: item.cancelledDate,
+                      time: item.time,
+                      type: item.type,
                       price: item.price,
                       duration: item.duration,
                       rating: item.rating,
                       status: 'cancelled',
+                      paymentType: item.paymentType || 'Inter - Bank Transfer',
                     },
                   } as any);
                 }}
@@ -372,8 +500,16 @@ export default function ProviderCancelledAppointmentsScreen() {
       <ProviderAppointmentFilterModal
         visible={filterModalVisible}
         onClose={() => setFilterModalVisible(false)}
-        onApply={() => setFilterModalVisible(false)}
-        onClear={() => setFilterModalVisible(false)}
+        items={CANCELLED_APPOINTMENTS_DATA}
+        currentFilters={appliedFilters}
+        onApply={(f) => {
+          setAppliedFilters(f);
+          setFilterModalVisible(false);
+        }}
+        onClear={() => {
+          setAppliedFilters(undefined);
+          setFilterModalVisible(false);
+        }}
       />
 
       {/* Date Filter Bottom Sheet Modal (1:1 Figma Month/Year Filter) */}
@@ -381,7 +517,7 @@ export default function ProviderCancelledAppointmentsScreen() {
         visible={dateFilterModalVisible}
         onClose={() => setDateFilterModalVisible(false)}
         onSelectDate={(newDate) => setSelectedDate(newDate)}
-        initialDate={{ day: 9, month: 4, year: 2024 }}
+        initialDate={parsedInitialDate}
       />
 
       {/* Back Button Transition Four-Dot Loader Overlay */}
@@ -490,6 +626,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  filterButtonActive: {
+    backgroundColor: '#000814',
+    borderColor: '#000814',
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#CC2929',
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  filterBadgeText: {
+    fontFamily: FONT_MEDIUM,
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
 
   // Date picker & Appointments count (Frame 1000006427: height: 45px, gap: 5px)
   datePickerSection: {
@@ -526,6 +684,9 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  emptyScrollContent: {
+    flexGrow: 1,
   },
   scrollContent: {
     paddingHorizontal: 16,

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,8 @@ import {
   ScrollView,
   Image,
   Platform,
+  Keyboard,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -235,17 +237,13 @@ function CheckmarkCircle02Icon({ size = 20 }: { size?: number }) {
   );
 }
 
-function OpayIcon({ size = 20 }: { size?: number }) {
+function OpayIcon({ size = 24 }: { size?: number }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-      <Circle cx="10" cy="10" r="7.5" stroke="#11A866" strokeWidth="2.5" />
-      <Path
-        d="M10 2.5A7.5 7.5 0 0 1 17.5 10"
-        stroke="#00BA92"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-      />
-    </Svg>
+    <Image
+      source={require('../../../assets/images/payment/opay.png')}
+      style={{ width: size, height: size }}
+      resizeMode="contain"
+    />
   );
 }
 
@@ -294,8 +292,8 @@ const DEFAULT_STAFF_DETAIL = {
     },
   },
   note: {
-    text: 'i would love for you to go gentle on my scalp',
-    count: '1/120',
+    text: '',
+    count: '0/120',
   },
   package: {
     price: '₦4,500',
@@ -314,7 +312,7 @@ const DEFAULT_STAFF_DETAIL = {
   },
 };
 
-// ── Screen Component ─────────────────────────────────────────────────────────
+import { getStaffById } from '../../store/staffStore';
 
 export function ProviderStaffDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -323,20 +321,141 @@ export function ProviderStaffDetailScreen() {
     id?: string;
     name?: string;
     role?: string;
+    status?: string;
+    statusCode?: string;
+    hours?: string;
+    gender?: string;
+    badge?: string;
+    experience?: string;
     serviceTitle?: string;
     servicePrice?: string;
     serviceDuration?: string;
     serviceRating?: string;
+    clientName?: string;
+    clientBadge?: string;
+    clientGender?: string;
+    clientMembership?: string;
+    appointmentDate?: string;
+    appointmentTime?: string;
+    appointmentType?: string;
+    addOnTitle?: string;
+    addOnPrice?: string;
+    totalCost?: string;
   }>();
 
-  const headerTitle = params.name || DEFAULT_STAFF_DETAIL.staffName;
-  const serviceName = params.serviceTitle || DEFAULT_STAFF_DETAIL.service.title;
-  const servicePrice = params.servicePrice || DEFAULT_STAFF_DETAIL.service.price;
-  const serviceDuration = params.serviceDuration || DEFAULT_STAFF_DETAIL.service.duration;
-  const serviceRating = params.serviceRating || DEFAULT_STAFF_DETAIL.service.rating;
+  const storeStaff = getStaffById(params.id);
 
-  const [noteText, setNoteText] = useState(DEFAULT_STAFF_DETAIL.note.text);
+  const staffName = params.name || storeStaff?.name || DEFAULT_STAFF_DETAIL.staffName;
+  const staffRole = params.role || storeStaff?.role || 'Barber';
+  const staffStatus = params.status || storeStaff?.status || 'Attending to client';
+  const staffStatusCode = (params.statusCode || storeStaff?.statusCode || 'attending') as string;
+  const staffAvatar = storeStaff?.avatar || require('../../../assets/images/profile/1007604716.jpg');
+  const staffGender = params.gender || storeStaff?.gender || 'Male';
+  const staffBadge = params.badge || storeStaff?.badge || staffRole;
+  const staffExperience = params.experience || storeStaff?.experience || storeStaff?.hours || '2 Years';
+
+  // Service details
+  const serviceName = params.serviceTitle || storeStaff?.service?.title || DEFAULT_STAFF_DETAIL.service.title;
+  const servicePrice = params.servicePrice || storeStaff?.service?.price || DEFAULT_STAFF_DETAIL.service.price;
+  const serviceDuration = params.serviceDuration || storeStaff?.service?.duration || DEFAULT_STAFF_DETAIL.service.duration;
+  const serviceRating = params.serviceRating || storeStaff?.service?.rating || DEFAULT_STAFF_DETAIL.service.rating;
+  const serviceImage = storeStaff?.service?.image || DEFAULT_STAFF_DETAIL.service.image;
+
+  // Client details
+  const clientName = params.clientName || storeStaff?.client?.name || DEFAULT_STAFF_DETAIL.client.name;
+  const clientBadge = params.clientBadge || storeStaff?.client?.badge || DEFAULT_STAFF_DETAIL.client.badge;
+  const clientAvatar = storeStaff?.client?.avatar || DEFAULT_STAFF_DETAIL.client.avatar;
+  const clientGender = params.clientGender || storeStaff?.client?.gender || DEFAULT_STAFF_DETAIL.client.gender;
+  const clientBadgeStatus = storeStaff?.client?.badgeStatus || DEFAULT_STAFF_DETAIL.client.badgeStatus;
+  const clientMembership = params.clientMembership || storeStaff?.client?.membership || DEFAULT_STAFF_DETAIL.client.membership;
+
+  // Appointment info
+  const appointmentDate = params.appointmentDate || storeStaff?.appointmentInfo?.date || DEFAULT_STAFF_DETAIL.appointmentInfo.date;
+  const appointmentTime = params.appointmentTime || storeStaff?.appointmentInfo?.time || DEFAULT_STAFF_DETAIL.appointmentInfo.time;
+  const appointmentType = params.appointmentType || storeStaff?.appointmentInfo?.type || DEFAULT_STAFF_DETAIL.appointmentInfo.type;
+
+  // Add-on info
+  const addOnTitle = params.addOnTitle || storeStaff?.addOn?.title || DEFAULT_STAFF_DETAIL.addOn.title;
+  const addOnPrice = params.addOnPrice || storeStaff?.addOn?.price || DEFAULT_STAFF_DETAIL.addOn.price;
+  const addOnDuration = storeStaff?.addOn?.duration || DEFAULT_STAFF_DETAIL.addOn.duration;
+  const addOnRating = storeStaff?.addOn?.rating || DEFAULT_STAFF_DETAIL.addOn.rating;
+  const addOnImage = storeStaff?.addOn?.image || DEFAULT_STAFF_DETAIL.addOn.image;
+
+  // Summary
+  const summaryAppointmentCost = storeStaff?.summary?.appointmentCost || DEFAULT_STAFF_DETAIL.summary.appointmentCost;
+  const summaryTrendPoints = storeStaff?.summary?.trendPoints || DEFAULT_STAFF_DETAIL.summary.trendPoints;
+  const summaryPaymentType = storeStaff?.summary?.paymentType || DEFAULT_STAFF_DETAIL.summary.paymentType;
+  const summaryTotal = params.totalCost || storeStaff?.summary?.total || DEFAULT_STAFF_DETAIL.summary.total;
+
+  // Package info
+  const packagePrice = storeStaff?.package?.price || DEFAULT_STAFF_DETAIL.package.price;
+  const packageImages = storeStaff?.package?.images || DEFAULT_STAFF_DETAIL.package.images;
+  const packageItems = storeStaff?.package?.items || DEFAULT_STAFF_DETAIL.package.items;
+
+  // Indicator copy
+  const indicatorTitle =
+    staffStatusCode === 'attending'
+      ? 'Ongoing Appointment'
+      : staffStatusCode === 'available'
+      ? 'Available on Duty'
+      : staffStatusCode === 'on_break'
+      ? 'On Scheduled Break'
+      : 'Off Duty / Closed';
+
+  const indicatorSubtitle =
+    staffStatusCode === 'attending'
+      ? clientName
+        ? `Attending to ${clientName}`
+        : 'This appointment is currently in progress'
+      : staffStatusCode === 'available'
+      ? 'Ready and available for new client appointments'
+      : staffStatusCode === 'on_break'
+      ? 'Staff member is currently taking a scheduled break'
+      : 'Staff shift concluded for the day';
+
+  const [noteText, setNoteText] = useState(storeStaff?.note.text || DEFAULT_STAFF_DETAIL.note.text);
   const noteInputRef = useRef<TextInput>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const noteSectionYRef = useRef<number>(0);
+  const noteBoxYRef = useRef<number>(0);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  const scrollNoteIntoView = useCallback(() => {
+    setTimeout(() => {
+      const targetY = noteSectionYRef.current + (noteBoxYRef.current || 32);
+      if (targetY > 0) {
+        scrollViewRef.current?.scrollTo({
+          y: Math.max(0, targetY - 60),
+          animated: true,
+        });
+      }
+    }, 120);
+  }, []);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        setIsKeyboardVisible(true);
+        if (noteInputRef.current?.isFocused()) {
+          scrollNoteIntoView();
+        }
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+        setIsKeyboardVisible(false);
+      }
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [scrollNoteIntoView]);
 
   return (
     <View style={styles.container}>
@@ -356,7 +475,7 @@ export function ProviderStaffDetailScreen() {
 
           {/* Centered Staff Name */}
           <Text style={styles.headerTitle} numberOfLines={1}>
-            {headerTitle}
+            {staffName}
           </Text>
 
           {/* Share button placeholder (48x48, opacity: 0 in Figma) */}
@@ -366,18 +485,35 @@ export function ProviderStaffDetailScreen() {
         </View>
       </View>
 
-      {/* ── Scrollable Body (358px wide content, 1:1 Figma spacing) ─────────── */}
-      <ScrollView
-        style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      {/* ── Keyboard Avoiding & Scrollable Body ─────────────────────────────── */}
+      <KeyboardAvoidingView
+        style={styles.flexOne}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.scrollContainer}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: isKeyboardVisible ? keyboardHeight + 60 : 24 },
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+        >
         {/* ── Hero: Ongoing Service Indicator (358x86px, top: 131px in Figma) ─── */}
         <View style={styles.indicatorWrapper}>
           <OngoingServiceIndicator
-            initialTime="1:25:30"
-            title="Ongoing Appointment"
-            subtitle="This appointment is currently in progress"
+            initialTime={
+              staffStatusCode === 'attending'
+                ? '1:25:30'
+                : staffStatusCode === 'on_break'
+                ? '0:30:00'
+                : '0:00:00'
+            }
+            title={indicatorTitle}
+            subtitle={indicatorSubtitle}
           />
         </View>
 
@@ -394,21 +530,21 @@ export function ProviderStaffDetailScreen() {
             {/* Image frame (64x64px, radius 56px, border 1px solid #FFFFFF) */}
             <View style={styles.avatarContainer}>
               <Image
-                source={DEFAULT_STAFF_DETAIL.client.avatar}
+                source={typeof staffAvatar === 'string' ? { uri: staffAvatar } : staffAvatar}
                 style={styles.avatarImage}
                 resizeMode="cover"
               />
             </View>
 
-            {/* Staff name and profession (238x60px, gap: 8px) */}
+            {/* Staff name and profession/role (238x60px, gap: 8px) */}
             <View style={styles.profileInfoCol}>
-              <Text style={styles.clientNameText}>
-                {DEFAULT_STAFF_DETAIL.client.name}
+              <Text style={styles.clientNameText} numberOfLines={1}>
+                {staffName}
               </Text>
               <View style={styles.newClientBadge}>
                 <AddMaleIcon size={20} color="rgba(10, 95, 10, 0.8)" />
                 <Text style={styles.newClientBadgeText}>
-                  {DEFAULT_STAFF_DETAIL.client.badge}
+                  {staffRole}
                 </Text>
               </View>
             </View>
@@ -423,7 +559,7 @@ export function ProviderStaffDetailScreen() {
               </View>
               <View style={styles.activityTextGroupCol1}>
                 <Text style={styles.activityLabel}>Gender</Text>
-                <Text style={styles.activityValueGender}>{DEFAULT_STAFF_DETAIL.client.gender}</Text>
+                <Text style={styles.activityValueGender}>{staffGender}</Text>
               </View>
             </View>
 
@@ -437,21 +573,21 @@ export function ProviderStaffDetailScreen() {
               </View>
               <View style={styles.activityTextGroupCol2}>
                 <Text style={styles.activityLabel}>Badge</Text>
-                <Text style={styles.activityValueBadge}>{DEFAULT_STAFF_DETAIL.client.badgeStatus}</Text>
+                <Text style={styles.activityValueBadge}>{staffBadge}</Text>
               </View>
             </View>
 
             {/* Vertical Divider: Line 182 (56px) */}
             <View style={styles.verticalDivider} />
 
-            {/* Col 3: Membership (Total appointments: 97x104px, padding: 8px 10px, gap: 8px) */}
+            {/* Col 3: Membership / Experience (Total appointments: 97x104px, padding: 8px 10px, gap: 8px) */}
             <View style={styles.activityColumnCol3}>
               <View style={styles.activityIconCircle}>
                 <User03Icon size={20} color="#141B34" />
               </View>
               <View style={styles.activityTextGroupCol3}>
-                <Text style={styles.activityLabel}>Membership</Text>
-                <Text style={styles.activityValueMembership}>{DEFAULT_STAFF_DETAIL.client.membership}</Text>
+                <Text style={styles.activityLabel}>Experience</Text>
+                <Text style={styles.activityValueMembership}>{staffExperience}</Text>
               </View>
             </View>
           </View>
@@ -463,11 +599,11 @@ export function ProviderStaffDetailScreen() {
 
           {/* Single #F7F7F7 Card Container */}
           <View style={styles.cardContainer}>
-            {/* Top item: Men Brade */}
+            {/* Top item: Service Details */}
             <View style={styles.cardItemRow}>
               <View style={styles.serviceImageFrame}>
                 <Image
-                  source={DEFAULT_STAFF_DETAIL.service.image}
+                  source={typeof serviceImage === 'string' ? { uri: serviceImage } : serviceImage}
                   style={styles.cardItemThumb16}
                   resizeMode="cover"
                 />
@@ -491,20 +627,20 @@ export function ProviderStaffDetailScreen() {
             {/* Subheading: Specialist */}
             <Text style={styles.cardSubHeading}>Specialist</Text>
 
-            {/* Specialist item */}
+            {/* Specialist item - Reflects staff member on duty */}
             <View style={styles.cardItemRow}>
               <Image
-                source={{ uri: DEFAULT_STAFF_DETAIL.service.specialist.avatar }}
+                source={typeof staffAvatar === 'string' ? { uri: staffAvatar } : staffAvatar}
                 style={styles.cardItemThumb24}
                 resizeMode="cover"
               />
               <View style={styles.cardItemInfoCol}>
-                <Text style={styles.cardItemTitle}>{DEFAULT_STAFF_DETAIL.service.specialist.name}</Text>
-                <Text style={styles.cardItemRole}>{DEFAULT_STAFF_DETAIL.service.specialist.role}</Text>
+                <Text style={styles.cardItemTitle}>{staffName}</Text>
+                <Text style={styles.cardItemRole}>{staffRole}</Text>
                 <View style={styles.cardItemMetaRow}>
                   <View style={styles.metaItem}>
                     <StarGoldIcon size={16} color="#F89B18" />
-                    <Text style={styles.metaText}>{DEFAULT_STAFF_DETAIL.service.specialist.rating}</Text>
+                    <Text style={styles.metaText}>{serviceRating}</Text>
                   </View>
                 </View>
               </View>
@@ -526,7 +662,7 @@ export function ProviderStaffDetailScreen() {
                   <Calendar03Icon size={24} color="#000814" />
                 </View>
                 <Text style={styles.appointmentInfoValue}>
-                  {DEFAULT_STAFF_DETAIL.appointmentInfo.date}
+                  {appointmentDate}
                 </Text>
               </View>
             </View>
@@ -539,7 +675,7 @@ export function ProviderStaffDetailScreen() {
                   <Clock3Icon size={24} color="#000814" />
                 </View>
                 <Text style={styles.appointmentInfoValue}>
-                  {DEFAULT_STAFF_DETAIL.appointmentInfo.time}
+                  {appointmentTime}
                 </Text>
               </View>
             </View>
@@ -552,7 +688,7 @@ export function ProviderStaffDetailScreen() {
                   <Home11Icon size={24} color="#000814" />
                 </View>
                 <Text style={styles.appointmentInfoValue}>
-                  {DEFAULT_STAFF_DETAIL.appointmentInfo.type}
+                  {appointmentType}
                 </Text>
               </View>
             </View>
@@ -561,34 +697,28 @@ export function ProviderStaffDetailScreen() {
 
         {/* ── Section: Add-One ──────────────────────────────────────────────── */}
         <View style={styles.sectionBlock}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionHeading}>Add-One</Text>
-            <TouchableOpacity style={styles.addOnHeaderButton} activeOpacity={0.7}>
-              <Text style={styles.addOnHeaderButtonText}>Add Ones</Text>
-              <AddCircleIcon size={20} color="#1A82FF" />
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.sectionHeading}>Add-One</Text>
 
           {/* Single #F7F7F7 Card Container */}
           <View style={styles.cardContainer}>
-            {/* Top item: Nail Repair */}
+            {/* Top item: Add-on */}
             <View style={styles.cardItemRow}>
               <Image
-                source={DEFAULT_STAFF_DETAIL.addOn.image}
+                source={typeof addOnImage === 'string' ? { uri: addOnImage } : addOnImage}
                 style={styles.cardItemThumb24}
                 resizeMode="cover"
               />
               <View style={styles.cardItemInfoCol}>
-                <Text style={styles.cardItemTitle}>{DEFAULT_STAFF_DETAIL.addOn.title}</Text>
-                <Text style={styles.cardItemPrice}>{DEFAULT_STAFF_DETAIL.addOn.price}</Text>
+                <Text style={styles.cardItemTitle}>{addOnTitle}</Text>
+                <Text style={styles.cardItemPrice}>{addOnPrice}</Text>
                 <View style={styles.cardItemMetaRow}>
                   <View style={styles.metaItem}>
                     <Time04Icon size={18} color="#606066" />
-                    <Text style={styles.metaText}>{DEFAULT_STAFF_DETAIL.addOn.duration}</Text>
+                    <Text style={styles.metaText}>{addOnDuration}</Text>
                   </View>
                   <View style={styles.metaItem}>
                     <StarGoldIcon size={16} color="#F89B18" />
-                    <Text style={styles.metaText}>{DEFAULT_STAFF_DETAIL.addOn.rating}</Text>
+                    <Text style={styles.metaText}>{addOnRating}</Text>
                   </View>
                 </View>
               </View>
@@ -600,21 +730,21 @@ export function ProviderStaffDetailScreen() {
             {/* Specialist item */}
             <View style={styles.cardItemRow}>
               <Image
-                source={{ uri: DEFAULT_STAFF_DETAIL.addOn.specialist.avatar }}
+                source={typeof staffAvatar === 'string' ? { uri: staffAvatar } : staffAvatar}
                 style={styles.cardItemThumb24}
                 resizeMode="cover"
               />
               <View style={styles.cardItemInfoCol}>
-                <Text style={styles.cardItemTitle}>{DEFAULT_STAFF_DETAIL.addOn.specialist.name}</Text>
-                <Text style={styles.cardItemRole}>{DEFAULT_STAFF_DETAIL.addOn.specialist.role}</Text>
+                <Text style={styles.cardItemTitle}>{staffName}</Text>
+                <Text style={styles.cardItemRole}>{staffRole}</Text>
                 <View style={styles.cardItemMetaRow}>
                   <View style={styles.metaItem}>
                     <Time04Icon size={18} color="#606066" />
-                    <Text style={styles.metaText}>{DEFAULT_STAFF_DETAIL.addOn.specialist.duration}</Text>
+                    <Text style={styles.metaText}>{addOnDuration}</Text>
                   </View>
                   <View style={styles.metaItem}>
                     <StarGoldIcon size={16} color="#F89B18" />
-                    <Text style={styles.metaText}>{DEFAULT_STAFF_DETAIL.addOn.specialist.rating}</Text>
+                    <Text style={styles.metaText}>{addOnRating}</Text>
                   </View>
                 </View>
               </View>
@@ -623,10 +753,20 @@ export function ProviderStaffDetailScreen() {
         </View>
 
         {/* ── Section: Note ─────────────────────────────────────────────────── */}
-        <View style={styles.sectionBlock}>
+        <View
+          style={styles.sectionBlock}
+          onLayout={(e) => {
+            noteSectionYRef.current = e.nativeEvent.layout.y;
+          }}
+        >
           <Text style={styles.sectionHeading}>Note</Text>
 
-          <View style={styles.noteBox}>
+          <View
+            style={styles.noteBox}
+            onLayout={(e) => {
+              noteBoxYRef.current = e.nativeEvent.layout.y;
+            }}
+          >
             <TextInput
               ref={noteInputRef}
               style={styles.noteTextInput}
@@ -636,6 +776,7 @@ export function ProviderStaffDetailScreen() {
               onChangeText={setNoteText}
               placeholder="Enter note here.."
               placeholderTextColor="rgba(96, 96, 102, 0.6)"
+              onFocus={scrollNoteIntoView}
             />
             <Text style={styles.noteCharCount}>
               {noteText.length}/120
@@ -651,35 +792,43 @@ export function ProviderStaffDetailScreen() {
             {/* 3 Photos Grid (2x2 layout, 140x140 each, borderRadius 16) */}
             <View style={styles.packageImagesGrid}>
               <View style={styles.packageImageRow}>
-                <Image
-                  source={DEFAULT_STAFF_DETAIL.package.images[0]}
-                  style={styles.packageGridImage}
-                  resizeMode="cover"
-                />
-                <Image
-                  source={DEFAULT_STAFF_DETAIL.package.images[1]}
-                  style={styles.packageGridImage}
-                  resizeMode="cover"
-                />
+                {packageImages[0] && (
+                  <Image
+                    source={typeof packageImages[0] === 'string' ? { uri: packageImages[0] } : packageImages[0]}
+                    style={styles.packageGridImage}
+                    resizeMode="cover"
+                  />
+                )}
+                {packageImages[1] && (
+                  <Image
+                    source={typeof packageImages[1] === 'string' ? { uri: packageImages[1] } : packageImages[1]}
+                    style={styles.packageGridImage}
+                    resizeMode="cover"
+                  />
+                )}
               </View>
               <View style={styles.packageImageRow}>
-                <Image
-                  source={DEFAULT_STAFF_DETAIL.package.images[2]}
-                  style={styles.packageGridImage}
-                  resizeMode="cover"
-                />
+                {packageImages[2] ? (
+                  <Image
+                    source={typeof packageImages[2] === 'string' ? { uri: packageImages[2] } : packageImages[2]}
+                    style={styles.packageGridImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.packageGridPlaceholder} />
+                )}
                 <View style={styles.packageGridPlaceholder} />
               </View>
             </View>
 
             {/* Price Tag */}
             <Text style={styles.packagePriceText}>
-              {DEFAULT_STAFF_DETAIL.package.price}
+              {packagePrice}
             </Text>
 
             {/* Package Checklist Items */}
             <View style={styles.packageItemsList}>
-              {DEFAULT_STAFF_DETAIL.package.items.map((item, idx) => (
+              {packageItems.map((item, idx) => (
                 <View key={idx} style={styles.packageItemRow}>
                   <CheckmarkCircle02Icon size={20} />
                   <Text style={styles.packageItemText}>{item}</Text>
@@ -698,7 +847,7 @@ export function ProviderStaffDetailScreen() {
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Appointment cost</Text>
               <Text style={styles.summaryValue}>
-                {DEFAULT_STAFF_DETAIL.summary.appointmentCost}
+                {summaryAppointmentCost}
               </Text>
             </View>
 
@@ -706,7 +855,7 @@ export function ProviderStaffDetailScreen() {
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Trend points</Text>
               <Text style={styles.summaryPointsValue}>
-                {DEFAULT_STAFF_DETAIL.summary.trendPoints}
+                {summaryTrendPoints}
               </Text>
             </View>
 
@@ -714,9 +863,9 @@ export function ProviderStaffDetailScreen() {
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Payment type</Text>
               <View style={styles.paymentTypeGroup}>
-                <OpayIcon size={20} />
+                <OpayIcon size={24} />
                 <Text style={styles.paymentTypeText}>
-                  {DEFAULT_STAFF_DETAIL.summary.paymentType}
+                  {summaryPaymentType}
                 </Text>
               </View>
             </View>
@@ -725,7 +874,7 @@ export function ProviderStaffDetailScreen() {
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Total</Text>
               <Text style={styles.summaryTotalValue}>
-                {DEFAULT_STAFF_DETAIL.summary.total}
+                {summaryTotal}
               </Text>
             </View>
           </View>
@@ -734,6 +883,7 @@ export function ProviderStaffDetailScreen() {
         {/* Extra breathing space at bottom */}
         <View style={{ height: 24 }} />
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* ── Native Dock Spacer (Android Navigation Bar Protection) ─────────── */}
       <NativeDockSpacer backgroundColor="#FFFFFF" />
@@ -747,6 +897,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  flexOne: {
+    flex: 1,
   },
 
   // ── Header (64px high, top: 44px) ──
@@ -1076,8 +1229,8 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 0.5,
     color: 'rgba(0, 8, 20, 0.96)',
-    marginTop: 4,
-    marginBottom: 4,
+    marginTop: 8,
+    marginBottom: 8,
     paddingHorizontal: 4,
   },
 

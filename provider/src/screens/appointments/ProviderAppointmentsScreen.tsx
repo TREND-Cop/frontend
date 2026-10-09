@@ -20,6 +20,7 @@ import {
   ProviderAppointmentFilterModal,
   ProviderFilterState,
   PRICE_STEPS,
+  matchAppointment,
 } from '../../components/ProviderAppointmentFilterModal';
 import { useAppointments } from '../../store/appointmentStore';
 
@@ -115,318 +116,6 @@ interface AppointmentItem {
   bookedPackage?: 'basic' | 'premium' | 'exclusive';
 }
 
-const INITIAL_APPOINTMENTS: AppointmentItem[] = [
-  // ── 6 Hair Appointments (Tunde & Chioma) ──
-  {
-    id: '1',
-    title: 'Hair cut',
-    duration: '1hr',
-    rating: '3.5',
-    price: '₦27,550',
-    numericPrice: 27550,
-    countdown: '2:59',
-    statusText: 'Waiting for you to Accept',
-    image: require('../../../assets/images/appointments/hair_cut.jpg'),
-    staff: 'Tunde',
-    customerType: 'verified',
-    paymentMethod: 'transfer',
-    appointmentType: 'in-person',
-    bookedPackage: 'basic',
-  },
-  {
-    id: '2',
-    title: 'Hair wash',
-    duration: '1hr',
-    rating: '3.5',
-    price: '₦30,000',
-    numericPrice: 30000,
-    countdown: '2:59',
-    statusText: 'Waiting for you to Accept',
-    image: require('../../../assets/images/appointments/hair_cut.jpg'),
-    staff: 'Chioma',
-    customerType: 'verified',
-    paymentMethod: 'cash',
-    appointmentType: 'in-person',
-    bookedPackage: 'basic',
-  },
-  {
-    id: '3',
-    title: 'Hair cut & Styling',
-    duration: '1hr',
-    rating: '3.5',
-    price: '₦35,000',
-    numericPrice: 35000,
-    countdown: '2:59',
-    statusText: 'Waiting for you to Accept',
-    image: require('../../../assets/images/appointments/hair_cut.jpg'),
-    staff: 'Tunde',
-    customerType: 'verified',
-    paymentMethod: 'transfer',
-    appointmentType: 'in-person',
-    bookedPackage: 'premium',
-  },
-  {
-    id: '4',
-    title: 'Hair wash & Steam',
-    duration: '1hr',
-    rating: '3.5',
-    price: '₦28,000',
-    numericPrice: 28000,
-    countdown: '2:59',
-    statusText: 'Waiting for you to Accept',
-    image: require('../../../assets/images/appointments/hair_cut.jpg'),
-    staff: 'Chioma',
-    customerType: 'non-verified',
-    paymentMethod: 'cash',
-    appointmentType: 'home-service',
-    bookedPackage: 'basic',
-  },
-  {
-    id: '5',
-    title: 'Deep Hair Conditioning',
-    duration: '1hr',
-    rating: '3.5',
-    price: '₦48,000',
-    numericPrice: 48000,
-    countdown: '2:59',
-    statusText: 'Waiting for you to Accept',
-    image: require('../../../assets/images/appointments/hair_cut.jpg'),
-    staff: 'Chioma',
-    customerType: 'verified',
-    paymentMethod: 'transfer',
-    appointmentType: 'in-person',
-    bookedPackage: 'exclusive',
-  },
-  {
-    id: '6',
-    title: 'Hair cut Fade & Beard',
-    duration: '1hr',
-    rating: '3.5',
-    price: '₦42,000',
-    numericPrice: 42000,
-    countdown: '2:59',
-    statusText: 'Waiting for you to Accept',
-    image: require('../../../assets/images/appointments/hair_cut.jpg'),
-    staff: 'Tunde',
-    customerType: 'verified',
-    paymentMethod: 'cash',
-    appointmentType: 'in-person',
-    bookedPackage: 'premium',
-  },
-
-  // ── 5 Nail Appointments (Ahsia & Adaeze) ──
-  {
-    id: '7',
-    title: 'Nail art Design',
-    duration: '1hr',
-    rating: '3.5',
-    price: '₦22,700',
-    numericPrice: 22700,
-    countdown: '2:59',
-    statusText: 'Waiting for you to Accept',
-    image: require('../../../assets/images/appointments/nail_art.png'),
-    staff: 'Ahsia',
-    customerType: 'verified',
-    paymentMethod: 'transfer',
-    appointmentType: 'in-person',
-    bookedPackage: 'basic',
-  },
-  {
-    id: '8',
-    title: 'Luxury Manicure',
-    duration: '1hr',
-    rating: '3.5',
-    price: '₦25,000',
-    numericPrice: 25000,
-    countdown: '2:59',
-    statusText: 'Waiting for you to Accept',
-    image: require('../../../assets/images/appointments/nail_art.png'),
-    staff: 'Ahsia',
-    customerType: 'verified',
-    paymentMethod: 'cash',
-    appointmentType: 'in-person',
-    bookedPackage: 'premium',
-  },
-  {
-    id: '9',
-    title: 'Nail art Acrylic Extension',
-    duration: '1hr',
-    rating: '3.5',
-    price: '₦45,000',
-    numericPrice: 45000,
-    countdown: '2:59',
-    statusText: 'Waiting for you to Accept',
-    image: require('../../../assets/images/appointments/nail_art.png'),
-    staff: 'Adaeze',
-    customerType: 'non-verified',
-    paymentMethod: 'transfer',
-    appointmentType: 'home-service',
-    bookedPackage: 'exclusive',
-  },
-  {
-    id: '10',
-    title: 'Classic Manicure',
-    duration: '1hr',
-    rating: '3.5',
-    price: '₦20,000',
-    numericPrice: 20000,
-    countdown: '2:59',
-    statusText: 'Waiting for you to Accept',
-    image: require('../../../assets/images/appointments/nail_art.png'),
-    staff: 'Adaeze',
-    customerType: 'verified',
-    paymentMethod: 'cash',
-    appointmentType: 'in-person',
-    bookedPackage: 'basic',
-  },
-  {
-    id: '11',
-    title: 'Gel Nail Polish & Art',
-    duration: '1hr',
-    rating: '3.5',
-    price: '₦38,000',
-    numericPrice: 38000,
-    countdown: '2:59',
-    statusText: 'Waiting for you to Accept',
-    image: require('../../../assets/images/appointments/nail_art.png'),
-    staff: 'Ahsia',
-    customerType: 'non-verified',
-    paymentMethod: 'transfer',
-    appointmentType: 'in-person',
-    bookedPackage: 'premium',
-  },
-
-  // ── 8 Pedicure Appointments (Ahsia & Adaeze) ──
-  {
-    id: '12',
-    title: 'Pedicure & Spa',
-    duration: '1hr',
-    rating: '3.5',
-    price: '₦35,000',
-    numericPrice: 35000,
-    countdown: '2:59',
-    statusText: 'Waiting for you to Accept',
-    image: require('../../../assets/images/appointments/nail_art.png'),
-    staff: 'Ahsia',
-    customerType: 'verified',
-    paymentMethod: 'cash',
-    appointmentType: 'in-person',
-    bookedPackage: 'basic',
-  },
-  {
-    id: '13',
-    title: 'Classic Pedicure',
-    duration: '1hr',
-    rating: '3.5',
-    price: '₦28,000',
-    numericPrice: 28000,
-    countdown: '2:59',
-    statusText: 'Waiting for you to Accept',
-    image: require('../../../assets/images/appointments/nail_art.png'),
-    staff: 'Adaeze',
-    customerType: 'verified',
-    paymentMethod: 'transfer',
-    appointmentType: 'in-person',
-    bookedPackage: 'basic',
-  },
-  {
-    id: '14',
-    title: 'Deluxe Foot Spa Pedicure',
-    duration: '1hr',
-    rating: '3.5',
-    price: '₦45,000',
-    numericPrice: 45000,
-    countdown: '2:59',
-    statusText: 'Waiting for you to Accept',
-    image: require('../../../assets/images/appointments/nail_art.png'),
-    staff: 'Adaeze',
-    customerType: 'non-verified',
-    paymentMethod: 'transfer',
-    appointmentType: 'home-service',
-    bookedPackage: 'exclusive',
-  },
-  {
-    id: '15',
-    title: 'French Pedicure',
-    duration: '1hr',
-    rating: '3.5',
-    price: '₦32,000',
-    numericPrice: 32000,
-    countdown: '2:59',
-    statusText: 'Waiting for you to Accept',
-    image: require('../../../assets/images/appointments/nail_art.png'),
-    staff: 'Ahsia',
-    customerType: 'verified',
-    paymentMethod: 'cash',
-    appointmentType: 'in-person',
-    bookedPackage: 'basic',
-  },
-  {
-    id: '16',
-    title: 'Deep Clean Pedicure',
-    duration: '1hr',
-    rating: '3.5',
-    price: '₦30,000',
-    numericPrice: 30000,
-    countdown: '2:59',
-    statusText: 'Waiting for you to Accept',
-    image: require('../../../assets/images/appointments/nail_art.png'),
-    staff: 'Adaeze',
-    customerType: 'verified',
-    paymentMethod: 'cash',
-    appointmentType: 'in-person',
-    bookedPackage: 'basic',
-  },
-  {
-    id: '17',
-    title: 'Hot Stone Pedicure',
-    duration: '1hr',
-    rating: '3.5',
-    price: '₦50,000',
-    numericPrice: 50000,
-    countdown: '2:59',
-    statusText: 'Waiting for you to Accept',
-    image: require('../../../assets/images/appointments/nail_art.png'),
-    staff: 'Adaeze',
-    customerType: 'verified',
-    paymentMethod: 'transfer',
-    appointmentType: 'in-person',
-    bookedPackage: 'exclusive',
-  },
-  {
-    id: '18',
-    title: 'Herbal Spa Pedicure',
-    duration: '1hr',
-    rating: '3.5',
-    price: '₦40,000',
-    numericPrice: 40000,
-    countdown: '2:59',
-    statusText: 'Waiting for you to Accept',
-    image: require('../../../assets/images/appointments/nail_art.png'),
-    staff: 'Ahsia',
-    customerType: 'non-verified',
-    paymentMethod: 'cash',
-    appointmentType: 'home-service',
-    bookedPackage: 'premium',
-  },
-  {
-    id: '19',
-    title: 'Paraffin Pedicure Care',
-    duration: '1hr',
-    rating: '3.5',
-    price: '₦48,000',
-    numericPrice: 48000,
-    countdown: '2:59',
-    statusText: 'Waiting for you to Accept',
-    image: require('../../../assets/images/appointments/nail_art.png'),
-    staff: 'Adaeze',
-    customerType: 'verified',
-    paymentMethod: 'transfer',
-    appointmentType: 'in-person',
-    bookedPackage: 'exclusive',
-  },
-];
-
 export const ProviderAppointmentsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -438,12 +127,12 @@ export const ProviderAppointmentsScreen: React.FC = () => {
 
   const handleRefresh = () => {
     setIsRefreshing(true);
+    resetAppointments();
+    setAppliedFilters(undefined);
+    setSearchQuery('');
     setTimeout(() => {
-      resetAppointments();
-      setAppliedFilters(undefined);
-      setSearchQuery('');
       setIsRefreshing(false);
-    }, 1200);
+    }, 800);
   };
 
   // Calculate active filter count dynamically
@@ -482,79 +171,13 @@ export const ProviderAppointmentsScreen: React.FC = () => {
       );
     }
 
-    // Applied filter modal options
+    // Applied filter modal options (using canonical matchAppointment)
     if (appliedFilters) {
-      const effectiveMaxPrice = appliedFilters.customAmount
-        ? (parseInt(appliedFilters.customAmount.replace(/[^0-9]/g, ''), 10) || appliedFilters.maxPrice)
-        : appliedFilters.maxPrice;
-
-      result = result.filter((item) => {
-        // Price Range
-        const numPrice = item.numericPrice || parseInt((item.price || '').replace(/[^0-9]/g, ''), 10) || 0;
-        if (numPrice > 0) {
-          if (numPrice < appliedFilters.minPrice || numPrice > effectiveMaxPrice) {
-            return false;
-          }
-        }
-
-        // Services (supports multi-service filters matching design notes)
-        if (appliedFilters.selectedServices && appliedFilters.selectedServices.length > 0) {
-          const itemTitle = item.title.toLowerCase().replace(/[^a-z0-9]/g, '');
-          const matches = appliedFilters.selectedServices.some((svc) => {
-            const cleanSvc = svc.toLowerCase().replace(/[^a-z0-9]/g, '');
-            if (itemTitle.includes(cleanSvc)) return true;
-            if (cleanSvc === 'haircut' && (itemTitle.includes('haircut') || itemTitle.includes('hair'))) return true;
-            if (cleanSvc === 'hairwash' && (itemTitle.includes('hairwash') || itemTitle.includes('conditioning'))) return true;
-            if (cleanSvc === 'nailart' && (itemTitle.includes('nail') || itemTitle.includes('manicure'))) return true;
-            if (cleanSvc === 'manicure' && itemTitle.includes('manicure')) return true;
-            if (cleanSvc === 'pedicure' && itemTitle.includes('pedicure')) return true;
-            if (cleanSvc === 'feetmassage' && (itemTitle.includes('massage') || itemTitle.includes('feet'))) return true;
-            return false;
-          });
-          if (!matches) return false;
-        }
-
-        // Staff
-        if (appliedFilters.selectedStaff && appliedFilters.selectedStaff.length > 0) {
-          if (!item.staff || !appliedFilters.selectedStaff.includes(item.staff)) {
-            return false;
-          }
-        }
-
-        // Customer Type
-        if (appliedFilters.customerType) {
-          if (item.customerType && item.customerType !== appliedFilters.customerType) {
-            return false;
-          }
-        }
-
-        // Payment Method
-        if (appliedFilters.paymentMethod) {
-          if (item.paymentMethod && item.paymentMethod !== appliedFilters.paymentMethod) {
-            return false;
-          }
-        }
-
-        // Appointment Type
-        if (appliedFilters.appointmentType) {
-          if (item.appointmentType && item.appointmentType !== appliedFilters.appointmentType) {
-            return false;
-          }
-        }
-
-        // Booked Package
-        if (appliedFilters.bookedPackage) {
-          if (item.bookedPackage && item.bookedPackage !== appliedFilters.bookedPackage) {
-            return false;
-          }
-        }
-
-        return true;
-      });
+      result = result.filter((item) => matchAppointment(item, appliedFilters));
     }
 
     return result;
-  }, [searchQuery, appliedFilters]);
+  }, [appointments, searchQuery, appliedFilters]);
 
   return (
     <View style={styles.screenContainer}>
@@ -591,6 +214,8 @@ export const ProviderAppointmentsScreen: React.FC = () => {
           },
         ]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         refreshControl={
           <RefreshControl
             refreshing={false}
@@ -660,12 +285,25 @@ export const ProviderAppointmentsScreen: React.FC = () => {
                     pathname: '/appointment/[id]',
                     params: {
                       id: item.id,
-                      title: item.clientName || 'Ayobami Isaac',
-                      serviceTitle: item.title,
-                      price: item.price,
-                      duration: item.duration,
-                      rating: item.rating,
+                      title: 'Ayobami Isaac',
+                      clientName: item.id === '1' ? 'Jude Fabulous' : (item.clientName || 'Jude Fabulous'),
+                      serviceTitle: item.id === '1' ? 'All Back Dreadlock' : item.title,
+                      clientStatus: item.clientStatus || 'Non Client',
+                      gender: item.gender || 'Male',
+                      membership: item.membership || '5 Days ago',
+                      price: item.id === '1' ? '₦14,200' : item.price,
+                      duration: item.id === '1' ? '1hr' : item.duration,
+                      rating: item.id === '1' ? '3.6' : item.rating,
                       staff: item.staff || 'Bisola Olarewaju',
+                      specialist: item.staff || 'Bisola Olarewaju',
+                      specialistRole: item.specialistRole || 'Nail Artist',
+                      date: item.date || 'Nov 19, 2026',
+                      time: item.time || '9:30am',
+                      appointmentType: item.appointmentType === 'home-service' ? 'Home Service' : (item.appointmentType === 'in-person' ? 'In-Person' : 'Home Service'),
+                      type: item.appointmentType === 'home-service' ? 'Home Service' : (item.appointmentType === 'in-person' ? 'In-Person' : 'Home Service'),
+                      status: 'request',
+                      statusText: item.statusText || 'Waiting for you to Accept',
+                      paymentType: item.paymentType || (item.paymentMethod === 'cash' ? 'Cash Payment' : 'Opay (Transfer)'),
                     },
                   });
                 }}
@@ -723,7 +361,7 @@ export const ProviderAppointmentsScreen: React.FC = () => {
             <View style={styles.emptyContainer}>
               {/* Rectangle 304 / 305 (150x150) */}
               <Image
-                source={require('../../../assets/images/appointments/empty_calendar_checkmark.png')}
+                source={require('../../../assets/images/appointments/appointment_empty_calendar.png')}
                 style={styles.emptyIllustration}
                 resizeMode="contain"
               />
@@ -731,16 +369,14 @@ export const ProviderAppointmentsScreen: React.FC = () => {
               {/* No appointment found */}
               <Text style={styles.emptyTitle}>No appointment found</Text>
 
-              {/* Filled action Button (Refresh) - hidden during refreshed empty state */}
-              {!isRefreshing && (
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  activeOpacity={0.85}
-                  onPress={handleRefresh}
-                >
-                  <Text style={styles.actionButtonText}>Refresh</Text>
-                </TouchableOpacity>
-              )}
+              {/* Refresh Button */}
+              <TouchableOpacity
+                style={styles.actionButton}
+                activeOpacity={0.88}
+                onPress={handleRefresh}
+              >
+                <Text style={styles.actionButtonText}>Refresh</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -753,7 +389,7 @@ export const ProviderAppointmentsScreen: React.FC = () => {
       <ProviderAppointmentFilterModal
         visible={isFilterModalVisible}
         onClose={() => setIsFilterModalVisible(false)}
-        items={INITIAL_APPOINTMENTS}
+        items={appointments}
         onApply={(f) => {
           setAppliedFilters(f);
         }}
@@ -1105,8 +741,7 @@ const styles = StyleSheet.create({
 
   /* No appointment found */
   emptyTitle: {
-    width: 183,
-    marginTop: 9,
+    marginTop: 16,
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
     fontWeight: '500',
     fontSize: 16,
@@ -1127,8 +762,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 16,
-    boxShadow:
-      '0px 32px 40px rgba(133, 139, 148, 0.01), -20px -16px 30px rgba(133, 139, 148, 0.06), 8px 16px 24px rgba(133, 139, 148, 0.08), 4px 10px 24px rgba(133, 139, 148, 0.04)',
     shadowColor: '#858B94',
     shadowOffset: { width: 4, height: 10 },
     shadowOpacity: 0.08,

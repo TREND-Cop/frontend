@@ -204,11 +204,6 @@ export const ProviderOnboardingScreen: React.FC<ProviderOnboardingScreenProps> =
             </Text>
           </TouchableOpacity>
         </View>
-
-        {/* ── Home Indicator (134px x 5px, 8px bottom) ── */}
-        <View style={styles.homeIndicatorWrapper} pointerEvents="none">
-          <View style={styles.homeIndicator} />
-        </View>
       </View>
 
       {/* Android System Dock Barrier */}
@@ -417,25 +412,5 @@ const styles = StyleSheet.create({
 
   staffRoleTitle: {
     textAlign: 'center',
-  },
-
-  /* Home Indicator Container */
-  homeIndicatorWrapper: {
-    position: 'absolute',
-    height: 34,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-  },
-
-  /* Home Indicator Pill */
-  homeIndicator: {
-    width: 134,
-    height: 5,
-    bottom: 8,
-    backgroundColor: '#000000',
-    borderRadius: 100,
   },
 });

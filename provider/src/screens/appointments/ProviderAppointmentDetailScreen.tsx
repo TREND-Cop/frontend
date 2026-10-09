@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   Image,
   Platform,
   Alert,
+  Keyboard,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,24 +20,68 @@ import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 import { AcceptAppointmentLoader } from '../../components/AcceptAppointmentLoader';
 import { CancelAppointmentWarningModal } from '../../components/CancelAppointmentWarningModal';
-import { appointmentStore } from '../../store/appointmentStore';
+import { appointmentStore, awaitingAppointmentStore, ongoingAppointmentStore } from '../../store/appointmentStore';
 
 // ── 1:1 Vector Icons ──────────────────────────────────────────────────────────
 
 function ArrowLeft02Icon({ size = 24, color = 'rgba(0, 8, 20, 0.96)' }: { size?: number; color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="28 64 24 24" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M33.5 76.002H47"
+        d="M19 12H5M5 12L12 19M5 12L12 5"
         stroke={color}
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </Svg>
+  );
+}
+
+function Download02Icon({ size = 24, color = '#141B34' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M38.9999 82.002C38.9999 82.002 33 77.583 33 76.0019C33 74.4208 39 70.002 39 70.002"
+        d="M12 3v10m0 0l-3.5-3.5M12 13l3.5-3.5"
         stroke={color}
-        strokeWidth="1.5"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M4 14v4a2 2 0 002 2h12a2 2 0 002-2v-4"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function CheckmarkCircleGreenIcon({ size = 24 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" fill="rgba(12, 121, 12, 0.96)" stroke="rgba(12, 121, 12, 0.96)" strokeWidth={1.5} />
+      <Path d="M8 12.2l2.8 2.8L16 9.5" stroke="#FFFFFF" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function HeartHandshakeIcon({ size = 20, color = 'rgba(97, 21, 132, 0.96)' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M12 5 9.04 7.96a2.17 2.17 0 0 0 0 3.08v0c.82.82 2.13.85 3 .07l2.07-1.9a2.82 2.82 0 0 1 3.79 0l2.96 2.66"
+        stroke={color}
+        strokeWidth={1.5}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -255,6 +301,34 @@ function Home11Icon({ size = 24, color = 'rgba(0, 8, 20, 0.96)' }: { size?: numb
   );
 }
 
+function WalkingPersonIcon({ size = 24, color = 'rgba(0, 8, 20, 0.96)' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="4" r="2" stroke={color} strokeWidth="1.5" />
+      <Path
+        d="M10 20.5V16L8.5 13L10.5 8.5C10.8 7.9 11.4 7.5 12 7.5C12.6 7.5 13.2 7.9 13.5 8.5L15.5 11.5H18"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M8.5 12.5L6.5 14.5"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <Path
+        d="M13.5 16L15.5 20.5"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 function CheckmarkCircle02Icon({ size = 20 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
@@ -264,16 +338,46 @@ function CheckmarkCircle02Icon({ size = 20 }: { size?: number }) {
   );
 }
 
+function Chatting01Icon({ size = 24, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M20 9C19.2048 5.01455 15.5128 2 11.0793 2C6.06549 2 2 5.85521 2 10.61C2 12.8946 2.93819 14.9704 4.46855 16.5108C4.80549 16.85 5.03045 17.3134 4.93966 17.7903C4.78982 18.5701 4.45026 19.2975 3.95305 19.9037C5.26123 20.1449 6.62147 19.9277 7.78801 19.3127C8.20039 19.0954 8.40657 18.9867 8.55207 18.9646C8.65392 18.9492 8.78659 18.9636 9 19.0002"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M11 16.2617C11 19.1674 13.4628 21.5234 16.5 21.5234C16.8571 21.5238 17.2132 21.4908 17.564 21.425C17.8165 21.3775 17.9428 21.3538 18.0309 21.3673C18.119 21.3807 18.244 21.4472 18.4938 21.58C19.2004 21.9558 20.0244 22.0885 20.8169 21.9411C20.5157 21.5707 20.31 21.1262 20.2192 20.6496C20.1642 20.3582 20.3005 20.075 20.5046 19.8677C21.4317 18.9263 22 17.6578 22 16.2617C22 13.356 19.5372 11 16.5 11C13.4628 11 11 13.356 11 16.2617Z"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function OpayIcon({ size = 24 }: { size?: number }) {
+  return (
+    <Image
+      source={require('../../../assets/images/payment/opay.png')}
+      style={{ width: size, height: size }}
+      resizeMode="contain"
+    />
+  );
+}
+
 // ── Default Mock / Figma Data ────────────────────────────────────────────────
 
 const DEFAULT_APPOINTMENT_DATA = {
   headerTitle: 'Ayobami Isaac',
   client: {
     name: 'Jude Fabulous',
-    badge: 'New Client',
+    badge: 'Non Client',
     avatar: require('../../../assets/images/appointments/jude_fabulous.png'),
     gender: 'Male',
-    badgeStatus: 'Non',
+    badgeStatus: 'Men',
     membership: '5 Days ago',
   },
   service: {
@@ -296,7 +400,7 @@ const DEFAULT_APPOINTMENT_DATA = {
   },
   addOn: {
     title: 'Dry Wow Sham..',
-    price: '₦22,700',
+    price: '₦32,700',
     duration: '24min',
     rating: '5.1',
     image: require('../../../assets/images/appointments/nail_art.png'),
@@ -312,14 +416,14 @@ const DEFAULT_APPOINTMENT_DATA = {
         id: 'spec_2',
         name: 'Femi Johnson',
         role: 'Nail Artist',
-        rating: '5.1',
+        rating: '4.1',
         avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&q=80',
       },
     ],
   },
   note: {
-    text: 'i would love for you to go gentle on my scalp',
-    count: '1/120',
+    text: 'I would love for you to go gentle on my scalp',
+    count: '1/100',
   },
   package: {
     price: '₦4,500',
@@ -343,36 +447,308 @@ const DEFAULT_APPOINTMENT_DATA = {
 
 export const ProviderAppointmentDetailScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const bottomInset = Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16);
   const router = useRouter();
   const params = useLocalSearchParams<{
     id?: string;
     title?: string;
-    price?: string;
     serviceTitle?: string;
+    clientName?: string;
+    clientStatus?: string;
+    gender?: string;
+    membership?: string;
+    price?: string;
     duration?: string;
     rating?: string;
     staff?: string;
+    specialist?: string;
+    specialistRole?: string;
+    date?: string;
+    time?: string;
+    appointmentType?: string;
+    type?: string;
+    status?: string;
+    avatar?: string;
+    paymentType?: string;
+    paymentMethod?: string;
+    appointmentCost?: string;
+    trendPoints?: string;
+    ticketNumber?: string;
+    appointmentTicket?: string;
+    packagePrice?: string;
+    total?: string;
+    isUpfront?: string;
+    note?: string;
   }>();
 
+  const isUpfront = (params.isUpfront === 'true' || params.status === 'upfront') && params.status !== 'request';
   const appointment = params.id ? appointmentStore.getAppointmentById(params.id) : undefined;
+  const appointmentStatus: 'awaiting' | 'cancelled' | 'completed' | 'upfront' | 'request' =
+    isUpfront
+      ? 'upfront'
+      : params.status === 'awaiting'
+      ? 'awaiting'
+      : params.status === 'cancelled'
+      ? 'cancelled'
+      : params.status === 'completed'
+      ? 'completed'
+      : 'request';
+  const isAwaiting = appointmentStatus === 'awaiting';
+  const isRequest = appointmentStatus === 'request';
 
   // Use dynamic overrides if supplied through params or store
-  const headerTitle = params.title || appointment?.clientName || DEFAULT_APPOINTMENT_DATA.headerTitle;
-  const clientName = appointment?.clientName || DEFAULT_APPOINTMENT_DATA.client.name;
-  const clientStatus = appointment?.clientStatus || DEFAULT_APPOINTMENT_DATA.client.badge;
-  const serviceName = params.serviceTitle || appointment?.title || DEFAULT_APPOINTMENT_DATA.service.title;
-  const appointmentPrice = params.price || appointment?.price || DEFAULT_APPOINTMENT_DATA.service.price;
-  const appointmentDuration = params.duration || appointment?.duration || DEFAULT_APPOINTMENT_DATA.service.duration;
-  const appointmentRating = params.rating || appointment?.rating || DEFAULT_APPOINTMENT_DATA.service.rating;
-  const serviceImage = appointment?.image || DEFAULT_APPOINTMENT_DATA.service.image;
-  const specialistName = params.staff || DEFAULT_APPOINTMENT_DATA.service.specialist.name;
+  const clientName =
+    isAwaiting
+      ? 'Jude Fabulous'
+      : isRequest
+      ? (params.clientName || DEFAULT_APPOINTMENT_DATA.client.name)
+      : params.clientName ||
+        (params.title && params.serviceTitle ? params.title : undefined) ||
+        appointment?.clientName ||
+        (isUpfront ? 'Samuel Akunne' : DEFAULT_APPOINTMENT_DATA.client.name);
+
+  const headerTitle =
+    isAwaiting
+      ? (params.clientName || 'Ayobami Isaac')
+      : isRequest
+      ? (params.title || DEFAULT_APPOINTMENT_DATA.headerTitle)
+      : isUpfront
+      ? (params.clientName || 'Samuel Akunne')
+      : (params.title && !params.serviceTitle ? params.title : undefined) ||
+        clientName ||
+        DEFAULT_APPOINTMENT_DATA.headerTitle;
+
+  const clientStatus =
+    isAwaiting
+      ? 'Returning Client'
+      : isRequest
+      ? (params.clientStatus || DEFAULT_APPOINTMENT_DATA.client.badge)
+      : params.clientStatus ||
+        appointment?.clientStatus ||
+        (isUpfront ? 'Returning Client' : DEFAULT_APPOINTMENT_DATA.client.badge);
+
+  const clientGender =
+    isAwaiting
+      ? 'Male'
+      : isRequest
+      ? (params.gender || DEFAULT_APPOINTMENT_DATA.client.gender)
+      : params.gender ||
+        appointment?.gender ||
+        DEFAULT_APPOINTMENT_DATA.client.gender;
+
+  const clientMembership =
+    isAwaiting
+      ? '5 Days ago'
+      : isRequest
+      ? (params.membership || DEFAULT_APPOINTMENT_DATA.client.membership)
+      : params.membership ||
+        appointment?.membership ||
+        DEFAULT_APPOINTMENT_DATA.client.membership;
+
+  const serviceName =
+    isRequest
+      ? (params.serviceTitle || DEFAULT_APPOINTMENT_DATA.service.title)
+      : params.serviceTitle ||
+        (params.title && !params.clientName ? params.title : undefined) ||
+        appointment?.title ||
+        (isAwaiting || isUpfront ? 'Men Brade' : DEFAULT_APPOINTMENT_DATA.service.title);
+
+  const appointmentPrice =
+    isRequest
+      ? (params.price || DEFAULT_APPOINTMENT_DATA.service.price)
+      : params.price ||
+        appointment?.price ||
+        (isAwaiting ? '₦14,200' : DEFAULT_APPOINTMENT_DATA.service.price);
+
+  const appointmentDuration =
+    isRequest
+      ? (params.duration || DEFAULT_APPOINTMENT_DATA.service.duration)
+      : params.duration ||
+        appointment?.duration ||
+        (isAwaiting ? '1hr' : DEFAULT_APPOINTMENT_DATA.service.duration);
+
+  const appointmentRating =
+    isRequest
+      ? (params.rating || DEFAULT_APPOINTMENT_DATA.service.rating)
+      : params.rating ||
+        appointment?.rating ||
+        (isAwaiting ? '3.6' : DEFAULT_APPOINTMENT_DATA.service.rating);
+
+  const serviceImage =
+    appointment?.image || DEFAULT_APPOINTMENT_DATA.service.image;
+
+  const specialistName =
+    params.staff ||
+    params.specialist ||
+    appointment?.staff ||
+    (isAwaiting ? 'Bisola Olarewaju' : DEFAULT_APPOINTMENT_DATA.service.specialist.name);
+
+  const specialistRole =
+    params.specialistRole ||
+    (isAwaiting ? 'Nail Artist' : DEFAULT_APPOINTMENT_DATA.service.specialist.role);
+
+  const appointmentDate =
+    params.date ||
+    (isAwaiting ? 'Nov 19, 2026' : DEFAULT_APPOINTMENT_DATA.appointmentInfo.date);
+
+  const appointmentTime =
+    params.time ||
+    (isAwaiting ? '9:30am' : DEFAULT_APPOINTMENT_DATA.appointmentInfo.time);
+
+  const rawAppointmentType =
+    params.appointmentType ||
+    params.type ||
+    appointment?.appointmentType ||
+    (isAwaiting ? 'Home Service' : DEFAULT_APPOINTMENT_DATA.appointmentInfo.type);
+
+  const appointmentType =
+    rawAppointmentType?.toLowerCase() === 'in-person' || rawAppointmentType?.toLowerCase() === 'in person'
+      ? 'In-Person'
+      : rawAppointmentType?.toLowerCase() === 'home-service' || rawAppointmentType?.toLowerCase() === 'home service'
+      ? 'Home Service'
+      : rawAppointmentType;
+
+  // Dynamic Payment Type & Summary routing (1:1 Figma Design Specifications)
+  const rawPaymentType =
+    params.paymentType ||
+    params.paymentMethod ||
+    appointment?.paymentType ||
+    (appointment?.paymentMethod === 'cash'
+      ? 'Cash Payment'
+      : appointment?.paymentMethod === 'transfer'
+      ? 'Opay (Transfer)'
+      : undefined) ||
+    (isAwaiting ? 'Opay (Transfer)' : DEFAULT_APPOINTMENT_DATA.summary.paymentType);
+
+  const paymentType =
+    rawPaymentType === 'Opay (Transfer)' ||
+    rawPaymentType?.toLowerCase().includes('opay') ||
+    rawPaymentType === 'Inter-Bank Transfer' ||
+    rawPaymentType === 'Bank Transfer' ||
+    rawPaymentType === 'transfer' ||
+    rawPaymentType?.toLowerCase() === 'inter - bank transfer'
+      ? 'Opay (Transfer)'
+      : rawPaymentType === 'cash' ||
+        rawPaymentType === 'Cash' ||
+        rawPaymentType?.toLowerCase() === 'cash payment'
+      ? 'Cash Payment'
+      : rawPaymentType === 'card' ||
+        rawPaymentType === 'Card' ||
+        rawPaymentType === 'Card (POS)' ||
+        rawPaymentType?.toLowerCase() === 'card payment'
+      ? 'Card Payment'
+      : rawPaymentType;
+
+  const appointmentCost =
+    params.appointmentCost ||
+    appointment?.appointmentCost ||
+    (isAwaiting ? '₦52,700' : DEFAULT_APPOINTMENT_DATA.summary.appointmentCost);
+
+  const trendPoints =
+    params.trendPoints ||
+    appointment?.trendPoints ||
+    (isAwaiting ? '-₦2,700' : DEFAULT_APPOINTMENT_DATA.summary.trendPoints);
+
+  const ticketNumber =
+    params.ticketNumber ||
+    params.appointmentTicket ||
+    appointment?.ticketNumber ||
+    DEFAULT_APPOINTMENT_DATA.summary.ticketNumber;
+
+  const packagePrice =
+    params.packagePrice ||
+    appointment?.packagePrice ||
+    (isAwaiting ? '₦4,500' : DEFAULT_APPOINTMENT_DATA.package.price);
+
+  const totalAmount =
+    params.total ||
+    appointment?.total ||
+    (isAwaiting ? '₦50,000' : (packagePrice === '₦10,500' ? '₦60,000' : DEFAULT_APPOINTMENT_DATA.summary.total));
+
+  const isCompleted = appointmentStatus === 'completed';
+  const isReturningClient =
+    !isRequest && (
+      isAwaiting ||
+      isUpfront ||
+      clientStatus?.toLowerCase().includes('returning') ||
+      (!clientStatus?.toLowerCase().includes('new') &&
+        !clientStatus?.toLowerCase().includes('non') &&
+        (
+          (params as any).isReturning === 'true' ||
+          clientName?.toLowerCase().includes('samuel') ||
+          (appointment?.clientStatus?.toLowerCase().includes('returning') ?? false)
+        ))
+    );
 
   const [isLoading, setIsLoading] = useState(false);
   const [isAccepted, setIsAccepted] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [noteText, setNoteText] = useState(DEFAULT_APPOINTMENT_DATA.note.text);
+  const [countdownSeconds, setCountdownSeconds] = useState(
+    (params as any).timerUp === 'true' ||
+    (params as any).isTimerUp === 'true' ||
+    (params as any).countdown === '0'
+      ? 0
+      : 300
+  );
+
+  useEffect(() => {
+    if (!isAwaiting) return;
+    const interval = setInterval(() => {
+      setCountdownSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isAwaiting]);
+
+  const countdownMinutes = Math.floor(countdownSeconds / 60);
+  const countdownRemainingSecs = countdownSeconds % 60;
+  const countdownFormatted = `${countdownMinutes}:${countdownRemainingSecs < 10 ? '0' : ''}${countdownRemainingSecs}`;
+
+  const [noteText, setNoteText] = useState(
+    (params as any).note || DEFAULT_APPOINTMENT_DATA.note.text
+  );
   const noteInputRef = useRef<TextInput>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const noteSectionYRef = useRef<number>(0);
+  const noteBoxYRef = useRef<number>(0);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  const scrollNoteIntoView = useCallback(() => {
+    setTimeout(() => {
+      const targetY = noteSectionYRef.current + (noteBoxYRef.current || 32);
+      if (targetY > 0) {
+        scrollViewRef.current?.scrollTo({
+          y: Math.max(0, targetY - 60),
+          animated: true,
+        });
+      }
+    }, 120);
+  }, []);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        setIsKeyboardVisible(true);
+        if (noteInputRef.current?.isFocused()) {
+          scrollNoteIntoView();
+        }
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+        setIsKeyboardVisible(false);
+      }
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [scrollNoteIntoView]);
 
   const handleCancel = () => {
     setShowCancelModal(true);
@@ -384,9 +760,17 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
     if (params.id) {
       appointmentStore.cancelAppointment(params.id);
     }
+    if (isAwaiting) {
+      awaitingAppointmentStore.cancelAwaitingAppointment((params.id as string) || 'awaiting-1');
+      awaitingAppointmentStore.clearAwaitingAppointments();
+    }
     setTimeout(() => {
       setIsCancelling(false);
-      router.back();
+      if (isAwaiting) {
+        router.replace('/awaiting-client-arrival');
+      } else {
+        router.back();
+      }
     }, 1400);
   };
 
@@ -395,8 +779,36 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
     setTimeout(() => {
       setIsLoading(false);
       setIsAccepted(true);
-      router.push('/appointment-success');
+      router.push({
+        pathname: '/appointment-success' as any,
+        params: { id: (params.id as string) || 'awaiting-1' },
+      });
     }, 1800);
+  };
+
+  const handleBeginAppointment = () => {
+    if (params.id) {
+      awaitingAppointmentStore.cancelAwaitingAppointment(params.id as string);
+    }
+    const rawNumeric = typeof appointmentPrice === 'string'
+      ? parseInt(appointmentPrice.replace(/[^0-9]/g, ''), 10) || 14200
+      : 14200;
+    ongoingAppointmentStore.addOngoingAppointment({
+      id: (params.id as string) || `ongoing-${Date.now()}`,
+      title: serviceName || 'Men Brade',
+      price: appointmentPrice || '₦14,200',
+      numericPrice: rawNumeric,
+      duration: appointmentDuration || '1hr',
+      rating: String(appointmentRating || '3.6'),
+      image: serviceImage || require('../../../assets/images/appointments/men_braids.jpg'),
+      clientName: clientName || 'Jude Fabulous',
+      clientStatus: clientStatus || 'Returning Client',
+      gender: clientGender || 'Male',
+      specialist: specialistName || 'Bisola Olarewaju',
+      specialistRole: specialistRole || 'Hair Stylist',
+      staff: specialistName || 'Bisola Olarewaju',
+    });
+    router.push('/ongoing-appointments');
   };
 
   return (
@@ -421,49 +833,128 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
             {headerTitle}
           </Text>
 
-          {/* Right dummy spacer (48x48) to keep title strictly centered */}
-          <View style={styles.headerRightSpacer} />
+          {/* Right header share/download button (48x48, radius 8px, 1:1 Figma) */}
+          <TouchableOpacity
+            style={[styles.headerIconButtonRight, (isAwaiting || isRequest) && { opacity: 0 }]}
+            activeOpacity={0.7}
+            onPress={() => {}}
+            disabled={isAwaiting || isRequest}
+          >
+            <Download02Icon size={24} color="#141B34" />
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* ── Scrollable Body Content (358px wide, 40px gap between sections) ── */}
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: Math.max(insets.bottom, 24) + 96 },
-        ]}
-        showsVerticalScrollIndicator={false}
+      {/* ── Keyboard Avoiding & Scrollable Body Content ── */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingBottom: isKeyboardVisible
+                ? keyboardHeight + 60
+                : isCompleted
+                ? bottomInset + 40
+                : 130 + bottomInset,
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+        >
+        {/* ── Ongoing Service Indicator / Upfront Banner (358x102px, 1:1 Figma) ── */}
+        {isUpfront && !isCompleted && appointmentStatus !== 'cancelled' && !isAwaiting && (
+          <View style={styles.upfrontAppointmentBanner}>
+            <View style={styles.upfrontBannerIconCircle}>
+              <Calendar03Icon size={24} color="rgba(96, 96, 102, 0.96)" />
+            </View>
+            <View style={styles.upfrontBannerTextGroup}>
+              <Text style={styles.upfrontBannerTitle}>Upfront Appointment</Text>
+              <Text style={styles.upfrontBannerSubtitle}>
+                {params.date
+                  ? `This appointment is set to begin on ${params.date}`
+                  : 'This appointment is set to begin on October 7th, 2026'}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* ── Completed Status Banner (ongoing service timer: 358x86px, 1:1 Figma) ── */}
+        {isCompleted && (
+          <View style={styles.completedServiceBanner}>
+            <View style={styles.completedBannerIconCircle}>
+              <CheckmarkCircleGreenIcon size={24} />
+            </View>
+            <View style={styles.completedBannerTextGroup}>
+              <Text style={styles.completedBannerTimerText}>00:00:00</Text>
+              <Text style={styles.completedBannerStatusText}>Completed</Text>
+            </View>
+          </View>
+        )}
+
         {/* ── Section 1: User Profile Card (358x224px, 1:1 Figma) ── */}
         <LinearGradient
-          colors={['#E9F4D9', '#F0F8E4', '#F6FBF0', '#FFFFFF']}
-          locations={[0, 0.25, 0.5, 0.82]}
+          colors={
+            isReturningClient
+              ? ['rgba(209, 164, 230, 0.9216)', 'rgba(255, 255, 255, 0.96)']
+              : ['rgba(203, 230, 164, 0.9216)', 'rgba(255, 255, 255, 0.96)']
+          }
+          locations={[0, 0.82]}
           start={{ x: 0.5, y: 0 }}
           end={{ x: 0.5, y: 1 }}
-          style={styles.userProfileCard}
+          style={[
+            styles.userProfileCard,
+            { borderColor: isReturningClient ? '#D1A4E6' : '#CBE6A4' },
+          ]}
         >
           {/* Top Row: User Details (326x64px, gap: 24px) */}
           <View style={styles.userDetailsRow}>
-            {/* Image frame (64x64px, radius 56px, border 1px solid #FFFFFF) */}
-            <View style={styles.avatarFrame}>
-              <Image
-                source={
-                  typeof DEFAULT_APPOINTMENT_DATA.client.avatar === 'string'
-                    ? { uri: DEFAULT_APPOINTMENT_DATA.client.avatar }
-                    : DEFAULT_APPOINTMENT_DATA.client.avatar
-                }
-                style={styles.avatarImage}
-                resizeMode="cover"
-              />
+            {/* Image frame (64x64px, radius 56px, border 1px solid #FFFFFF) with badge */}
+            <View style={styles.avatarContainer}>
+              <View style={styles.avatarFrame}>
+                <Image
+                  source={
+                    typeof DEFAULT_APPOINTMENT_DATA.client.avatar === 'string'
+                      ? { uri: DEFAULT_APPOINTMENT_DATA.client.avatar }
+                      : DEFAULT_APPOINTMENT_DATA.client.avatar
+                  }
+                  style={styles.avatarImage}
+                  resizeMode="cover"
+                />
+              </View>
+              {/* checkmark-badge-02: 24x24 at bottom-right (Only visible for Returning Client) */}
+              {isReturningClient && (
+                <View style={styles.avatarBadgePosition}>
+                  <CheckmarkBadgeBlueIcon size={24} />
+                </View>
+              )}
             </View>
 
             {/* Staff name and profession (238x60px, gap: 8px) */}
             <View style={styles.clientInfoBlock}>
-              <Text style={styles.clientNameText}>{DEFAULT_APPOINTMENT_DATA.client.name}</Text>
+              <Text style={styles.clientNameText}>{clientName}</Text>
               <View style={styles.clientBadgeRow}>
-                <AddMaleIcon size={20} color="rgba(10, 95, 10, 0.8)" />
-                <Text style={styles.clientBadgeText}>{DEFAULT_APPOINTMENT_DATA.client.badge}</Text>
+                {isReturningClient ? (
+                  <>
+                    <HeartHandshakeIcon size={20} color="rgba(97, 21, 132, 0.96)" />
+                    <Text style={[styles.clientBadgeText, { color: 'rgba(97, 21, 132, 0.96)' }]}>
+                      {clientStatus && clientStatus.toLowerCase().includes('returning') ? clientStatus : 'Returning Client'}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <AddMaleIcon size={20} color="rgba(10, 95, 10, 0.8)" />
+                    <Text style={[styles.clientBadgeText, { color: 'rgba(10, 95, 10, 0.8)' }]}>
+                      {clientStatus && !clientStatus.toLowerCase().includes('returning') ? clientStatus : 'Non Client'}
+                    </Text>
+                  </>
+                )}
               </View>
             </View>
           </View>
@@ -477,7 +968,7 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
               </View>
               <View style={styles.activityTextGroupCol1}>
                 <Text style={styles.activityLabel}>Gender</Text>
-                <Text style={styles.activityValueGender}>{DEFAULT_APPOINTMENT_DATA.client.gender}</Text>
+                <Text style={styles.activityValueGender}>{clientGender}</Text>
               </View>
             </View>
 
@@ -491,7 +982,9 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
               </View>
               <View style={styles.activityTextGroupCol2}>
                 <Text style={styles.activityLabel}>Badge</Text>
-                <Text style={styles.activityValueBadge}>{DEFAULT_APPOINTMENT_DATA.client.badgeStatus}</Text>
+                <Text style={styles.activityValueBadge}>
+                  {(params as any).badgeStatus || (isReturningClient ? 'Subscriber' : 'Men')}
+                </Text>
               </View>
             </View>
 
@@ -505,11 +998,25 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
               </View>
               <View style={styles.activityTextGroupCol3}>
                 <Text style={styles.activityLabel}>Membership</Text>
-                <Text style={styles.activityValueMembership}>{DEFAULT_APPOINTMENT_DATA.client.membership}</Text>
+                <Text style={styles.activityValueMembership}>{clientMembership}</Text>
               </View>
             </View>
           </View>
         </LinearGradient>
+
+        {/* ── Awaiting Client Arrival Note Block (1:1 Figma) ── */}
+        {isAwaiting && (
+          <TouchableOpacity
+            style={styles.awaitingNoteBlock}
+            activeOpacity={0.85}
+            onPress={() => setCountdownSeconds(300)}
+          >
+            <Text style={styles.awaitingNoteTitle}>Note</Text>
+            <Text style={styles.awaitingNoteDesc}>
+              Waiting for client to arrive at your location to begin the appointment
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* ── Section 2: Service (358x332px) ── */}
         <View style={styles.sectionBlock}>
@@ -559,7 +1066,7 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
                     {specialistName}
                   </Text>
                   <Text style={styles.specialistRoleText}>
-                    {DEFAULT_APPOINTMENT_DATA.service.specialist.role}
+                    {specialistRole}
                   </Text>
                   <View style={styles.specialistRatingRow}>
                     <StarGoldIcon size={16} color="rgba(248, 155, 24, 0.96)" />
@@ -585,7 +1092,7 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
                   <Calendar03Icon size={24} color="rgba(0, 8, 20, 0.96)" />
                 </View>
                 <Text style={styles.infoFieldValueText}>
-                  {DEFAULT_APPOINTMENT_DATA.appointmentInfo.date}
+                  {appointmentDate}
                 </Text>
               </View>
             </View>
@@ -598,7 +1105,7 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
                   <Clock3Icon size={24} color="rgba(0, 8, 20, 0.96)" />
                 </View>
                 <Text style={styles.infoFieldValueText}>
-                  {DEFAULT_APPOINTMENT_DATA.appointmentInfo.time}
+                  {appointmentTime}
                 </Text>
               </View>
             </View>
@@ -608,10 +1115,14 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
               <Text style={styles.infoFieldLabel}>Appointment Type</Text>
               <View style={styles.infoFieldValueRow}>
                 <View style={styles.infoIconCircle}>
-                  <Home11Icon size={24} color="rgba(0, 8, 20, 0.96)" />
+                  {appointmentType?.toLowerCase().includes('person') ? (
+                    <WalkingPersonIcon size={24} color="rgba(0, 8, 20, 0.96)" />
+                  ) : (
+                    <Home11Icon size={24} color="rgba(0, 8, 20, 0.96)" />
+                  )}
                 </View>
                 <Text style={styles.infoFieldValueText}>
-                  {DEFAULT_APPOINTMENT_DATA.appointmentInfo.type}
+                  {appointmentType}
                 </Text>
               </View>
             </View>
@@ -645,68 +1156,54 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
               </View>
             </View>
 
-            {/* Specialist sub-section inside Add-One */}
+            {/* Specialist sub-section inside Add-One (1:1 Figma) */}
             <View style={styles.addOnSpecialistsContainer}>
-              <Text style={styles.specialistSubHeading}>Specialist</Text>
-
-              {/* Specialists List spaced out in between */}
+              <Text style={styles.addOnSpecialistTitle}>Specialist</Text>
               <View style={styles.specialistsListContainer}>
-                {/* Specialist 1 */}
-                <View style={styles.specialistRow}>
-                  <Image
-                    source={{ uri: DEFAULT_APPOINTMENT_DATA.addOn.specialists[0].avatar }}
-                    style={styles.specialistAvatar}
-                    resizeMode="cover"
-                  />
-                  <View style={styles.specialistInfoGroup}>
-                    <Text style={styles.specialistNameText}>
-                      {DEFAULT_APPOINTMENT_DATA.addOn.specialists[0].name}
-                    </Text>
-                    <Text style={styles.specialistRoleText}>
-                      {DEFAULT_APPOINTMENT_DATA.addOn.specialists[0].role}
-                    </Text>
-                    <View style={styles.specialistRatingRow}>
-                      <StarGoldIcon size={16} color="rgba(248, 155, 24, 0.96)" />
-                      <Text style={styles.metaBadgeText}>
-                        {DEFAULT_APPOINTMENT_DATA.addOn.specialists[0].rating}
+                {DEFAULT_APPOINTMENT_DATA.addOn.specialists.map((spec) => (
+                  <View key={spec.id} style={styles.addOnPackageCard}>
+                    <Image
+                      source={{ uri: spec.avatar }}
+                      style={styles.addOnImage}
+                      resizeMode="cover"
+                    />
+                    <View style={styles.serviceInfoGroup}>
+                      <Text style={styles.serviceItemTitle}>
+                        {spec.name}
                       </Text>
+                      <Text style={styles.serviceItemPrice}>
+                        {spec.role}
+                      </Text>
+                      <View style={styles.serviceMetaRow}>
+                        <View style={styles.metaBadge}>
+                          <StarGoldIcon size={16} color="rgba(248, 155, 24, 0.96)" />
+                          <Text style={styles.metaBadgeText}>
+                            {spec.rating}
+                          </Text>
+                        </View>
+                      </View>
                     </View>
                   </View>
-                </View>
-
-                {/* Specialist 2 */}
-                <View style={styles.specialistRow}>
-                  <Image
-                    source={{ uri: DEFAULT_APPOINTMENT_DATA.addOn.specialists[1].avatar }}
-                    style={styles.specialistAvatar}
-                    resizeMode="cover"
-                  />
-                  <View style={styles.specialistInfoGroup}>
-                    <Text style={styles.specialistNameText}>
-                      {DEFAULT_APPOINTMENT_DATA.addOn.specialists[1].name}
-                    </Text>
-                    <Text style={styles.specialistRoleText}>
-                      {DEFAULT_APPOINTMENT_DATA.addOn.specialists[1].role}
-                    </Text>
-                    <View style={styles.specialistRatingRow}>
-                      <StarGoldIcon size={16} color="rgba(248, 155, 24, 0.96)" />
-                      <Text style={styles.metaBadgeText}>
-                        {DEFAULT_APPOINTMENT_DATA.addOn.specialists[1].rating}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
+                ))}
               </View>
             </View>
           </View>
         </View>
 
         {/* ── Section 5: Note (358x108px) ── */}
-        <View style={styles.sectionBlock}>
+        <View
+          style={styles.sectionBlock}
+          onLayout={(e) => {
+            noteSectionYRef.current = e.nativeEvent.layout.y;
+          }}
+        >
           <Text style={styles.sectionHeading}>Note</Text>
           <TouchableOpacity
             style={styles.noteBox}
             activeOpacity={1}
+            onLayout={(e) => {
+              noteBoxYRef.current = e.nativeEvent.layout.y;
+            }}
             onPress={() => noteInputRef.current?.focus()}
           >
             <TextInput
@@ -720,9 +1217,10 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
               maxLength={120}
               textAlignVertical="top"
               scrollEnabled={false}
+              onFocus={scrollNoteIntoView}
             />
             <View style={styles.noteCounterRow}>
-              <Text style={styles.noteCounterText}>{`${noteText.length}/120`}</Text>
+              <Text style={styles.noteCounterText}>{isUpfront ? '1/76' : (noteText === 'I would love for you to go gentle on my scalp' ? '1/100' : `${noteText.length}/100`)}</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -753,7 +1251,7 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
             </View>
 
             {/* Package Price (24px 500) */}
-            <Text style={styles.packagePriceText}>{DEFAULT_APPOINTMENT_DATA.package.price}</Text>
+            <Text style={styles.packagePriceText}>{packagePrice}</Text>
 
             {/* Checklist items */}
             <View style={styles.packageChecklist}>
@@ -775,7 +1273,7 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Appointment cost</Text>
               <Text style={styles.summaryValueBlack}>
-                {DEFAULT_APPOINTMENT_DATA.summary.appointmentCost}
+                {appointmentCost}
               </Text>
             </View>
 
@@ -783,67 +1281,152 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Trend points</Text>
               <Text style={styles.summaryValueOrange}>
-                {DEFAULT_APPOINTMENT_DATA.summary.trendPoints}
+                {trendPoints}
               </Text>
             </View>
 
-            {/* Payment type */}
+            {/* Payment type (1:1 Figma Design Specifications) */}
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Payment type</Text>
               <View style={styles.paymentTypeRow}>
-                <Image
-                  source={require('../../../assets/images/payment/opay.png')}
-                  style={styles.opayIcon}
-                  resizeMode="contain"
-                />
-                <Text style={styles.paymentTypeText}>
-                  {DEFAULT_APPOINTMENT_DATA.summary.paymentType}
-                </Text>
+                {paymentType?.toLowerCase().includes('opay') && <OpayIcon size={24} />}
+                <Text style={styles.paymentTypeText}>{paymentType}</Text>
               </View>
             </View>
 
             {/* Appointment Ticket */}
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Appointment Ticket</Text>
-              <Text style={styles.ticketNumberText}>
-                {DEFAULT_APPOINTMENT_DATA.summary.ticketNumber}
-              </Text>
-            </View>
+            {!isAwaiting && (
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Appointment Ticket</Text>
+                <Text style={styles.ticketNumberText}>
+                  {ticketNumber}
+                </Text>
+              </View>
+            )}
 
             {/* Total */}
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Total</Text>
               <Text style={styles.summaryValueBlack}>
-                {DEFAULT_APPOINTMENT_DATA.summary.total}
+                {totalAmount}
               </Text>
             </View>
           </View>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
 
-      {/* ── Fixed Bottom Action Bar (80px, 1:1 Figma) ── */}
-      <View
-        style={[
-          styles.bottomActionBar,
-          { paddingBottom: Math.max(insets.bottom, 16) },
-        ]}
-      >
-        <TouchableOpacity
-          style={styles.cancelButton}
-          activeOpacity={0.8}
-          onPress={handleCancel}
+      {/* ── Fixed Bottom Action Bar (1:1 Figma) ── */}
+      {isCompleted ? null : appointmentStatus === 'cancelled' ? (
+        <View
+          style={[
+            styles.bottomActionBar,
+            { paddingBottom: bottomInset },
+          ]}
         >
-          <Text style={styles.cancelButtonText}>Cancel</Text>
-        </TouchableOpacity>
+          <View style={styles.statusCancelledBadge}>
+            <Text style={styles.statusCancelledText}>Appointment Cancelled</Text>
+          </View>
+        </View>
+      ) : isUpfront ? (
+        <View
+          style={[
+            styles.bottomActionBar,
+            { paddingBottom: bottomInset },
+          ]}
+        >
+          <TouchableOpacity
+            style={styles.messageClientFullButton}
+            activeOpacity={0.88}
+            onPress={() => {
+              router.push({
+                pathname: '/chat' as any,
+                params: {
+                  id: (params.id as string) || '1',
+                  name: clientName || 'Samuel Akunne',
+                  role: 'Customer',
+                },
+              } as any);
+            }}
+          >
+            <Chatting01Icon size={24} color="#FFFFFF" />
+            <Text style={styles.messageClientFullButtonText}>
+              Message {clientName || 'Samuel Akunne'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : isAwaiting ? (
+        <View
+          style={[
+            styles.bottomActionBar,
+            { paddingBottom: bottomInset },
+          ]}
+        >
+          {countdownSeconds > 0 ? (
+            <TouchableOpacity
+              style={styles.waitingForCustomerButton}
+              activeOpacity={0.85}
+              onPress={() => setCountdownSeconds(0)}
+            >
+              <Text style={styles.waitingForCustomerButtonText}>
+                Waiting for customer to start  {countdownFormatted}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.awaitingActionButtonsRow}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                activeOpacity={0.8}
+                onPress={handleCancel}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.acceptButton}
-          activeOpacity={0.88}
-          onPress={handleAccept}
+              <TouchableOpacity
+                style={styles.messageButton}
+                activeOpacity={0.88}
+                onPress={() => {
+                  router.push({
+                    pathname: '/chat' as any,
+                    params: {
+                      id: (params.id as string) || '1',
+                      name: clientName || 'Jude Fabulous',
+                      role: 'Customer',
+                    },
+                  } as any);
+                }}
+                onLongPress={handleBeginAppointment}
+              >
+                <Chatting01Icon size={24} color="#FFFFFF" />
+                <Text style={styles.messageButtonText}>Message Client</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      ) : (
+        <View
+          style={[
+            styles.bottomActionBar,
+            { paddingBottom: bottomInset },
+          ]}
         >
-          <Text style={styles.acceptButtonText}>Accept Appointment</Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={styles.cancelButton}
+            activeOpacity={0.8}
+            onPress={handleCancel}
+          >
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.acceptButton}
+            activeOpacity={0.88}
+            onPress={handleAccept}
+          >
+            <Text style={styles.acceptButtonText}>Accept Appointment</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* ── Android Native System Dock Protector Barrier ── */}
       <NativeDockSpacer backgroundColor="#FFFFFF" />
@@ -901,10 +1484,107 @@ const styles = StyleSheet.create({
     color: 'rgba(0, 8, 20, 0.96)',
     textAlign: 'center',
   },
+  headerIconButtonRight: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   headerRightSpacer: {
     width: 48,
     height: 48,
     opacity: 0,
+  },
+
+  // ── Ongoing Service Indicator / Upfront Banner (358x102px, 1:1 Figma) ──
+  upfrontAppointmentBanner: {
+    width: '100%',
+    maxWidth: 358,
+    minHeight: 102,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderRadius: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 16,
+    alignSelf: 'center',
+  },
+  upfrontBannerIconCircle: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  upfrontBannerTextGroup: {
+    flex: 1,
+    gap: 6,
+  },
+  upfrontBannerTitle: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: Platform.OS === 'ios' ? 0.5 : 0.2,
+    color: 'rgba(0, 8, 20, 0.96)',
+    includeFontPadding: false,
+  },
+  upfrontBannerSubtitle: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.4,
+    color: 'rgba(96, 96, 102, 0.96)',
+    includeFontPadding: false,
+  },
+
+  // ── Completed Status Banner (ongoing service timer: 358x86px, 1:1 Figma) ──
+  completedServiceBanner: {
+    width: '100%',
+    maxWidth: 358,
+    minHeight: 86,
+    backgroundColor: 'rgba(238, 248, 238, 0.8)',
+    borderRadius: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 16,
+    alignSelf: 'center',
+  },
+  completedBannerIconCircle: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  completedBannerTextGroup: {
+    flex: 1,
+    gap: 6,
+  },
+  completedBannerTimerText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.4,
+    color: 'rgba(0, 8, 20, 0.96)',
+    includeFontPadding: false,
+  },
+  completedBannerStatusText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.4,
+    color: 'rgba(12, 121, 12, 0.96)',
+    includeFontPadding: false,
   },
 
   // ── Scrollable Body (40px gap between sections, 1:1 Figma) ──
@@ -936,6 +1616,16 @@ const styles = StyleSheet.create({
     gap: 24,
     width: 326,
     height: 64,
+  },
+  avatarContainer: {
+    width: 64,
+    height: 64,
+    position: 'relative',
+  },
+  avatarBadgePosition: {
+    position: 'absolute',
+    right: -4,
+    bottom: -4,
   },
   avatarFrame: {
     width: 64,
@@ -1201,7 +1891,7 @@ const styles = StyleSheet.create({
 
   // Specialist sub-block
   specialistSectionWrapper: {
-    gap: 14,
+    gap: 16,
     paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: 'rgba(235, 235, 245, 0.8)',
@@ -1213,6 +1903,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: Platform.OS === 'ios' ? 0.4 : 0.2,
     color: 'rgba(0, 8, 20, 0.96)',
+    marginBottom: 8,
   },
   subHeadingText: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
@@ -1323,10 +2014,20 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   addOnSpecialistsContainer: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
     paddingTop: 8,
-    paddingBottom: 24,
     gap: 16,
+    width: '100%',
+  },
+  addOnSpecialistTitle: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: Platform.OS === 'ios' ? 0.4 : 0.2,
+    color: 'rgba(0, 8, 20, 0.96)',
+    paddingHorizontal: 16,
+    marginBottom: 8,
   },
   specialistsListContainer: {
     gap: 24,
@@ -1537,5 +2238,203 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 0.15,
     color: '#FFFFFF',
+  },
+  messageButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0, 8, 20, 0.96)',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    gap: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(133, 139, 148, 0.08)',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 1,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  messageButtonText: {
+    fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.15,
+    color: '#FFFFFF',
+  },
+  statusCompletedBadge: {
+    flex: 1,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(238, 248, 238, 0.8)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  statusCompletedText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: '500',
+    color: '#0C790C',
+  },
+  statusCancelledBadge: {
+    flex: 1,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(248, 239, 239, 0.96)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusCancelledText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontSize: 16,
+    lineHeight: 24,
+    fontWeight: '500',
+    color: 'rgba(204, 41, 41, 0.9)',
+  },
+  awaitingNoteBlock: {
+    width: '100%',
+    maxWidth: 358,
+    alignSelf: 'center',
+    gap: 8,
+    marginTop: 40,
+    marginBottom: 40,
+  },
+  awaitingNoteTitle: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: Platform.OS === 'ios' ? 0.5 : 0.2,
+    color: 'rgba(248, 155, 24, 0.96)',
+    includeFontPadding: false,
+  },
+  awaitingNoteDesc: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: Platform.OS === 'ios' ? 0.4 : 0.2,
+    color: '#000000',
+    includeFontPadding: false,
+  },
+  waitingForCustomerButton: {
+    width: '100%',
+    maxWidth: 358,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(192, 192, 204, 0.96)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+  },
+  waitingForCustomerButtonText: {
+    fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.15,
+    color: 'rgba(192, 192, 204, 0.96)',
+    includeFontPadding: false,
+  },
+  awaitingActionButtonsRow: {
+    width: '100%',
+    maxWidth: 358,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 24,
+  },
+  awaitingCancelButton: {
+    width: 135,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(192, 192, 204, 0.96)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  awaitingCancelButtonText: {
+    fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.15,
+    color: 'rgba(204, 41, 41, 0.9)',
+    includeFontPadding: false,
+  },
+  beginAppointmentButton: {
+    width: 197,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0, 8, 20, 0.96)',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(133, 139, 148, 0.08)',
+        shadowOffset: { width: 4, height: 10 },
+        shadowOpacity: 1,
+        shadowRadius: 24,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  beginAppointmentButtonText: {
+    fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.15,
+    color: '#FFFFFF',
+    includeFontPadding: false,
+  },
+  messageClientFullButton: {
+    width: '100%',
+    maxWidth: 358,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0, 8, 20, 0.96)',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(133, 139, 148, 0.08)',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 1,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  messageClientFullButtonText: {
+    fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.15,
+    color: '#FFFFFF',
+    includeFontPadding: false,
   },
 });

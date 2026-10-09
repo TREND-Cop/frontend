@@ -9,6 +9,18 @@ import { previewStore } from '../../utils/previewStore';
 import { SafeImage } from '../../components/ui/SafeImage';
 import { shareStore } from '../../utils/shareStore';
 
+interface ReviewItem {
+  id: string;
+  name: string;
+  avatar: any;
+  comment: string;
+  stars: number;
+  hasHalfStar: boolean;
+  time: string;
+  date: string;
+  attachments?: any[];
+}
+
 export default function BisolaReviewsScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -17,25 +29,20 @@ export default function BisolaReviewsScreen() {
     (params.title as string) ||
     (params.name ? `${params.name} Reviews` : params.salonName ? `${params.salonName} Review` : 'Reviews');
 
-  const reviewsList = [
+  const reviewsList: ReviewItem[] = [
     {
       id: '1',
       name: 'Samuel Obanuju',
       avatar: { uri: 'https://images.unsplash.com/photo-1531123897727-8f129e1bf98c?w=200&q=80' },
-      comment: "The salon was too far and my appointment got rescheduled, that's why am giving a 3.",
-      stars: 3,
-      hasHalfStar: false,
-      attachments: [
-        require('../../../assets/images/profile/14dcc3440340f9f140251ac160473457c89b198c.jpg'),
-        require('../../../assets/images/profile/30b9a5ab22324bd8357f666111d5584ad2e3c83e.jpg'),
-        require('../../../assets/images/profile/eb3281d09659fdef5e45647cf5529f61e83190f1.jpg'),
-      ],
+      comment: 'The service was premium, love the good work guys keep it up.',
+      stars: 4,
+      hasHalfStar: true,
       time: '12:04:20',
-      date: 'Oct 26, 2026',
+      date: '12/02/2026',
     },
     {
       id: '2',
-      name: 'Samuel Obanuju',
+      name: 'Jessica Amadi',
       avatar: { uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&q=80' },
       comment: 'The service was premium, love the good work guys keep it up.',
       stars: 4,
@@ -45,11 +52,11 @@ export default function BisolaReviewsScreen() {
     },
     {
       id: '3',
-      name: 'Samuel Obanuju',
+      name: 'Fabulous Jude',
       avatar: { uri: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&q=80' },
       comment: 'The service was premium, love the good work guys keep it up.',
-      stars: 4,
-      hasHalfStar: true,
+      stars: 5,
+      hasHalfStar: false,
       time: '12:04:20',
       date: '12/02/2026',
     },
@@ -149,7 +156,7 @@ export default function BisolaReviewsScreen() {
                         <TouchableOpacity
                           activeOpacity={0.8}
                           style={styles.reviewAttachmentWrapper}
-                          onPress={() => handlePreviewAttachment(review.attachments, attIdx)}
+                          onPress={() => handlePreviewAttachment(review.attachments!, attIdx)}
                         >
                           <SafeImage source={attImg} style={styles.reviewAttachmentImage} resizeMode="cover" />
                         </TouchableOpacity>

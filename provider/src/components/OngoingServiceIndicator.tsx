@@ -34,11 +34,16 @@ export function OngoingServiceIndicator({
   const [seconds, setSeconds] = useState(() => parseTimeToSeconds(initialTime));
 
   useEffect(() => {
+    setSeconds(parseTimeToSeconds(initialTime));
+  }, [initialTime]);
+
+  useEffect(() => {
+    if (seconds <= 0) return;
     const timer = setInterval(() => {
-      setSeconds((prev) => prev + 1);
+      setSeconds((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [seconds]);
 
   const formattedTime = formatSecondsToTime(seconds);
 

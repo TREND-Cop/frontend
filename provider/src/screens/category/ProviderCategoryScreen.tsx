@@ -310,7 +310,7 @@ export default function ProviderCategoryScreen() {
           <TouchableOpacity
             activeOpacity={0.8}
             style={styles.itemRow}
-            onPress={() => handleCategoryPress('/appointments')}
+            onPress={() => handleCategoryPress('/upcoming-appointments')}
           >
             <View style={styles.itemLeftGroup}>
               {/* Icon Circle (40x40px, radius 20/24px, blue bg: #EBEBF5 0.96) */}
@@ -338,7 +338,7 @@ export default function ProviderCategoryScreen() {
           <TouchableOpacity
             activeOpacity={0.8}
             style={styles.itemRow}
-            onPress={() => handleCategoryPress('/ongoing-appointments')}
+            onPress={() => handleCategoryPress('/awaiting-client-arrival')}
           >
             <View style={styles.itemLeftGroup}>
               {/* Icon Circle (40x40px, radius 20/24px, orange bg: #F6F0E6 0.96) */}
@@ -349,7 +349,7 @@ export default function ProviderCategoryScreen() {
               {/* Text Info */}
               <View style={styles.textGroup}>
                 <Text style={styles.itemTitle}>Awaiting for client</Text>
-                <Text style={styles.itemSubtitle}>2 waiting</Text>
+                <Text style={styles.itemSubtitle}>1 waiting</Text>
               </View>
             </View>
 

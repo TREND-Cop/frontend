@@ -8,26 +8,24 @@ import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
 
 import { shareStore } from '../../utils/shareStore';
 import { previewStore } from '../../utils/previewStore';
+import { getSpecialistPortfolio } from '../../constants/specialistPortfolioCatalog';
 
 export default function ProfessionalPortfolioScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
   const specialistId = (params.id as string) || 'p1';
-  const specialistName = (params.name as string) || 'Specialist';
+  const specialistName = (params.name as string) || 'Bisola';
   const headerTitle = (params.title as string) || `${specialistName} Portfolio`;
 
-  const defaultLeft = [
-    { source: require('../../../assets/images/profile/14dcc3440340f9f140251ac160473457c89b198c.jpg'), height: 239, title: 'Glossy French Manicure', price: '₦12,500', duration: '45min', rating: '4.9' },
-    { source: require('../../../assets/images/profile/30b9a5ab22324bd8357f666111d5584ad2e3c83e.jpg'), height: 188, title: 'Abstract Marble Nails', price: '₦14,200', duration: '1hr', rating: '4.8' },
-    { source: require('../../../assets/images/profile/eb3281d09659fdef5e45647cf5529f61e83190f1.jpg'), height: 239, title: 'Chrome Finish Acrylics', price: '₦16,000', duration: '1hr 15min', rating: '5.0' },
-  ];
+  const fallbackPortfolio = getSpecialistPortfolio(specialistName);
+  const defaultLeft = fallbackPortfolio
+    .filter((p) => p.column === 'left')
+    .map((p) => ({ source: p.image, height: p.height, title: p.title, price: p.price, duration: p.duration, rating: p.rating }));
 
-  const defaultRight = [
-    { source: require('../../../assets/images/profile/dry_wow_pedicure.jpg'), height: 188, title: 'Dry Wow French Pedicure', price: '₦14,000', duration: '50min', rating: '4.9' },
-    { source: require('../../../assets/images/profile/ee549b1ea85771de4cd8695943af94f474fedf19.jpg'), height: 239, title: 'Feet & Fingers Combo Art', price: '₦22,000', duration: '2hr', rating: '5.0' },
-    { source: require('../../../assets/images/profile/882a99380ae2d750b39f897365bd1d6083664a3b.jpg'), height: 188, title: 'Chocolate Brown Acrylic Nails', price: '₦16,000', duration: '1hr 15min', rating: '4.8' },
-  ];
+  const defaultRight = fallbackPortfolio
+    .filter((p) => p.column === 'right')
+    .map((p) => ({ source: p.image, height: p.height, title: p.title, price: p.price, duration: p.duration, rating: p.rating }));
 
   // If previewStore has custom preview items for this specialist, build columns dynamically
   const previewItems = previewStore.getPreviewItems();

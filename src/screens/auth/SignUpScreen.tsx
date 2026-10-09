@@ -175,7 +175,7 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* ── Top-Right Skip / X Button ── */}
       <TouchableOpacity
-        style={styles.skipButton}
+        style={[styles.skipButton, { top: Math.max(insets.top, 16) }]}
         onPress={handleSkip}
         activeOpacity={0.7}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -194,7 +194,7 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
           contentContainerStyle={[
             styles.scrollContent,
             {
-              paddingTop: Math.max(insets.top, 24),
+              paddingTop: 83,
               paddingBottom: isKeyboardVisible ? 320 : 40,
             },
           ]}
@@ -204,7 +204,7 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
         >
           {/* ── Sign Up Header (Figma: width 278px, height 64px, gap 8px) ── */}
           <View style={styles.headerContainer}>
-            <Text style={styles.headerTitle}>Sign up</Text>
+            <Text style={styles.headerTitle}>Sign Up</Text>
             <Text style={styles.headerSubtitle}>
               Hello, welcome to <Text style={styles.brandBold}>TREND.</Text>
             </Text>
@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
     width: 278,
     alignItems: 'center',
     gap: 8,
-    marginBottom: 40,
+    marginBottom: 32,
   },
   headerTitle: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_600SemiBold',

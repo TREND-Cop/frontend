@@ -68,7 +68,7 @@ export default function GalleryPreviewScreen() {
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [isPlaying, setIsPlaying] = useState(false);
   const flatListRef = useRef<FlatList>(null);
-  const isDraggingRef = useRef(false);
+  const hasScrolledInitialRef = useRef(false);
 
   // Exact card width matching the bottom card (358px max with 16px screen padding)
   const viewerWidth = Math.min(358, (width > 0 ? width : 390) - 32);
@@ -87,8 +87,8 @@ export default function GalleryPreviewScreen() {
   const currentItemRating = currentItem?.rating || (params.rating as string) || '3.6';
 
   useEffect(() => {
-    setActiveIndex(initialIndex);
-    if (initialIndex >= 0 && images.length > 0) {
+    if (!hasScrolledInitialRef.current && initialIndex >= 0 && images.length > 0) {
+      hasScrolledInitialRef.current = true;
       const timer = setTimeout(() => {
         try {
           flatListRef.current?.scrollToIndex({ index: initialIndex, animated: false });
@@ -98,29 +98,35 @@ export default function GalleryPreviewScreen() {
       }, 50);
       return () => clearTimeout(timer);
     }
-  }, [viewerWidth, initialIndex, images.length]);
+  }, [initialIndex, images.length]);
 
-  const handleMomentumScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    isDraggingRef.current = false;
-    const scrollOffset = event.nativeEvent.contentOffset.x;
-    if (viewerWidth > 0) {
-      const currentIndex = Math.round(scrollOffset / viewerWidth);
-      if (currentIndex >= 0 && currentIndex < images.length) {
-        setActiveIndex(currentIndex);
-      }
+  const updateIndexFromOffset = (offsetX: number, layoutWidth?: number) => {
+    const w = layoutWidth && layoutWidth > 0 ? layoutWidth : viewerWidth;
+    if (w > 0 && images.length > 0) {
+      const nextIdx = Math.min(images.length - 1, Math.max(0, Math.round(offsetX / w)));
+      setActiveIndex((prev) => (prev !== nextIdx ? nextIdx : prev));
     }
   };
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    if (!isDraggingRef.current) return;
-    const scrollOffset = event.nativeEvent.contentOffset.x;
-    if (viewerWidth > 0) {
-      const currentIndex = Math.round(scrollOffset / viewerWidth);
-      if (currentIndex >= 0 && currentIndex < images.length && currentIndex !== activeIndex) {
-        setActiveIndex(currentIndex);
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const w = event.nativeEvent.layoutMeasurement?.width || viewerWidth;
+    updateIndexFromOffset(offsetX, w);
+  };
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+    if (viewableItems && viewableItems.length > 0) {
+      const first = viewableItems[0];
+      if (first.index !== null && first.index !== undefined && first.index >= 0) {
+        setActiveIndex(first.index);
       }
     }
-  };
+  }).current;
+
+  const viewabilityConfig = useRef({
+    viewAreaCoveragePercentThreshold: 50,
+    waitForInteraction: false,
+  }).current;
 
   const handleShare = () => {
     shareStore.openShare({
@@ -175,7 +181,7 @@ export default function GalleryPreviewScreen() {
               flex: 1,
               marginTop: 12,
               marginBottom: 16,
-              borderRadius: 24,
+              borderRadius: 0,
               overflow: 'hidden',
             },
           ]}
@@ -191,6 +197,7 @@ export default function GalleryPreviewScreen() {
             data={images}
             horizontal
             pagingEnabled
+            decelerationRate="normal"
             showsHorizontalScrollIndicator={false}
             keyExtractor={(_, index) => `preview-img-${index}`}
             initialScrollIndex={initialIndex}
@@ -202,12 +209,12 @@ export default function GalleryPreviewScreen() {
             initialNumToRender={images.length}
             maxToRenderPerBatch={images.length}
             windowSize={5}
-            onScrollBeginDrag={() => {
-              isDraggingRef.current = true;
-            }}
             onScroll={handleScroll}
-            onMomentumScrollEnd={handleMomentumScrollEnd}
+            onMomentumScrollEnd={handleScroll}
+            onScrollEndDrag={handleScroll}
             scrollEventThrottle={16}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
             onScrollToIndexFailed={(info) => {
               setTimeout(() => {
                 flatListRef.current?.scrollToIndex({ index: info.index, animated: false });
@@ -222,7 +229,7 @@ export default function GalleryPreviewScreen() {
                   justifyContent: 'center',
                   alignItems: 'center',
                   overflow: 'hidden',
-                  borderRadius: 24,
+                  borderRadius: 0,
                 }}
               >
                 <Image
@@ -386,7 +393,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 24,
+    borderRadius: 0,
     overflow: 'hidden',
     backgroundColor: 'rgba(20, 26, 51, 0.4)',
   },

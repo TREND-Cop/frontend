@@ -20,6 +20,7 @@ import { DommyLoader } from '../../components/DommyLoader';
 import {
   ProviderAppointmentFilterModal,
   ProviderFilterState,
+  matchAppointment,
 } from '../../components/ProviderAppointmentFilterModal';
 import {
   useOngoingAppointments,
@@ -210,7 +211,6 @@ export function ProviderOngoingAppointmentsScreen() {
   const {
     ongoingAppointments,
     refreshOngoingAppointments,
-    clearOngoingAppointments,
   } = useOngoingAppointments();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -249,56 +249,21 @@ export function ProviderOngoingAppointmentsScreen() {
 
     // Applied modal filters
     if (appliedFilters) {
-      const effectiveMaxPrice = appliedFilters.customAmount
-        ? (parseInt(appliedFilters.customAmount.replace(/[^0-9]/g, ''), 10) || appliedFilters.maxPrice)
-        : appliedFilters.maxPrice;
-
-      result = result.filter((item) => {
-        const numPrice = item.numericPrice || parseInt((item.price || '').replace(/[^0-9]/g, ''), 10) || 0;
-        if (numPrice > 0) {
-          if (numPrice < appliedFilters.minPrice || numPrice > effectiveMaxPrice) {
-            return false;
-          }
-        }
-        if (appliedFilters.selectedServices && appliedFilters.selectedServices.length > 0) {
-          const itemTitle = item.title.toLowerCase().replace(/[^a-z0-9]/g, '');
-          const matches = appliedFilters.selectedServices.some((svc) => {
-            const cleanSvc = svc.toLowerCase().replace(/[^a-z0-9]/g, '');
-            return itemTitle.includes(cleanSvc);
-          });
-          if (!matches) return false;
-        }
-        if (appliedFilters.selectedStaff && appliedFilters.selectedStaff.length > 0) {
-          if (!item.staff || !appliedFilters.selectedStaff.includes(item.staff)) {
-            return false;
-          }
-        }
-        if (appliedFilters.customerType && item.customerType !== appliedFilters.customerType) {
-          return false;
-        }
-        if (appliedFilters.paymentMethod && item.paymentMethod !== appliedFilters.paymentMethod) {
-          return false;
-        }
-        if (appliedFilters.appointmentType && item.appointmentType !== appliedFilters.appointmentType) {
-          return false;
-        }
-        if (appliedFilters.bookedPackage && item.bookedPackage !== appliedFilters.bookedPackage) {
-          return false;
-        }
-        return true;
-      });
+      result = result.filter((item) => matchAppointment(item, appliedFilters));
     }
 
     return result;
   }, [ongoingAppointments, searchQuery, appliedFilters]);
 
-  // Handle Refresh Action (Empty state refresh)
+  // Handle Refresh Action (Empty state refresh -> restore original services)
   const handleRefresh = () => {
     setIsRefreshing(true);
+    setSearchQuery('');
+    setAppliedFilters(null);
+    refreshOngoingAppointments();
     setTimeout(() => {
-      refreshOngoingAppointments();
       setIsRefreshing(false);
-    }, 1200);
+    }, 800);
   };
 
   const isEmpty = filteredAppointments.length === 0;
@@ -322,13 +287,17 @@ export function ProviderOngoingAppointmentsScreen() {
             {isEmpty ? 'Appointment' : 'Ongoing Appointments'}
           </Text>
 
-          <TouchableOpacity
-            style={styles.headerShareButton}
-            activeOpacity={0.7}
-            onPress={() => {}}
-          >
-            <Share03Icon />
-          </TouchableOpacity>
+          {isEmpty ? (
+            <View style={styles.headerIconButton} />
+          ) : (
+            <TouchableOpacity
+              style={styles.headerShareButton}
+              activeOpacity={0.7}
+              onPress={() => {}}
+            >
+              <Share03Icon />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -373,33 +342,31 @@ export function ProviderOngoingAppointmentsScreen() {
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         {isEmpty ? (
-          /* ── Screen 1 & 2: Empty State ── */
+          /* ── Screen 1 & 2: Empty State (1:1 Figma & Mockup) ── */
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyCounterText}>0 Ongoing appointments</Text>
 
             <View style={styles.illustrationWrapper}>
-              <BarberChairIllustration size={150} />
+              <Image
+                source={require('../../../assets/images/appointments/ongoing_empty_chair.png')}
+                style={styles.emptyIllustrationImage}
+                resizeMode="contain"
+              />
             </View>
 
             <Text style={styles.emptyTitleText}>No appointment found</Text>
 
+            {/* Refresh Button */}
             <TouchableOpacity
               style={styles.refreshButton}
-              activeOpacity={0.8}
+              activeOpacity={0.88}
               onPress={handleRefresh}
             >
               <Text style={styles.refreshButtonText}>Refresh</Text>
-            </TouchableOpacity>
-
-            {/* Quick Demo Toggle: Allow clearing appointments to view empty state */}
-            <TouchableOpacity
-              style={styles.demoLink}
-              activeOpacity={0.6}
-              onPress={handleRefresh}
-            >
-              <Text style={styles.demoLinkText}>Tap Refresh to load ongoing appointments</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -409,14 +376,6 @@ export function ProviderOngoingAppointmentsScreen() {
               <Text style={styles.counterText}>
                 {filteredAppointments.length} Ongoing appointment
               </Text>
-
-              {/* Developer helper toggle to preview empty state */}
-              <TouchableOpacity
-                onPress={clearOngoingAppointments}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Text style={styles.previewEmptyLink}>Clear (Preview Empty)</Text>
-              </TouchableOpacity>
             </View>
 
             {/* 3 Ongoing Service Cards */}
@@ -442,7 +401,15 @@ export function ProviderOngoingAppointmentsScreen() {
                           id: item.id,
                           title: item.title,
                           clientName: item.clientName,
+                          clientStatus: item.clientStatus,
+                          gender: item.gender || 'Male',
+                          membership: item.membership || 'Joined 2 wks ago',
                           specialist: item.specialist,
+                          specialistRole: item.specialistRole,
+                          date: item.appointmentDate,
+                          time: item.appointmentTime,
+                          note: item.note,
+                          elapsedTime: item.elapsedTime,
                           price: item.price,
                           duration: item.duration,
                           rating: item.rating,
@@ -657,6 +624,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
+  emptyIllustrationImage: {
+    width: 150,
+    height: 150,
+  },
   chairIllustrationWrap: {
     width: 150,
     height: 150,
@@ -679,32 +650,28 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#858B94',
+    shadowOffset: { width: 4, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 4,
   },
   refreshButtonText: {
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',
     fontWeight: '500',
     fontSize: 16,
     lineHeight: 24,
+    letterSpacing: 0.15,
     color: '#FFFFFF',
-  },
-  demoLink: {
-    marginTop: 24,
-    paddingVertical: 8,
-  },
-  demoLinkText: {
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
-    fontSize: 13,
-    color: 'rgba(96, 96, 102, 0.8)',
+    includeFontPadding: false,
     textAlign: 'center',
   },
-
   // ── Populated State (Screen 3) ────────────────────────────────────────────
   populatedContainer: {
     paddingTop: 16,
   },
   counterRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 24,
   },
@@ -713,11 +680,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     color: 'rgba(96, 96, 102, 0.96)',
-  },
-  previewEmptyLink: {
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
-    fontSize: 12,
-    color: 'rgba(150, 150, 160, 0.8)',
   },
 
   // ── Cards List (gap: 35px between cards) ──────────────────────────────────

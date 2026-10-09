@@ -11,9 +11,12 @@ import {
   TouchableWithoutFeedback,
   PanResponder,
   Dimensions,
+  Keyboard,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
+import { getAllStaff, StaffMember } from '../store/staffStore';
 
 // ── Master Typography Standards ───────────────────────────────────────────────
 const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
@@ -101,6 +104,104 @@ const DEFAULT_FILTERS: ProviderFilterState = {
   recentFilters: [],
 };
 
+/**
+ * Canonical filter matcher shared across all Provider appointment screens.
+ * Evaluates an appointment item against any combination of active filters.
+ */
+export function matchAppointment(item: any, filters?: ProviderFilterState | null): boolean {
+  if (!item) return false;
+  if (!filters) return true;
+
+  // 1. Price Range
+  const isMinPriceActive = (filters.minPrice ?? PRICE_STEPS[0]) > PRICE_STEPS[0];
+  const hasCustom = Boolean(filters.customAmount && filters.customAmount.trim().length > 0);
+  const customNum = hasCustom ? parseInt(filters.customAmount.replace(/[^0-9]/g, ''), 10) || 0 : 0;
+  const isMaxPriceActive = (filters.maxPrice ?? PRICE_STEPS[17]) < PRICE_STEPS[17] || (hasCustom && customNum > 0);
+
+  const effectiveMaxPrice = hasCustom && customNum > 0 ? customNum : (filters.maxPrice ?? PRICE_STEPS[17]);
+  const effectiveMinPrice = filters.minPrice ?? PRICE_STEPS[0];
+
+  const numPrice = item.numericPrice || parseInt((item.price || '').replace(/[^0-9]/g, ''), 10) || 0;
+  if (numPrice > 0) {
+    if (isMinPriceActive && numPrice < effectiveMinPrice) return false;
+    if (isMaxPriceActive && numPrice > effectiveMaxPrice) return false;
+  }
+
+  // 2. Services Filter (Multi-select)
+  if (filters.selectedServices && filters.selectedServices.length > 0) {
+    const itemTitle = (item.title || item.serviceTitle || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const matchesAny = filters.selectedServices.some((svc) => {
+      const cleanSvc = svc.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (itemTitle.includes(cleanSvc) || cleanSvc.includes(itemTitle)) return true;
+      if (cleanSvc.includes('haircut') && (itemTitle.includes('haircut') || itemTitle.includes('hair') || itemTitle.includes('fade') || itemTitle.includes('grooming'))) return true;
+      if (cleanSvc.includes('grooming') && itemTitle.includes('grooming')) return true;
+      if (cleanSvc.includes('braid') && (itemTitle.includes('braid') || itemTitle.includes('brade'))) return true;
+      if (cleanSvc.includes('hairwash') && (itemTitle.includes('hairwash') || itemTitle.includes('conditioning') || itemTitle.includes('wash') || itemTitle.includes('shampoo'))) return true;
+      if (cleanSvc.includes('nailart') && (itemTitle.includes('nail') || itemTitle.includes('manicure'))) return true;
+      if (cleanSvc.includes('manicure') && itemTitle.includes('manicure')) return true;
+      if (cleanSvc.includes('pedicure') && itemTitle.includes('pedicure')) return true;
+      if (cleanSvc.includes('feetmassage') && (itemTitle.includes('massage') || itemTitle.includes('feet'))) return true;
+      if (cleanSvc.includes('facial') && itemTitle.includes('facial')) return true;
+      return false;
+    });
+    if (!matchesAny) return false;
+  }
+
+  // 3. Staff Filter (Multi-select)
+  if (filters.selectedStaff && filters.selectedStaff.length > 0) {
+    const staffName = (item.staff || item.specialist || '').toLowerCase().trim();
+    if (!staffName) return false;
+    const matchesStaff = filters.selectedStaff.some((s) => {
+      const staffLower = s.toLowerCase().trim();
+      if (staffLower === staffName) return true;
+      if (staffLower.includes(staffName) || staffName.includes(staffLower)) return true;
+      const sFirst = staffLower.split(' ')[0];
+      const itemFirst = staffName.split(' ')[0];
+      if (sFirst && itemFirst && (sFirst === itemFirst || sFirst.startsWith(itemFirst) || itemFirst.startsWith(sFirst))) return true;
+      return false;
+    });
+    if (!matchesStaff) return false;
+  }
+
+  // 4. Customer Type Filter
+  if (filters.customerType) {
+    const cType = (item.customerType || '').toLowerCase();
+    const cStatus = (item.clientStatus || '').toLowerCase();
+    if (filters.customerType === 'verified') {
+      const isVerified = cType === 'verified' || cStatus.includes('subscriber') || cStatus.includes('vip') || cStatus.includes('verified');
+      if (!isVerified) return false;
+    } else if (filters.customerType === 'non-verified') {
+      const isNonVerified = cType === 'non-verified' || cStatus.includes('non') || cStatus.includes('new') || cStatus.includes('regular');
+      if (!isNonVerified) return false;
+    }
+  }
+
+  // 5. Payment Method Filter
+  if (filters.paymentMethod) {
+    const itemPay = (item.paymentMethod || '').toLowerCase();
+    const targetPay = filters.paymentMethod.toLowerCase();
+    if (itemPay && itemPay !== targetPay) return false;
+  }
+
+  // 6. Appointment Type Filter
+  if (filters.appointmentType) {
+    const appType = (item.appointmentType || item.type || '').toLowerCase();
+    if (filters.appointmentType === 'in-person' && !appType.includes('in-person') && !appType.includes('in-shop')) return false;
+    if (filters.appointmentType === 'home-service' && !appType.includes('home')) return false;
+  }
+
+  // 7. Booked Package Filter
+  if (filters.bookedPackage) {
+    const pkg = (item.bookedPackage || '').toLowerCase();
+    const title = (item.title || item.serviceTitle || '').toLowerCase();
+    if (filters.bookedPackage === 'basic' && pkg !== 'basic' && !title.includes('basic')) return false;
+    if (filters.bookedPackage === 'premium' && pkg !== 'premium' && !title.includes('deluxe') && !title.includes('premium')) return false;
+    if (filters.bookedPackage === 'exclusive' && pkg !== 'exclusive' && !title.includes('full') && !title.includes('luxury') && !title.includes('exclusive')) return false;
+  }
+
+  return true;
+}
+
 export const ProviderAppointmentFilterModal: React.FC<ProviderAppointmentFilterModalProps> = ({
   visible,
   onClose,
@@ -149,11 +250,21 @@ export const ProviderAppointmentFilterModal: React.FC<ProviderAppointmentFilterM
         setRecentFilters(currentFilters.recentFilters ?? []);
         const minIdx = PRICE_STEPS.findIndex((p) => p >= currentFilters.minPrice);
         const maxIdx = PRICE_STEPS.findIndex((p) => p >= currentFilters.maxPrice);
-        if (minIdx !== -1) setMinBarIndex(minIdx);
-        if (maxIdx !== -1) setMaxBarIndex(maxIdx);
+        if (minIdx !== -1) {
+          setMinBarIndex(minIdx);
+          minBarIndexRef.current = minIdx;
+        }
+        if (maxIdx !== -1) {
+          setMaxBarIndex(maxIdx);
+          maxBarIndexRef.current = maxIdx;
+        }
       } else {
         setFilters(DEFAULT_FILTERS);
         setRecentFilters([]);
+        setMinBarIndex(0);
+        setMaxBarIndex(17);
+        minBarIndexRef.current = 0;
+        maxBarIndexRef.current = 17;
       }
     }
   }, [visible, currentFilters]);
@@ -224,19 +335,100 @@ export const ProviderAppointmentFilterModal: React.FC<ProviderAppointmentFilterM
 
   // Handle bar click to adjust nearest handle
   const handleBarTap = (index: number) => {
-    const distToMin = Math.abs(index - minBarIndex);
-    const distToMax = Math.abs(index - maxBarIndex);
+    const distToMin = Math.abs(index - minBarIndexRef.current);
+    const distToMax = Math.abs(index - maxBarIndexRef.current);
 
-    if (distToMin < distToMax) {
-      const clamped = Math.min(index, maxBarIndex);
+    if (distToMin <= distToMax) {
+      const clamped = Math.min(index, maxBarIndexRef.current);
+      minBarIndexRef.current = clamped;
       setMinBarIndex(clamped);
       setFilters((prev) => ({ ...prev, minPrice: PRICE_STEPS[clamped] }));
     } else {
-      const clamped = Math.max(index, minBarIndex);
+      const clamped = Math.max(index, minBarIndexRef.current);
+      maxBarIndexRef.current = clamped;
       setMaxBarIndex(clamped);
       setFilters((prev) => ({ ...prev, maxPrice: PRICE_STEPS[clamped] }));
     }
   };
+
+  // Handle interaction anywhere on the chart track (338px total, bars: 44px to 294px)
+  const handleTrackInteraction = (locationX: number) => {
+    const relX = locationX - 44;
+    const clampedIndex = Math.max(0, Math.min(22, Math.round(relX / STEP_PX)));
+    handleBarTap(clampedIndex);
+  };
+
+  // Web mouse dragging support for thumbs
+  const handleThumbMouseDown = (type: 'min' | 'max') => (e: any) => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      e.stopPropagation?.();
+      setActiveThumb(type);
+      const startX = e.clientX;
+      const startIdx = type === 'min' ? minBarIndexRef.current : maxBarIndexRef.current;
+      const onMouseMove = (moveEvt: MouseEvent) => {
+        const deltaX = moveEvt.clientX - startX;
+        const indexDelta = Math.round(deltaX / STEP_PX);
+        if (type === 'min') {
+          const clamped = Math.max(0, Math.min(maxBarIndexRef.current, startIdx + indexDelta));
+          if (clamped !== minBarIndexRef.current) {
+            minBarIndexRef.current = clamped;
+            setMinBarIndex(clamped);
+            setFilters((p) => ({ ...p, minPrice: PRICE_STEPS[clamped] }));
+          }
+        } else {
+          const clamped = Math.max(minBarIndexRef.current, Math.min(22, startIdx + indexDelta));
+          if (clamped !== maxBarIndexRef.current) {
+            maxBarIndexRef.current = clamped;
+            setMaxBarIndex(clamped);
+            setFilters((p) => ({ ...p, maxPrice: PRICE_STEPS[clamped] }));
+          }
+        }
+      };
+      const onMouseUp = () => {
+        setActiveThumb(null);
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+      };
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    }
+  };
+
+  // Dynamic available staff list (from staffStore + items)
+  const availableStaff = useMemo(() => {
+    const list: string[] = ['Aisha Bello', 'Tunde Adebayo', 'Adaeze Nwosu', 'Chioma Okafor'];
+    try {
+      const storeStaff = getAllStaff();
+      storeStaff.forEach((s: StaffMember) => {
+        if (s.name && !list.includes(s.name)) list.push(s.name);
+      });
+    } catch (e) {}
+    if (items && Array.isArray(items)) {
+      items.forEach((item: any) => {
+        const name = item.staff || item.specialist;
+        if (name && typeof name === 'string' && !list.includes(name)) {
+          list.push(name);
+        }
+      });
+    }
+    return list;
+  }, [items]);
+
+  // Dynamic available services list
+  const availableServices = useMemo(() => {
+    const list: string[] = ['Hair Cut', 'Nail Art', 'Hair Wash', 'Pedicure', 'Manicure', 'Feet Massage'];
+    if (items && Array.isArray(items)) {
+      items.forEach((item) => {
+        if (item.title) {
+          const t = item.title.toLowerCase();
+          if ((t.includes('braid') || t.includes('brade')) && !list.includes('Men Braids')) list.push('Men Braids');
+          if (t.includes('facial') && !list.includes('Male Facial')) list.push('Male Facial');
+          if (t.includes('grooming') && !list.includes('Full Men Grooming')) list.push('Full Men Grooming');
+        }
+      });
+    }
+    return list;
+  }, [items]);
 
   // Toggle helpers
   const toggleService = (service: string) => {
@@ -357,75 +549,17 @@ export const ProviderAppointmentFilterModal: React.FC<ProviderAppointmentFilterM
     };
     setMinBarIndex(0);
     setMaxBarIndex(17);
+    minBarIndexRef.current = 0;
+    maxBarIndexRef.current = 17;
     setFilters(cleared);
     onClear();
   };
 
   // Dynamic matching count calculation
   const matchingCount = useMemo(() => {
-    if (!items || items.length === 0) return 20;
-    const effectiveMaxPrice = filters.customAmount
-      ? (parseInt(filters.customAmount.replace(/[^0-9]/g, ''), 10) || maxPrice)
-      : maxPrice;
-
-    return items.filter((item) => {
-      // 1. Price
-      const numPrice = item.numericPrice || parseInt((item.price || '').replace(/[^0-9]/g, ''), 10) || 0;
-      if (numPrice > 0) {
-        if (numPrice < minPrice || numPrice > effectiveMaxPrice) return false;
-      }
-
-      // 2. Services
-      if (filters.selectedServices && filters.selectedServices.length > 0) {
-        const itemTitle = (item.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-        const matchesAny = filters.selectedServices.some((svc) => {
-          const cleanSvc = svc.toLowerCase().replace(/[^a-z0-9]/g, '');
-          if (itemTitle.includes(cleanSvc)) return true;
-          if (cleanSvc === 'haircut' && (itemTitle.includes('haircut') || itemTitle.includes('hair'))) return true;
-          if (cleanSvc === 'hairwash' && (itemTitle.includes('hairwash') || itemTitle.includes('conditioning'))) return true;
-          if (cleanSvc === 'nailart' && (itemTitle.includes('nail') || itemTitle.includes('manicure'))) return true;
-          if (cleanSvc === 'manicure' && itemTitle.includes('manicure')) return true;
-          if (cleanSvc === 'pedicure' && itemTitle.includes('pedicure')) return true;
-          if (cleanSvc === 'feetmassage' && (itemTitle.includes('massage') || itemTitle.includes('feet'))) return true;
-          return false;
-        });
-        if (!matchesAny) return false;
-      }
-
-      // 3. Staff
-      if (filters.selectedStaff && filters.selectedStaff.length > 0) {
-        if (!item.staff) return false;
-        const matchesStaff = filters.selectedStaff.some((s) => {
-          const staffLower = s.toLowerCase();
-          const itemStaffLower = item.staff.toLowerCase();
-          return staffLower.includes(itemStaffLower) || itemStaffLower.includes(staffLower.split(' ')[0]);
-        });
-        if (!matchesStaff) return false;
-      }
-
-      // 4. Customer Type
-      if (filters.customerType) {
-        if (item.customerType && item.customerType !== filters.customerType) return false;
-      }
-
-      // 5. Payment Method
-      if (filters.paymentMethod) {
-        if (item.paymentMethod && item.paymentMethod !== filters.paymentMethod) return false;
-      }
-
-      // 6. Appointment Type
-      if (filters.appointmentType) {
-        if (item.appointmentType && item.appointmentType !== filters.appointmentType) return false;
-      }
-
-      // 7. Booked Package
-      if (filters.bookedPackage) {
-        if (item.bookedPackage && item.bookedPackage !== filters.bookedPackage) return false;
-      }
-
-      return true;
-    }).length;
-  }, [filters, items, minPrice, maxPrice]);
+    if (!items || !Array.isArray(items)) return 0;
+    return items.filter((item) => matchAppointment(item, filters)).length;
+  }, [filters, items]);
 
   const handleApply = () => {
     // Add current active selections to recent filters
@@ -461,8 +595,34 @@ export const ProviderAppointmentFilterModal: React.FC<ProviderAppointmentFilterM
     onClose();
   };
 
+  const scrollViewRef = useRef<ScrollView>(null);
+  const amountInputYRef = useRef<number>(0);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        setIsKeyboardVisible(true);
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+        setIsKeyboardVisible(false);
+      }
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   const screenHeight = Dimensions.get('window').height;
-  const sheetHeight = Math.round(screenHeight * 0.94);
+  const sheetHeight = 575;
 
   return (
     <Modal
@@ -494,9 +654,16 @@ export const ProviderAppointmentFilterModal: React.FC<ProviderAppointmentFilterM
 
           {/* ── Filter Content Scroll Area ── */}
           <ScrollView
+            ref={scrollViewRef}
             style={styles.sheetScrollView}
-            contentContainerStyle={styles.sheetScrollContent}
+            contentContainerStyle={[
+              styles.sheetScrollContent,
+              { paddingBottom: isKeyboardVisible ? keyboardHeight + 80 : 120 },
+            ]}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           >
             {/* ── Dynamic Recent Filtered Section (when active) ── */}
             {recentFilters.length > 0 && (
@@ -540,7 +707,18 @@ export const ProviderAppointmentFilterModal: React.FC<ProviderAppointmentFilterM
               <Text style={styles.sectionHeading}>Price Range</Text>
 
               {/* Exact 1:1 Figma Price Chart Indicator (height: 110px: 58px bars/line + 20px half thumb + 4px + 24px Drag text) */}
-              <View style={styles.priceChartWrapper}>
+              <View
+                style={styles.priceChartWrapper}
+                onStartShouldSetResponder={() => true}
+                onResponderGrant={(evt) => {
+                  const locX = evt.nativeEvent.locationX;
+                  if (typeof locX === 'number') handleTrackInteraction(locX);
+                }}
+                onResponderMove={(evt) => {
+                  const locX = evt.nativeEvent.locationX;
+                  if (typeof locX === 'number') handleTrackInteraction(locX);
+                }}
+              >
                 {/* 23 Histogram Bars sitting directly on the baseline */}
                 <View style={styles.histogramBarsRow}>
                   {HISTOGRAM_BARS.map((height, i) => {
@@ -586,6 +764,7 @@ export const ProviderAppointmentFilterModal: React.FC<ProviderAppointmentFilterM
                 {/* Minimum Draggable Thumb (40x40 circle centered at Y = 58px baseline) */}
                 <View
                   {...minPanResponder.panHandlers}
+                  {...(Platform.OS === 'web' ? { onMouseDown: handleThumbMouseDown('min') } : {})}
                   style={[
                     styles.draggableThumbContainer,
                     {
@@ -601,6 +780,7 @@ export const ProviderAppointmentFilterModal: React.FC<ProviderAppointmentFilterM
                 {/* Maximum Draggable Thumb (40x40 circle centered at Y = 58px baseline) */}
                 <View
                   {...maxPanResponder.panHandlers}
+                  {...(Platform.OS === 'web' ? { onMouseDown: handleThumbMouseDown('max') } : {})}
                   style={[
                     styles.draggableThumbContainer,
                     {
@@ -619,187 +799,161 @@ export const ProviderAppointmentFilterModal: React.FC<ProviderAppointmentFilterM
                 {/* Minimum Button Column */}
                 <View style={styles.priceButtonCol}>
                   <Text style={styles.priceButtonLabel}>Minimum</Text>
-                  <View style={styles.pricePillButton}>
+                  <TouchableOpacity
+                    style={styles.pricePillButton}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      const nextMin = (minBarIndex + 1) % Math.min(maxBarIndex + 1, PRICE_STEPS.length);
+                      setMinBarIndex(nextMin);
+                      minBarIndexRef.current = nextMin;
+                      setFilters((p) => ({ ...p, minPrice: PRICE_STEPS[nextMin] }));
+                    }}
+                  >
                     <Text style={styles.pricePillValue}>₦{minPrice.toLocaleString()}</Text>
-                  </View>
+                  </TouchableOpacity>
                 </View>
 
                 {/* Maximum Button Column */}
                 <View style={styles.priceButtonCol}>
                   <Text style={styles.priceButtonLabel}>Maximum</Text>
-                  <View style={styles.pricePillButton}>
+                  <TouchableOpacity
+                    style={styles.pricePillButton}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      const nextMax = maxBarIndex >= 22 ? Math.max(minBarIndex, 17) : maxBarIndex + 1;
+                      setMaxBarIndex(nextMax);
+                      maxBarIndexRef.current = nextMax;
+                      setFilters((p) => ({ ...p, maxPrice: PRICE_STEPS[nextMax] }));
+                    }}
+                  >
                     <Text style={styles.pricePillValue}>
                       ₦{maxPrice.toLocaleString()} {maxBarIndex >= 17 ? '+' : ''}
                     </Text>
-                  </View>
+                  </TouchableOpacity>
                 </View>
               </View>
 
               {/* Amount Input (Figma: width: 358px, padding 0 16px, gap: 24px) */}
-              <View style={styles.amountInputFrame}>
+              <View
+                style={styles.amountInputFrame}
+                onLayout={(e) => {
+                  amountInputYRef.current = e.nativeEvent.layout.y;
+                }}
+              >
                 <TextInput
                   style={styles.amountInputField}
                   placeholder="Enter Amount eg. ₦1,000"
                   placeholderTextColor="rgba(96, 96, 102, 0.96)"
                   value={filters.customAmount}
-                  onChangeText={(val) => setFilters((p) => ({ ...p, customAmount: val }))}
+                  onFocus={() => {
+                    setTimeout(() => {
+                      if (amountInputYRef.current > 0) {
+                        scrollViewRef.current?.scrollTo({
+                          y: Math.max(0, amountInputYRef.current - 40),
+                          animated: true,
+                        });
+                      }
+                    }, 120);
+                  }}
+                  onChangeText={(val) => {
+                    setFilters((p) => ({ ...p, customAmount: val }));
+                    const digits = val.replace(/[^0-9]/g, '');
+                    if (digits) {
+                      const num = parseInt(digits, 10);
+                      if (!isNaN(num) && num > 0) {
+                        let closest = 0;
+                        let minDiff = Infinity;
+                        PRICE_STEPS.forEach((p, idx) => {
+                          const diff = Math.abs(p - num);
+                          if (diff < minDiff) {
+                            minDiff = diff;
+                            closest = idx;
+                          }
+                        });
+                        if (closest <= minBarIndex) {
+                          setMinBarIndex(closest);
+                          minBarIndexRef.current = closest;
+                        } else {
+                          setMaxBarIndex(closest);
+                          maxBarIndexRef.current = closest;
+                        }
+                      }
+                    }
+                  }}
                   keyboardType="numeric"
                 />
                 <View style={styles.amountInputLine110} />
               </View>
             </View>
 
-            {/* ── Section 2: Services (Figma 1:1 Layout) ── */}
+            {/* ── Section 2: Services (1:1 Figma Multi-line Wrapped Chips) ── */}
             <View style={styles.sectionBlock}>
               <Text style={styles.sectionHeading}>Services</Text>
 
-              <View style={styles.serviceButtonsContainer}>
-                {/* Row 1: Hair Cut (112px) & Nail Art (112px) with 32px gap */}
-                <View style={[styles.buttonsRow, { gap: 32 }]}>
-                  {['Hair Cut', 'Nail Art'].map((svc) => {
-                    const selected = filters.selectedServices.includes(svc);
-                    return (
-                      <TouchableOpacity
-                        key={svc}
+              <View style={styles.servicesWrapContainer}>
+                {availableServices.map((svc) => {
+                  const selected = filters.selectedServices.includes(svc);
+                  return (
+                    <TouchableOpacity
+                      key={svc}
+                      style={[
+                        styles.servicePill,
+                        selected ? styles.servicePillActive : styles.servicePillInactive,
+                      ]}
+                      activeOpacity={0.75}
+                      onPress={() => toggleService(svc)}
+                    >
+                      <Text
                         style={[
-                          styles.servicePill,
-                          { width: 112 },
-                          selected ? styles.servicePillActive : styles.servicePillInactive,
+                          styles.pillText16,
+                          selected ? styles.pillTextActive : styles.pillTextInactive,
                         ]}
-                        activeOpacity={0.75}
-                        onPress={() => toggleService(svc)}
                       >
-                        <Text
-                          style={[
-                            styles.pillText16,
-                            selected ? styles.pillTextActive : styles.pillTextInactive,
-                          ]}
-                        >
-                          {svc}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-
-                {/* Row 2: Hair Wash (112px), Pedicure (112px), Manicure (112px) with 12px gap */}
-                <View style={[styles.buttonsRow, { gap: 12 }]}>
-                  {['Hair Wash', 'Pedicure', 'Manicure'].map((svc) => {
-                    const selected = filters.selectedServices.includes(svc);
-                    return (
-                      <TouchableOpacity
-                        key={svc}
-                        style={[
-                          styles.servicePill,
-                          { width: 112 },
-                          selected ? styles.servicePillActive : styles.servicePillInactive,
-                        ]}
-                        activeOpacity={0.75}
-                        onPress={() => toggleService(svc)}
-                      >
-                        <Text
-                          style={[
-                            styles.pillText16,
-                            selected ? styles.pillTextActive : styles.pillTextInactive,
-                          ]}
-                        >
-                          {svc}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-
-                {/* Row 3: Feet Massage (142px) */}
-                <View style={styles.buttonsRow}>
-                  {['Feet Massage'].map((svc) => {
-                    const selected = filters.selectedServices.includes(svc);
-                    return (
-                      <TouchableOpacity
-                        key={svc}
-                        style={[
-                          styles.servicePill,
-                          { width: 142 },
-                          selected ? styles.servicePillActive : styles.servicePillInactive,
-                        ]}
-                        activeOpacity={0.75}
-                        onPress={() => toggleService(svc)}
-                      >
-                        <Text
-                          style={[
-                            styles.pillText16,
-                            selected ? styles.pillTextActive : styles.pillTextInactive,
-                          ]}
-                        >
-                          {svc}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+                        {svc}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
 
-            {/* ── Section 3: Staff (Figma 1:1 2x2 Grid) ── */}
+            {/* ── Section 3: Staff (Dynamic 2-column Grid) ── */}
             <View style={styles.sectionBlock}>
               <Text style={styles.sectionHeading}>Staff</Text>
 
               <View style={styles.staffContainer}>
-                {/* Row 1: Aisha Bello (167.5px) & Tunde Adebayo (167.5px) */}
-                <View style={[styles.buttonsRow, { justifyContent: 'space-between' }]}>
-                  {['Aisha Bello', 'Tunde Adebayo'].map((staff) => {
-                    const selected = filters.selectedStaff.includes(staff);
-                    return (
-                      <TouchableOpacity
-                        key={staff}
-                        style={[
-                          styles.staffPill,
-                          selected ? styles.servicePillActive : styles.servicePillInactive,
-                        ]}
-                        activeOpacity={0.75}
-                        onPress={() => toggleStaff(staff)}
-                      >
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            styles.pillText16,
-                            selected ? styles.pillTextActive : styles.pillTextInactive,
-                          ]}
-                        >
-                          {staff}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-
-                {/* Row 2: Adaeze Nwosu (167.5px) & Chioma Okafor (167.5px) */}
-                <View style={[styles.buttonsRow, { justifyContent: 'space-between' }]}>
-                  {['Adaeze Nwosu', 'Chioma Okafor'].map((staff) => {
-                    const selected = filters.selectedStaff.includes(staff);
-                    return (
-                      <TouchableOpacity
-                        key={staff}
-                        style={[
-                          styles.staffPill,
-                          selected ? styles.servicePillActive : styles.servicePillInactive,
-                        ]}
-                        activeOpacity={0.75}
-                        onPress={() => toggleStaff(staff)}
-                      >
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            styles.pillText16,
-                            selected ? styles.pillTextActive : styles.pillTextInactive,
-                          ]}
-                        >
-                          {staff}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+                {Array.from({ length: Math.ceil(availableStaff.length / 2) }).map((_, rIdx) => {
+                  const pair = availableStaff.slice(rIdx * 2, rIdx * 2 + 2);
+                  return (
+                    <View key={rIdx} style={[styles.buttonsRow, { justifyContent: 'space-between', marginBottom: 12 }]}>
+                      {pair.map((staff) => {
+                        const selected = filters.selectedStaff.includes(staff);
+                        return (
+                          <TouchableOpacity
+                            key={staff}
+                            style={[
+                              styles.staffPill,
+                              selected ? styles.servicePillActive : styles.servicePillInactive,
+                            ]}
+                            activeOpacity={0.75}
+                            onPress={() => toggleStaff(staff)}
+                          >
+                            <Text
+                              numberOfLines={1}
+                              style={[
+                                styles.pillText16,
+                                selected ? styles.pillTextActive : styles.pillTextInactive,
+                              ]}
+                            >
+                              {staff}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                      {pair.length === 1 && <View style={{ width: 167.5 }} />}
+                    </View>
+                  );
+                })}
               </View>
             </View>
 
@@ -1082,7 +1236,15 @@ export const ProviderAppointmentFilterModal: React.FC<ProviderAppointmentFilterM
           </ScrollView>
 
           {/* ── Sticky Bottom Action Bar (height: 80px, padding: 16px, gap: 17px) ── */}
-          <View style={[styles.bottomActionBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+          <View
+            style={[
+              styles.bottomActionBar,
+              {
+                paddingBottom: Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16),
+                height: undefined,
+              },
+            ]}
+          >
             {/* Clear all Button (115x48px) */}
             <TouchableOpacity
               style={styles.clearAllButton}
@@ -1430,9 +1592,11 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 
-  /* ── Service Buttons Container (gap: 24px) ── */
-  serviceButtonsContainer: {
-    gap: 24,
+  /* ── Service Buttons Multi-line Wrapped Layout ── */
+  servicesWrapContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
     width: '100%',
   },
 
@@ -1517,11 +1681,11 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
   },
 
   servicePillInactive: {
-    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: 'rgba(192, 192, 204, 0.96)',
   },
@@ -1555,7 +1719,7 @@ const styles = StyleSheet.create({
   /* ── Sticky Bottom Action Bar ── */
   bottomActionBar: {
     width: '100%',
-    height: 80,
+    minHeight: 80,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: 'rgba(235, 235, 245, 0.96)',
@@ -1563,6 +1727,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
+    paddingTop: 16,
     gap: 17,
     shadowColor: 'rgba(133, 139, 148, 0.12)',
     shadowOffset: { width: 0, height: -8 },

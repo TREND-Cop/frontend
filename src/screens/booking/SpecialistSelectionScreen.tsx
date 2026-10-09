@@ -16,6 +16,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BookingProgressStepper } from '../../components/BookingProgressStepper';
 import { SafeImage } from '../../components/ui/SafeImage';
 import { bookingStore, SpecialistItem } from '../../utils/bookingStore';
+import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
 import { theme } from '../../constants/theme';
 
 export const SPECIALIST_LIST: SpecialistItem[] = [
@@ -74,6 +75,7 @@ export const SpecialistSelectionScreen: React.FC<SpecialistSelectionScreenProps>
 }) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const bottomInset = Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16);
   const params = useLocalSearchParams();
 
   const isFromReview = params?.fromReview === 'true';
@@ -278,7 +280,7 @@ export const SpecialistSelectionScreen: React.FC<SpecialistSelectionScreenProps>
           keyboardDismissMode="on-drag"
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: (isKeyboardVisible ? 360 : 100) + insets.bottom },
+            { paddingBottom: (isKeyboardVisible ? 360 : 120) + bottomInset },
           ]}
         >
           {/* ─── Optional Booking Progress Stepper ─── */}
@@ -397,7 +399,7 @@ export const SpecialistSelectionScreen: React.FC<SpecialistSelectionScreenProps>
 
         {/* ─── 1:1 Figma Sticky Bottom Action Bar with Dynamic Estimated Price & Next Button ─── */}
         {!isKeyboardVisible && (
-          <View style={[styles.bottomBar, { paddingBottom: Math.max(16, insets.bottom) }]}>
+          <View style={[styles.bottomBar, { paddingBottom: bottomInset }]}>
             <View style={styles.bottomRow}>
               {/* Total / Estimated Price Column */}
               <View style={styles.priceBlock}>
@@ -429,6 +431,8 @@ export const SpecialistSelectionScreen: React.FC<SpecialistSelectionScreenProps>
           </View>
         )}
       </KeyboardAvoidingView>
+
+      <NativeDockSpacer />
     </SafeAreaView>
   );
 };

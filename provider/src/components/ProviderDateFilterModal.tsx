@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -56,6 +56,12 @@ const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 // Crossed-out unavailable dates from Figma demonstration
 const DEFAULT_CROSSED_OUT_DAYS = [2, 6, 10, 11, 12, 14, 23, 24, 26];
 
+// Years range matching Figma (2028, 2027 visible above 2026)
+const MAX_YEAR = 2030;
+const MIN_YEAR = 2000;
+const YEARS = Array.from({ length: MAX_YEAR - MIN_YEAR + 1 }, (_, i) => MAX_YEAR - i);
+const YEAR_ITEM_HEIGHT = 44;
+
 interface ProviderDateFilterModalProps {
   visible: boolean;
   onClose: () => void;
@@ -77,33 +83,115 @@ export const ProviderDateFilterModal: React.FC<ProviderDateFilterModalProps> = (
   const [currentMonth, setCurrentMonth] = useState<number>(initialDate?.month ?? 5); // 0-indexed, 5 = June
   const [selectedDay, setSelectedDay] = useState<number | null>(initialDate?.day ?? null);
 
-  // Year Selection State
-  const [pickerYear, setPickerYear] = useState<number>(initialDate?.year ?? 2026);
+  // Year Selection State (capped at MAX_YEAR 2026)
+  const [pickerYear, setPickerYear] = useState<number>(
+    Math.min(MAX_YEAR, Math.max(MIN_YEAR, initialDate?.year ?? 2026))
+  );
+
+  const yearScrollRef = useRef<ScrollView>(null);
+  const isProgrammaticScrollRef = useRef<boolean>(false);
+  const scrollTimeoutRef = useRef<any>(null);
+
+  const scrollToYear = (year: number, animated = true) => {
+    const idx = YEARS.indexOf(year);
+    if (idx !== -1 && yearScrollRef.current) {
+      isProgrammaticScrollRef.current = true;
+      yearScrollRef.current.scrollTo({
+        y: idx * YEAR_ITEM_HEIGHT,
+        animated,
+      });
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+      scrollTimeoutRef.current = setTimeout(() => {
+        isProgrammaticScrollRef.current = false;
+      }, animated ? 300 : 50);
+    }
+  };
+
+  // Sync state when modal becomes visible or initialDate changes
+  useEffect(() => {
+    if (visible) {
+      if (initialDate?.year) {
+        const y = Math.min(MAX_YEAR, Math.max(MIN_YEAR, initialDate.year));
+        setPickerYear(y);
+        setCurrentYear(y);
+      }
+      if (initialDate?.month !== undefined) {
+        setCurrentMonth(initialDate.month);
+      }
+      if (initialDate?.day !== undefined) {
+        setSelectedDay(initialDate.day);
+      }
+    }
+  }, [visible, initialDate]);
+
+  useEffect(() => {
+    if (visible && activeTab === 'year') {
+      const timer = setTimeout(() => {
+        scrollToYear(pickerYear, false);
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [visible, activeTab]);
+
+  // Real-time wheel scroll handler keeping header and active year in sync
+  const handleYearScroll = (e: any) => {
+    if (isProgrammaticScrollRef.current) return;
+    const offsetY = e.nativeEvent.contentOffset.y;
+    const rawIdx = Math.round(offsetY / YEAR_ITEM_HEIGHT);
+    const clampedIdx = Math.max(0, Math.min(YEARS.length - 1, rawIdx));
+    const targetYear = YEARS[clampedIdx];
+    if (targetYear !== undefined && targetYear !== pickerYear) {
+      setPickerYear(targetYear);
+    }
+  };
+
+  const handleScrollEnd = (e: any) => {
+    if (isProgrammaticScrollRef.current) return;
+    const offsetY = e.nativeEvent.contentOffset.y;
+    const rawIdx = Math.round(offsetY / YEAR_ITEM_HEIGHT);
+    const clampedIdx = Math.max(0, Math.min(YEARS.length - 1, rawIdx));
+    const targetYear = YEARS[clampedIdx];
+    if (targetYear !== undefined) {
+      setPickerYear(targetYear);
+      scrollToYear(targetYear, true);
+    }
+  };
 
   // Month navigation
   const handlePrevMonth = () => {
-    if (activeTab === 'month') {
-      if (currentMonth === 0) {
-        setCurrentMonth(11);
-        setCurrentYear((prev) => prev - 1);
-      } else {
-        setCurrentMonth((prev) => prev - 1);
-      }
+    if (currentMonth === 0) {
+      setCurrentMonth(11);
+      setCurrentYear((prev) => prev - 1);
     } else {
-      setPickerYear((prev) => prev - 1);
+      setCurrentMonth((prev) => prev - 1);
     }
   };
 
   const handleNextMonth = () => {
-    if (activeTab === 'month') {
-      if (currentMonth === 11) {
-        setCurrentMonth(0);
-        setCurrentYear((prev) => prev + 1);
-      } else {
-        setCurrentMonth((prev) => prev + 1);
-      }
+    if (currentMonth === 11) {
+      setCurrentMonth(0);
+      setCurrentYear((prev) => prev + 1);
     } else {
-      setPickerYear((prev) => prev + 1);
+      setCurrentMonth((prev) => prev + 1);
+    }
+  };
+
+  // Year navigation via chevrons
+  const handlePrevYear = () => {
+    const idx = YEARS.indexOf(pickerYear);
+    if (idx < YEARS.length - 1) {
+      const older = YEARS[idx + 1];
+      setPickerYear(older);
+      scrollToYear(older, true);
+    }
+  };
+
+  const handleNextYear = () => {
+    const idx = YEARS.indexOf(pickerYear);
+    if (idx > 0) {
+      const newer = YEARS[idx - 1];
+      setPickerYear(newer);
+      scrollToYear(newer, true);
     }
   };
 
@@ -129,7 +217,7 @@ export const ProviderDateFilterModal: React.FC<ProviderDateFilterModalProps> = (
   // Confirm selection
   const handleSelectDay = () => {
     if (selectedDay !== null) {
-      const formatted = `${selectedDay} ${MONTH_NAMES[currentMonth].substring(0, 3)}, ${currentYear}`;
+      const formatted = `${selectedDay} ${MONTH_NAMES[currentMonth]}, ${currentYear}`;
       onSelectDate(formatted);
       onClose();
     }
@@ -137,19 +225,9 @@ export const ProviderDateFilterModal: React.FC<ProviderDateFilterModalProps> = (
 
   const handleSearchYear = () => {
     setCurrentYear(pickerYear);
-    const formatted = `${MONTH_NAMES[currentMonth].substring(0, 3)}, ${pickerYear}`;
-    onSelectDate(formatted);
+    onSelectDate(`${pickerYear}`);
     onClose();
   };
-
-  const availableYears = [
-    pickerYear + 2,
-    pickerYear + 1,
-    pickerYear,
-    pickerYear - 1,
-    pickerYear - 2,
-    pickerYear - 3,
-  ];
 
   return (
     <Modal
@@ -292,6 +370,10 @@ export const ProviderDateFilterModal: React.FC<ProviderDateFilterModalProps> = (
                       </TouchableOpacity>
                     );
                   })}
+                  {/* Dummy filler elements to prevent incomplete bottom row from spreading out wide */}
+                  {Array.from({ length: 9 }).map((_, i) => (
+                    <View key={`dummy-${i}`} style={styles.dayCellDummy} pointerEvents="none" />
+                  ))}
                 </View>
               </View>
 
@@ -328,8 +410,12 @@ export const ProviderDateFilterModal: React.FC<ProviderDateFilterModalProps> = (
                   <View style={styles.navButtonsRow}>
                     <TouchableOpacity
                       activeOpacity={0.7}
-                      style={styles.navCircleButton}
-                      onPress={handlePrevMonth}
+                      disabled={pickerYear <= MIN_YEAR}
+                      style={[
+                        styles.navCircleButton,
+                        pickerYear <= MIN_YEAR && { opacity: 0.3 },
+                      ]}
+                      onPress={handlePrevYear}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
                       <ChevronLeftBlueIcon size={20} />
@@ -337,8 +423,12 @@ export const ProviderDateFilterModal: React.FC<ProviderDateFilterModalProps> = (
 
                     <TouchableOpacity
                       activeOpacity={0.7}
-                      style={styles.navCircleButton}
-                      onPress={handleNextMonth}
+                      disabled={pickerYear >= MAX_YEAR}
+                      style={[
+                        styles.navCircleButton,
+                        pickerYear >= MAX_YEAR && { opacity: 0.3 },
+                      ]}
+                      onPress={handleNextYear}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
                       <ChevronRightBlueIcon size={20} />
@@ -346,53 +436,56 @@ export const ProviderDateFilterModal: React.FC<ProviderDateFilterModalProps> = (
                   </View>
                 </View>
 
-                {/* 1:1 Figma Year Picker Wheel */}
+                {/* 1:1 Figma Year Picker Wheel (Scrollable, capped at 2026) */}
                 <View style={styles.yearWheelContainer}>
+                  {/* Selected Year Pill Background */}
+                  <View style={styles.selectedYearPillBackground} pointerEvents="none" />
+
                   {/* Vertical Guide Lines */}
-                  <View style={styles.yearGuideLineLeft} />
-                  <View style={styles.yearGuideLineRight} />
+                  <View style={styles.yearGuideLineLeft} pointerEvents="none" />
+                  <View style={styles.yearGuideLineRight} pointerEvents="none" />
 
-                  {/* Top Years */}
-                  <TouchableOpacity
-                    onPress={() => setPickerYear(pickerYear + 2)}
-                    activeOpacity={0.7}
+                  {/* Scrollable Year Wheel */}
+                  <ScrollView
+                    ref={yearScrollRef}
+                    style={styles.yearScrollView}
+                    contentContainerStyle={styles.yearScrollContent}
+                    showsVerticalScrollIndicator={false}
+                    snapToInterval={YEAR_ITEM_HEIGHT}
+                    snapToAlignment="center"
+                    decelerationRate="fast"
+                    scrollEventThrottle={16}
+                    onScroll={handleYearScroll}
+                    onMomentumScrollEnd={handleScrollEnd}
+                    onScrollEndDrag={handleScrollEnd}
                   >
-                    <Text style={styles.yearTextTopMini}>{pickerYear + 2}</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => setPickerYear(pickerYear + 1)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.yearTextTopRegular}>{pickerYear + 1}</Text>
-                  </TouchableOpacity>
-
-                  {/* Centered Selected Year Pill (326x40px, radius: 24px) */}
-                  <View style={styles.selectedYearPill}>
-                    <Text style={styles.selectedYearPillText}>{pickerYear}</Text>
-                  </View>
-
-                  {/* Bottom Years */}
-                  <TouchableOpacity
-                    onPress={() => setPickerYear(pickerYear - 1)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.yearTextBottomRegular}>{pickerYear - 1}</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => setPickerYear(pickerYear - 2)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.yearTextBottomMedium}>{pickerYear - 2}</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => setPickerYear(pickerYear - 3)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.yearTextBottomMini}>{pickerYear - 3}</Text>
-                  </TouchableOpacity>
+                    {YEARS.map((y) => {
+                      const diff = Math.abs(y - pickerYear);
+                      return (
+                        <TouchableOpacity
+                          key={y}
+                          style={styles.yearScrollItem}
+                          activeOpacity={0.7}
+                          onPress={() => {
+                            setPickerYear(y);
+                            scrollToYear(y, true);
+                          }}
+                        >
+                          <Text
+                            style={[
+                              styles.yearItemTextBase,
+                              diff === 0 && styles.selectedYearPillText,
+                              diff === 1 && styles.yearTextRegular,
+                              diff === 2 && styles.yearTextMedium,
+                              diff >= 3 && styles.yearTextMini,
+                            ]}
+                          >
+                            {y}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
                 </View>
               </View>
 
@@ -431,9 +524,10 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
 
-  /* ── Filter Bottom Sheet Container (Figma: width 390px, radius: 24px 24px 0 0) ── */
+  /* ── Filter Bottom Sheet Container (Figma: width 390px, height: 575px, radius: 24px 24px 0 0) ── */
   bottomSheetContainer: {
     width: '100%',
+    height: 575,
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
@@ -581,6 +675,11 @@ const styles = StyleSheet.create({
     height: 36,
   },
 
+  dayCellDummy: {
+    width: 38,
+    height: 0,
+  },
+
   dayCell: {
     width: 38,
     height: 36,
@@ -664,7 +763,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    gap: 10,
+  },
+
+  selectedYearPillBackground: {
+    position: 'absolute',
+    top: 118,
+    width: 326,
+    height: 40,
+    borderRadius: 24,
+    backgroundColor: 'rgba(229, 229, 229, 0.8)',
+    alignSelf: 'center',
+    zIndex: 1,
+  },
+
+  yearScrollView: {
+    width: '100%',
+    height: 276,
+    zIndex: 2,
+  },
+
+  yearScrollContent: {
+    paddingTop: 116,
+    paddingBottom: 116,
+    alignItems: 'center',
+  },
+
+  yearScrollItem: {
+    width: '100%',
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  yearItemTextBase: {
+    textAlign: 'center',
+    includeFontPadding: false,
   },
 
   yearGuideLineLeft: {
@@ -674,6 +807,7 @@ const styles = StyleSheet.create({
     bottom: 20,
     width: 1,
     backgroundColor: 'rgba(235, 235, 245, 0.96)',
+    zIndex: 1,
   },
 
   yearGuideLineRight: {
@@ -683,34 +817,7 @@ const styles = StyleSheet.create({
     bottom: 20,
     width: 1,
     backgroundColor: 'rgba(235, 235, 245, 0.96)',
-  },
-
-  yearTextTopMini: {
-    fontFamily: FONT_REGULAR,
-    fontSize: 10,
-    lineHeight: 20,
-    color: 'rgba(96, 96, 102, 0.6)',
-    textAlign: 'center',
-    includeFontPadding: false,
-  },
-
-  yearTextTopRegular: {
-    fontFamily: FONT_REGULAR,
-    fontSize: 16,
-    lineHeight: 24,
-    color: 'rgba(96, 96, 102, 0.96)',
-    textAlign: 'center',
-    includeFontPadding: false,
-  },
-
-  selectedYearPill: {
-    width: 326,
-    height: 40,
-    borderRadius: 24,
-    backgroundColor: 'rgba(229, 229, 229, 0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: 4,
+    zIndex: 1,
   },
 
   selectedYearPillText: {
@@ -724,31 +831,31 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 
-  yearTextBottomRegular: {
+  yearTextRegular: {
     fontFamily: FONT_REGULAR,
+    fontWeight: '400',
     fontSize: 16,
     lineHeight: 24,
+    letterSpacing: 0.2,
     color: 'rgba(96, 96, 102, 0.96)',
-    textAlign: 'center',
-    includeFontPadding: false,
   },
 
-  yearTextBottomMedium: {
+  yearTextMedium: {
     fontFamily: FONT_REGULAR,
+    fontWeight: '400',
     fontSize: 13,
     lineHeight: 22,
+    letterSpacing: 0.2,
     color: 'rgba(96, 96, 102, 0.8)',
-    textAlign: 'center',
-    includeFontPadding: false,
   },
 
-  yearTextBottomMini: {
+  yearTextMini: {
     fontFamily: FONT_REGULAR,
+    fontWeight: '400',
     fontSize: 10,
     lineHeight: 20,
+    letterSpacing: 0.2,
     color: 'rgba(96, 96, 102, 0.6)',
-    textAlign: 'center',
-    includeFontPadding: false,
   },
 
   /* ── Bottom Action Button Container ── */

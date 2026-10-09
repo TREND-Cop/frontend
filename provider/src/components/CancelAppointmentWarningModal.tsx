@@ -7,26 +7,62 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   Platform,
-  Dimensions,
 } from 'react-native';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const CARD_WIDTH = Math.min(358, SCREEN_WIDTH - 32);
+import Svg, { Path, Rect, Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 
 export interface CancelAppointmentWarningModalProps {
   visible: boolean;
   onDiscard: () => void;
   onConfirmCancel: () => void;
+  title?: string;
+  description?: string;
+  confirmButtonText?: string;
+  discardButtonText?: string;
 }
 
 /**
- * 1:1 Figma Delete Warning Popup
+ * 1:1 Figma Red 3D Warning Triangle Icon (40x40px)
+ */
+function AlertTriangleIcon({ size = 40 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 40 40" fill="none">
+      <Defs>
+        <SvgLinearGradient id="alertGrad" x1="20" y1="4" x2="20" y2="36" gradientUnits="userSpaceOnUse">
+          <Stop offset="0%" stopColor="#EA4343" />
+          <Stop offset="100%" stopColor="#C92020" />
+        </SvgLinearGradient>
+      </Defs>
+      {/* 3D-effect bottom base shadow */}
+      <Path
+        d="M20 5.5L35.5 32.5C36.3 33.9 35.3 35.5 33.7 35.5H6.3C4.7 35.5 3.7 33.9 4.5 32.5L20 5.5Z"
+        fill="rgba(0,0,0,0.12)"
+        transform="matrix(1 0 0 1 0 1.5)"
+      />
+      {/* Main Triangle */}
+      <Path
+        d="M17.4019 6.5C18.5566 4.5 21.4434 4.5 22.5981 6.5L36.4545 30.5C37.6092 32.5 36.1658 35 33.8564 35H6.14359C3.83419 35 2.39082 32.5 3.54552 30.5L17.4019 6.5Z"
+        fill="url(#alertGrad)"
+      />
+      {/* Exclamation Bar */}
+      <Rect x="18.5" y="14" width="3" height="10" rx="1.5" fill="#FFFFFF" />
+      {/* Exclamation Dot */}
+      <Circle cx="20" cy="28" r="1.75" fill="#FFFFFF" />
+    </Svg>
+  );
+}
+
+/**
+ * 1:1 Figma Cancel Appointment Warning Modal (342x232px)
  * Rendered when the provider taps "Cancel" on an appointment.
  */
 export const CancelAppointmentWarningModal: React.FC<CancelAppointmentWarningModalProps> = ({
   visible,
   onDiscard,
   onConfirmCancel,
+  title = 'Cancel Appointment?',
+  description = 'Canceling this appointment, you may loose the client trust.',
+  confirmButtonText = 'Yes, Cancel it.',
+  discardButtonText = 'No, Don’t cancel',
 }) => {
   return (
     <Modal
@@ -39,42 +75,41 @@ export const CancelAppointmentWarningModal: React.FC<CancelAppointmentWarningMod
       <TouchableWithoutFeedback onPress={onDiscard}>
         <View style={styles.modalBackdrop}>
           <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-            <View style={styles.deleteWarningPopup}>
-              {/* ── warning block ── */}
-              <View style={styles.warningBlock}>
-                {/* Cancel Appointment */}
-                <Text style={styles.cancelAppointmentTitle}>
-                  Cancel Appointment
-                </Text>
+            <View style={styles.popUpCard}>
+              {/* ── Rectangle 300: 40x40px Warning Icon ── */}
+              <AlertTriangleIcon size={40} />
 
-                {/* Changeling this appointment, you might loose this customer trust. */}
-                <Text style={styles.warningDescription}>
-                  Changeling this appointment, you might loose this customer trust.
-                </Text>
-              </View>
+              {/* ── Frame 1000006539: 310x144px ── */}
+              <View style={styles.contentFrame}>
+                {/* ── cancel description: 310x80px ── */}
+                <View style={styles.cancelDescription}>
+                  {/* Cancel Appointment? (16px 510/500) */}
+                  <Text style={styles.titleText}>{title}</Text>
 
-              {/* ── buttons row ── */}
-              <View style={styles.buttonsRow}>
-                {/* Discard button */}
-                <TouchableOpacity
-                  style={styles.discardButton}
-                  activeOpacity={0.7}
-                  onPress={onDiscard}
-                >
-                  <Text style={styles.discardButtonText}>Discard</Text>
-                </TouchableOpacity>
+                  {/* Canceling this appointment, you may loose the client trust. (14px 400) */}
+                  <Text style={styles.descriptionText}>{description}</Text>
+                </View>
 
-                {/* Line 185 vertical divider */}
-                <View style={styles.line185} />
+                {/* ── action buttons: 310x40px ── */}
+                <View style={styles.actionButtonsRow}>
+                  {/* Left: Yes, Cancel it. (139x40px) */}
+                  <TouchableOpacity
+                    style={styles.confirmCancelButton}
+                    activeOpacity={0.7}
+                    onPress={onConfirmCancel}
+                  >
+                    <Text style={styles.confirmCancelButtonText}>{confirmButtonText}</Text>
+                  </TouchableOpacity>
 
-                {/* Cancel button */}
-                <TouchableOpacity
-                  style={styles.cancelButton}
-                  activeOpacity={0.7}
-                  onPress={onConfirmCancel}
-                >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
-                </TouchableOpacity>
+                  {/* Right: No, Don't cancel (151x40px) */}
+                  <TouchableOpacity
+                    style={styles.discardCancelButton}
+                    activeOpacity={0.7}
+                    onPress={onDiscard}
+                  >
+                    <Text style={styles.discardCancelButtonText}>{discardButtonText}</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </TouchableWithoutFeedback>
@@ -93,18 +128,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
 
-  /* delete warning popup (1:1 Figma Converter) */
-  deleteWarningPopup: {
+  /* pop up (342x232px, 1:1 Figma Converter) */
+  popUpCard: {
+    width: 342,
+    maxWidth: '100%',
+    height: 232,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
     flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
-    gap: 24,
-    width: CARD_WIDTH,
-    maxWidth: 358,
-    minHeight: 218,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
+    gap: 16,
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
@@ -118,113 +153,109 @@ const styles = StyleSheet.create({
     }),
   },
 
-  /* warning (1:1 Figma Converter) */
-  warningBlock: {
+  /* Frame 1000006539 (310x144px, gap: 24px, 1:1 Figma) */
+  contentFrame: {
+    width: 310,
+    maxWidth: '100%',
+    height: 144,
     flexDirection: 'column',
-    alignItems: 'center',
-    padding: 0,
-    gap: 19,
-    width: '100%',
-    maxWidth: 326,
-    alignSelf: 'stretch',
+    alignItems: 'flex-start',
+    gap: 24,
   },
 
-  /* Cancel Appointment (1:1 Figma Converter) */
-  cancelAppointmentTitle: {
-    width: '100%',
+  /* cancel description (310x80px, gap: 16px, 1:1 Figma) */
+  cancelDescription: {
+    width: 310,
+    maxWidth: '100%',
+    height: 80,
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 16,
+  },
+
+  /* Cancel Appointment? (16px SF Pro 510 / DM Sans 500, line-height 24px) */
+  titleText: {
+    width: 310,
+    maxWidth: '100%',
+    height: 24,
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
     fontWeight: '500',
-    fontSize: 20,
-    lineHeight: 28,
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: Platform.OS === 'ios' ? 0.5 : 0.2,
     textAlign: 'center',
-    letterSpacing: 0.2,
-    color: 'rgba(204, 41, 41, 0.9)',
+    color: 'rgba(0, 8, 20, 0.96)',
     includeFontPadding: false,
   },
 
-  /* Changeling this appointment, you might loose this customer trust. (1:1 Figma Converter) */
-  warningDescription: {
-    width: '100%',
+  /* Canceling this appointment, you may loose the client trust. (14px SF Pro 400 / DM Sans 400, line-height 20px) */
+  descriptionText: {
+    width: 310,
+    maxWidth: '100%',
+    height: 40,
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
     fontWeight: '400',
-    fontSize: 16,
-    lineHeight: 24,
-    textAlign: 'center',
+    fontSize: 14,
+    lineHeight: 20,
     letterSpacing: 0.4,
+    textAlign: 'center',
     color: 'rgba(96, 96, 102, 0.96)',
     includeFontPadding: false,
   },
 
-  /* buttons (1:1 Figma Converter) */
-  buttonsRow: {
+  /* action buttons (310x40px, 1:1 Figma) */
+  actionButtonsRow: {
+    width: 310,
+    maxWidth: '100%',
+    height: 40,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 0,
-    width: '100%',
-    maxWidth: 326,
-    height: 48,
-    alignSelf: 'stretch',
   },
 
-  /* cancel button [Discard in UI] (1:1 Figma Converter) */
-  discardButton: {
-    flexDirection: 'row',
+  /* Filled action Button (Left - Cancel: 139x40px, 1:1 Figma) */
+  confirmCancelButton: {
+    width: 139,
+    height: 40,
+    borderRadius: 24,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(192, 192, 204, 0.96)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
-    width: 127,
-    height: 48,
-    borderWidth: 1,
-    borderColor: 'rgba(235, 235, 245, 0.96)',
-    borderRadius: 24,
-    backgroundColor: '#FFFFFF',
   },
 
-  /* Discard text (1:1 Figma Converter) */
-  discardButtonText: {
-    width: 60,
-    height: 24,
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
-    fontWeight: '400',
+  /* Yes, Cancel it. text (Inter 500, 16px, line-height 24px, red) */
+  confirmCancelButtonText: {
+    fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',
+    fontWeight: '500',
     fontSize: 16,
     lineHeight: 24,
-    textAlign: 'center',
-    letterSpacing: 0.4,
-    color: 'rgba(96, 96, 102, 0.96)',
+    letterSpacing: 0.15,
+    color: 'rgba(204, 41, 41, 0.9)',
     includeFontPadding: false,
   },
 
-  /* Line 185 (1:1 Figma Converter) */
-  line185: {
-    width: 1,
-    height: 32,
-    backgroundColor: 'rgba(235, 235, 245, 0.96)',
-  },
-
-  /* delete button [Cancel in UI] (1:1 Figma Converter) */
-  cancelButton: {
-    flexDirection: 'row',
+  /* Filled action Button (Right - No, Don't cancel: 151x40px, 1:1 Figma) */
+  discardCancelButton: {
+    width: 151,
+    height: 40,
+    borderRadius: 24,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(192, 192, 204, 0.96)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
-    width: 123,
-    height: 48,
-    backgroundColor: 'rgba(247, 247, 247, 0.96)',
-    borderRadius: 24,
   },
 
-  /* Cancel text (1:1 Figma Converter) */
-  cancelButtonText: {
-    width: 54,
-    height: 24,
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
-    fontWeight: '400',
+  /* No, Don't cancel text (Inter 500, 16px, line-height 24px, grey) */
+  discardCancelButtonText: {
+    fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',
+    fontWeight: '500',
     fontSize: 16,
     lineHeight: 24,
-    textAlign: 'center',
-    letterSpacing: 0.4,
-    color: 'rgba(204, 41, 41, 0.9)',
+    letterSpacing: 0.15,
+    color: 'rgba(96, 96, 102, 0.96)',
     includeFontPadding: false,
   },
 });

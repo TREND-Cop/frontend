@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -193,47 +193,95 @@ const FILTER_CONFIGS: FilterOptionConfig[] = [
   },
 ];
 
-interface ProviderStaffFilterModalProps {
+export interface ProviderStaffFilterModalProps {
   visible: boolean;
   selectedFilter?: StaffStatusFilter;
+  selectedFilters?: StaffStatusFilter[];
+  staffList?: any[];
+  recentFilters?: StaffStatusFilter[];
+  onRemoveRecentFilter?: (filter: StaffStatusFilter) => void;
   onClose: () => void;
-  onApply: (filter: StaffStatusFilter) => void;
+  onApply: (filter: StaffStatusFilter | StaffStatusFilter[]) => void;
   onClear: () => void;
 }
 
 export function ProviderStaffFilterModal({
   visible,
   selectedFilter = 'all',
+  selectedFilters: externalSelectedFilters,
+  staffList,
+  recentFilters: externalRecentFilters,
+  onRemoveRecentFilter,
   onClose,
   onApply,
   onClear,
 }: ProviderStaffFilterModalProps) {
-  const [activeFilter, setActiveFilter] = useState<StaffStatusFilter>(selectedFilter);
-
-  useEffect(() => {
-    setActiveFilter(selectedFilter);
-  }, [selectedFilter, visible]);
-
-  const handleSelect = (filter: StaffStatusFilter) => {
-    setActiveFilter(filter);
+  const getInitialActiveFilters = (): StaffStatusFilter[] => {
+    if (externalSelectedFilters !== undefined) {
+      return externalSelectedFilters.filter((f) => f !== 'all');
+    }
+    if (selectedFilter && selectedFilter !== 'all') {
+      return [selectedFilter];
+    }
+    return [];
   };
 
-  const handleDismissChip = () => {
-    setActiveFilter('all');
+  const [activeFilters, setActiveFilters] = useState<StaffStatusFilter[]>(getInitialActiveFilters);
+  const [internalRecentFilters, setInternalRecentFilters] = useState<StaffStatusFilter[]>([]);
+
+  useEffect(() => {
+    setActiveFilters(getInitialActiveFilters());
+  }, [selectedFilter, externalSelectedFilters, visible]);
+
+  useEffect(() => {
+    if (externalRecentFilters !== undefined) {
+      setInternalRecentFilters(externalRecentFilters);
+    } else {
+      const initial = getInitialActiveFilters();
+      if (initial.length > 0) {
+        setInternalRecentFilters((prev) => Array.from(new Set([...initial, ...prev])));
+      }
+    }
+  }, [externalRecentFilters, selectedFilter, externalSelectedFilters, visible]);
+
+  const recentList = externalRecentFilters !== undefined ? externalRecentFilters : internalRecentFilters;
+  const hasRecentlyFiltered = recentList.length > 0;
+
+  const handleToggle = (filter: StaffStatusFilter) => {
+    if (filter === 'all') {
+      setActiveFilters([]);
+      return;
+    }
+    setActiveFilters((prev) => {
+      if (prev.includes(filter)) {
+        return prev.filter((f) => f !== filter);
+      } else {
+        return [...prev, filter];
+      }
+    });
+  };
+
+  const handleDismissChip = (filter: StaffStatusFilter) => {
+    if (onRemoveRecentFilter) {
+      onRemoveRecentFilter(filter);
+    }
+    setInternalRecentFilters((prev) => prev.filter((f) => f !== filter));
+    setActiveFilters((prev) => prev.filter((f) => f !== filter));
   };
 
   const handleClearAll = () => {
-    setActiveFilter('all');
+    setActiveFilters([]);
     onClear();
     onClose();
   };
 
   const handleApply = () => {
-    onApply(activeFilter);
+    if (activeFilters.length > 0) {
+      setInternalRecentFilters((prev) => Array.from(new Set([...activeFilters, ...prev])));
+    }
+    onApply(activeFilters);
     onClose();
   };
-
-  const hasRecentlyFiltered = activeFilter !== 'all';
 
   const getRecentlyFilteredLabel = (filter: StaffStatusFilter) => {
     switch (filter) {
@@ -250,9 +298,17 @@ export function ProviderStaffFilterModal({
     }
   };
 
-  // Get the 4 remaining options that are NOT the active recently filtered one
-  const remainingOptions = FILTER_CONFIGS.filter((opt) => opt.key !== activeFilter);
-  const isFilter = (val: string) => (activeFilter as string) === val;
+  // Remaining options not in recently filtered list
+  const remainingOptions = FILTER_CONFIGS.filter((opt) => !recentList.includes(opt.key));
+
+  // Dynamic count calculation
+  const displayCount = useMemo(() => {
+    if (!staffList || staffList.length === 0) return '20+';
+    const count = activeFilters.length === 0
+      ? staffList.length
+      : staffList.filter((s) => activeFilters.includes(s.statusCode)).length;
+    return count >= 20 ? '20+' : `${count}`;
+  }, [staffList, activeFilters]);
 
   return (
     <Modal
@@ -280,83 +336,135 @@ export function ProviderStaffFilterModal({
                 </TouchableOpacity>
               </View>
 
-              {/* ── Status Options Content ── */}
+              {/* ── Status Options Content Body (1:1 Figma) ── */}
               <View style={styles.contentBody}>
                 {hasRecentlyFiltered ? (
-                  /* ── State with Recently Filtered Chip (1:1 Figma) ── */
+                  /* ── State with Recently Filtered Chip (Image 1) ── */
                   <View style={styles.recentlyFilteredSection}>
                     <Text style={styles.recentlyFilteredTitle}>Recently Filtered</Text>
 
-                    {/* Active Chip with ✕ dismiss */}
+                    {/* Active Chips with ✕ dismiss */}
                     <View style={styles.chipRow}>
-                      <TouchableOpacity
-                        activeOpacity={0.7}
-                        style={styles.recentlyFilteredChip}
-                        onPress={handleDismissChip}
-                      >
-                        <Text style={styles.recentlyFilteredChipText}>
-                          {getRecentlyFilteredLabel(activeFilter)}
-                        </Text>
-                        <View style={styles.chipCloseIconBox}>
-                          <Cancel01Icon size={14} color="#000814" />
-                        </View>
-                      </TouchableOpacity>
+                      {recentList.map((rf) => {
+                        const isChipActive = activeFilters.includes(rf);
+                        return (
+                          <TouchableOpacity
+                            key={rf}
+                            activeOpacity={0.8}
+                            style={[
+                              styles.recentlyFilteredChip,
+                              isChipActive && styles.recentlyFilteredChipActive,
+                            ]}
+                            onPress={() => handleToggle(rf)}
+                          >
+                            <Text
+                              style={[
+                                styles.recentlyFilteredChipText,
+                                isChipActive && styles.recentlyFilteredChipTextActive,
+                              ]}
+                            >
+                              {getRecentlyFilteredLabel(rf)}
+                            </Text>
+
+                            <TouchableOpacity
+                              activeOpacity={0.7}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              style={styles.chipCloseIconBox}
+                              onPress={() => handleDismissChip(rf)}
+                            >
+                              <Cancel01Icon
+                                size={14}
+                                color={isChipActive ? '#FFFFFF' : '#000814'}
+                              />
+                            </TouchableOpacity>
+                          </TouchableOpacity>
+                        );
+                      })}
                     </View>
 
-                    {/* Remaining 4 Options in 2x2 rows */}
+                    {/* ── Demarcation Line (Separates Recently Filtered from other filter options) ── */}
+                    <View style={styles.demarcationLine} />
+
+                    {/* Remaining Options in 2x2 rows */}
                     <View style={styles.remainingOptionsBlock}>
                       {/* Row 1 */}
                       <View style={styles.remainingRow}>
-                        {remainingOptions.slice(0, 2).map((opt) => (
-                          <TouchableOpacity
-                            key={opt.key}
-                            activeOpacity={0.8}
-                            style={styles.halfButton168}
-                            onPress={() => handleSelect(opt.key)}
-                          >
-                            {opt.renderIcon('rgba(192, 192, 204, 0.96)')}
-                            <Text style={styles.optionText}>{opt.label === 'Attending to client' ? 'In-Service' : opt.label}</Text>
-                          </TouchableOpacity>
-                        ))}
+                        {remainingOptions.slice(0, 2).map((opt) => {
+                          const isOptActive = opt.key === 'all' ? activeFilters.length === 0 : activeFilters.includes(opt.key);
+                          return (
+                            <TouchableOpacity
+                              key={opt.key}
+                              activeOpacity={0.8}
+                              style={[
+                                styles.halfButton168,
+                                isOptActive && styles.optionButtonActive,
+                              ]}
+                              onPress={() => handleToggle(opt.key)}
+                            >
+                              {opt.renderIcon(isOptActive ? '#FFFFFF' : 'rgba(192, 192, 204, 0.96)')}
+                              <Text
+                                style={[
+                                  styles.optionText,
+                                  isOptActive && styles.optionTextActive,
+                                ]}
+                              >
+                                {opt.label === 'Attending to client' ? 'In-Service' : opt.label}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
                       </View>
 
                       {/* Row 2 */}
                       <View style={styles.remainingRow}>
-                        {remainingOptions.slice(2, 4).map((opt) => (
-                          <TouchableOpacity
-                            key={opt.key}
-                            activeOpacity={0.8}
-                            style={styles.halfButton168}
-                            onPress={() => handleSelect(opt.key)}
-                          >
-                            {opt.renderIcon('rgba(192, 192, 204, 0.96)')}
-                            <Text style={styles.optionText}>{opt.label === 'Attending to client' ? 'In-Service' : opt.label}</Text>
-                          </TouchableOpacity>
-                        ))}
+                        {remainingOptions.slice(2, 4).map((opt) => {
+                          const isOptActive = opt.key === 'all' ? activeFilters.length === 0 : activeFilters.includes(opt.key);
+                          return (
+                            <TouchableOpacity
+                              key={opt.key}
+                              activeOpacity={0.8}
+                              style={[
+                                styles.halfButton1685,
+                                isOptActive && styles.optionButtonActive,
+                              ]}
+                              onPress={() => handleToggle(opt.key)}
+                            >
+                              {opt.renderIcon(isOptActive ? '#FFFFFF' : 'rgba(192, 192, 204, 0.96)')}
+                              <Text
+                                style={[
+                                  styles.optionText,
+                                  isOptActive && styles.optionTextActive,
+                                ]}
+                              >
+                                {opt.label === 'Attending to client' ? 'In-Service' : opt.label}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
                       </View>
                     </View>
                   </View>
                 ) : (
-                  /* ── Standard Initial Filter Options (1:1 Figma) ── */
-                  <>
+                  /* ── Initial Filter Options Layout (1:1 Figma) ── */
+                  <View style={styles.initialOptionsSection}>
                     {/* Row 1: Attending to client (212x48px) */}
                     <View style={styles.row1}>
                       <TouchableOpacity
                         activeOpacity={0.8}
                         style={[
                           styles.attendingButton,
-                          isFilter('attending') && styles.optionButtonActive,
+                          activeFilters.includes('attending') && styles.optionButtonActive,
                         ]}
-                        onPress={() => handleSelect('attending')}
+                        onPress={() => handleToggle('attending')}
                       >
                         <LoaderSunburstIcon
                           size={24}
-                          color={isFilter('attending') ? '#000814' : 'rgba(192, 192, 204, 0.96)'}
+                          color={activeFilters.includes('attending') ? '#FFFFFF' : 'rgba(192, 192, 204, 0.96)'}
                         />
                         <Text
                           style={[
                             styles.optionText,
-                            isFilter('attending') && styles.optionTextActive,
+                            activeFilters.includes('attending') && styles.optionTextActive,
                           ]}
                         >
                           Attending to client
@@ -370,18 +478,18 @@ export function ProviderStaffFilterModal({
                         activeOpacity={0.8}
                         style={[
                           styles.halfButton168,
-                          isFilter('on_break') && styles.optionButtonActive,
+                          activeFilters.includes('on_break') && styles.optionButtonActive,
                         ]}
-                        onPress={() => handleSelect('on_break')}
+                        onPress={() => handleToggle('on_break')}
                       >
                         <FastFoodOutlineIcon
                           size={24}
-                          color={isFilter('on_break') ? '#000814' : 'rgba(192, 192, 204, 0.96)'}
+                          color={activeFilters.includes('on_break') ? '#FFFFFF' : 'rgba(192, 192, 204, 0.96)'}
                         />
                         <Text
                           style={[
                             styles.optionText,
-                            isFilter('on_break') && styles.optionTextActive,
+                            activeFilters.includes('on_break') && styles.optionTextActive,
                           ]}
                         >
                           On - Break
@@ -392,18 +500,18 @@ export function ProviderStaffFilterModal({
                         activeOpacity={0.8}
                         style={[
                           styles.halfButton168,
-                          isFilter('available') && styles.optionButtonActive,
+                          activeFilters.includes('available') && styles.optionButtonActive,
                         ]}
-                        onPress={() => handleSelect('available')}
+                        onPress={() => handleToggle('available')}
                       >
                         <User03Icon
                           size={24}
-                          color={isFilter('available') ? '#000814' : 'rgba(192, 192, 204, 0.96)'}
+                          color={activeFilters.includes('available') ? '#FFFFFF' : 'rgba(192, 192, 204, 0.96)'}
                         />
                         <Text
                           style={[
                             styles.optionText,
-                            isFilter('available') && styles.optionTextActive,
+                            activeFilters.includes('available') && styles.optionTextActive,
                           ]}
                         >
                           Available
@@ -417,18 +525,18 @@ export function ProviderStaffFilterModal({
                         activeOpacity={0.8}
                         style={[
                           styles.halfButton1685,
-                          isFilter('closed') && styles.optionButtonActive,
+                          activeFilters.includes('closed') && styles.optionButtonActive,
                         ]}
-                        onPress={() => handleSelect('closed')}
+                        onPress={() => handleToggle('closed')}
                       >
                         <Home03Icon
                           size={24}
-                          color={isFilter('closed') ? '#000814' : 'rgba(192, 192, 204, 0.96)'}
+                          color={activeFilters.includes('closed') ? '#FFFFFF' : 'rgba(192, 192, 204, 0.96)'}
                         />
                         <Text
                           style={[
                             styles.optionText,
-                            isFilter('closed') && styles.optionTextActive,
+                            activeFilters.includes('closed') && styles.optionTextActive,
                           ]}
                         >
                           Closed
@@ -439,29 +547,29 @@ export function ProviderStaffFilterModal({
                         activeOpacity={0.8}
                         style={[
                           styles.halfButton1685,
-                          isFilter('all') && styles.optionButtonActive,
+                          activeFilters.length === 0 && styles.optionButtonActive,
                         ]}
-                        onPress={() => handleSelect('all')}
+                        onPress={() => handleToggle('all')}
                       >
                         <AArrowUpIcon
                           size={24}
-                          color={isFilter('all') ? '#000814' : 'rgba(192, 192, 204, 0.96)'}
+                          color={activeFilters.length === 0 ? '#FFFFFF' : 'rgba(192, 192, 204, 0.96)'}
                         />
                         <Text
                           style={[
                             styles.optionText,
-                            isFilter('all') && styles.optionTextActive,
+                            activeFilters.length === 0 && styles.optionTextActive,
                           ]}
                         >
                           Filter all
                         </Text>
                       </TouchableOpacity>
                     </View>
-                  </>
+                  </View>
                 )}
               </View>
 
-              {/* ── Sticky Bottom Action Bar (80px) ── */}
+              {/* ── Sticky Bottom Action Bar (80px: 1:1 Figma) ── */}
               <View style={styles.bottomBar}>
                 {/* Clear all (115x48px) */}
                 <TouchableOpacity
@@ -472,13 +580,13 @@ export function ProviderStaffFilterModal({
                   <Text style={styles.clearAllText}>Clear all</Text>
                 </TouchableOpacity>
 
-                {/* Show 20+ related (200x48px) */}
+                {/* Show 20+ related (200x48px / flex: 1) */}
                 <TouchableOpacity
                   activeOpacity={0.8}
                   style={styles.showRelatedButton}
                   onPress={handleApply}
                 >
-                  <Text style={styles.showRelatedText}>Show 20+ related</Text>
+                  <Text style={styles.showRelatedText}>Show {displayCount} related</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -491,7 +599,7 @@ export function ProviderStaffFilterModal({
 
 export default ProviderStaffFilterModal;
 
-// ── 1:1 Converter Output Stylesheet ─────────────────────────────────────────
+// ── 1:1 Converter Output Stylesheet (Figma Height: 467px) ───────────────────
 
 const styles = StyleSheet.create({
   modalOverlay: {
@@ -500,10 +608,11 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
 
-  /* ── Filter Bottom Sheet (390x467px) ── */
+  /* ── Filter Bottom Sheet (390x467px: 1:1 Figma) ── */
   bottomSheetContainer: {
     width: '100%',
     maxWidth: 390,
+    height: 467,
     alignSelf: 'center',
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
@@ -516,6 +625,7 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 15,
     overflow: 'hidden',
+    position: 'relative',
   },
 
   /* ── Header (Height: 62px) ── */
@@ -533,11 +643,13 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: FONT_MEDIUM,
+    fontWeight: '500',
     fontSize: 17,
     lineHeight: 24,
     letterSpacing: 0.2,
     color: '#000000',
     textAlign: 'center',
+    includeFontPadding: false,
   },
   closeButton: {
     position: 'absolute',
@@ -553,14 +665,18 @@ const styles = StyleSheet.create({
   /* ── Content Body ── */
   contentBody: {
     paddingHorizontal: 16,
-    paddingTop: 24,
-    paddingBottom: 24,
-    gap: 24,
+    width: '100%',
+  },
+
+  /* ── Initial Options Layout (gap: 40px, top: 40px: 1:1 Figma) ── */
+  initialOptionsSection: {
+    paddingTop: 40,
+    gap: 40,
   },
 
   /* ── Recently Filtered Section (1:1 Figma) ── */
   recentlyFilteredSection: {
-    gap: 16,
+    paddingTop: 24,
   },
   recentlyFilteredTitle: {
     fontFamily: FONT_MEDIUM,
@@ -568,37 +684,59 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: 0.2,
-    color: '#000000',
+    color: 'rgba(96, 96, 102, 0.96)',
+    includeFontPadding: false,
+    marginBottom: 16,
   },
   chipRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  demarcationLine: {
+    width: '100%',
+    height: 1,
+    backgroundColor: 'rgba(235, 235, 245, 0.96)',
+    marginTop: 20,
+    marginBottom: 20,
   },
   recentlyFilteredChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingVertical: 8,
+    height: 48,
     paddingHorizontal: 16,
-    backgroundColor: 'rgba(248, 249, 250, 0.98)',
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
     borderWidth: 1,
     borderColor: 'rgba(192, 192, 204, 0.96)',
     borderRadius: 24,
+    alignSelf: 'flex-start',
+  },
+  recentlyFilteredChipActive: {
+    backgroundColor: 'rgba(0, 8, 20, 0.96)',
+    borderColor: 'rgba(0, 8, 20, 0.96)',
   },
   recentlyFilteredChipText: {
     fontFamily: FONT_REGULAR,
-    fontSize: 14,
-    lineHeight: 20,
+    fontWeight: '400',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: Platform.OS === 'ios' ? 0.4 : 0.2,
     color: 'rgba(0, 8, 20, 0.96)',
+    includeFontPadding: false,
+  },
+  recentlyFilteredChipTextActive: {
+    color: '#FFFFFF',
   },
   chipCloseIconBox: {
-    width: 18,
-    height: 18,
+    width: 20,
+    height: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   remainingOptionsBlock: {
-    gap: 16,
+    gap: 24,
   },
   remainingRow: {
     flexDirection: 'row',
@@ -615,15 +753,14 @@ const styles = StyleSheet.create({
   attendingButton: {
     width: 212,
     height: 48,
-    backgroundColor: 'rgba(248, 249, 250, 0.98)',
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
     borderWidth: 1,
     borderColor: 'rgba(192, 192, 204, 0.96)',
     borderRadius: 24,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
     paddingHorizontal: 16,
-    gap: 8,
+    gap: 10,
   },
 
   row2: {
@@ -635,15 +772,14 @@ const styles = StyleSheet.create({
   halfButton168: {
     width: 168,
     height: 48,
-    backgroundColor: 'rgba(248, 249, 250, 0.98)',
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
     borderWidth: 1,
     borderColor: 'rgba(192, 192, 204, 0.96)',
     borderRadius: 24,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
     paddingHorizontal: 16,
-    gap: 8,
+    gap: 10,
   },
 
   row3: {
@@ -655,51 +791,59 @@ const styles = StyleSheet.create({
   halfButton1685: {
     width: 168.5,
     height: 48,
-    backgroundColor: 'rgba(248, 249, 250, 0.98)',
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
     borderWidth: 1,
     borderColor: 'rgba(192, 192, 204, 0.96)',
     borderRadius: 24,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
     paddingHorizontal: 16,
     gap: 8,
   },
 
-  optionButtonActive: {
-    backgroundColor: '#FFFFFF',
-    borderColor: 'rgba(0, 8, 20, 0.96)',
-    borderWidth: 1.5,
-  },
   optionText: {
     fontFamily: FONT_REGULAR,
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 0.4,
-    color: 'rgba(96, 96, 102, 0.96)',
+    fontWeight: '400',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: Platform.OS === 'ios' ? 0.4 : 0.2,
+    color: 'rgba(0, 8, 20, 0.96)',
+    includeFontPadding: false,
+  },
+  optionButtonActive: {
+    backgroundColor: 'rgba(0, 8, 20, 0.96)',
+    borderColor: 'rgba(0, 8, 20, 0.96)',
   },
   optionTextActive: {
-    color: 'rgba(0, 8, 20, 0.96)',
-    fontWeight: '500',
+    color: '#FFFFFF',
   },
 
-  /* ── Bottom Action Bar (80px) ── */
+  /* ── Bottom Action Bar (80px: 1:1 Figma) ── */
   bottomBar: {
-    width: '100%',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     height: 80,
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: 'rgba(235, 235, 245, 0.96)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 16,
     gap: 16,
-    backgroundColor: '#FFFFFF',
+    shadowColor: 'rgba(133, 139, 148, 0.12)',
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 8,
   },
   clearAllButton: {
     width: 115,
     height: 48,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -710,6 +854,8 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 0.15,
     color: 'rgba(0, 8, 20, 0.96)',
+    includeFontPadding: false,
+    textAlign: 'center',
   },
   showRelatedButton: {
     flex: 1,
@@ -718,18 +864,20 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: 'rgba(0, 8, 20, 0.1)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 10,
+    shadowColor: 'rgba(133, 139, 148, 0.08)',
+    shadowOffset: { width: 4, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
     elevation: 4,
   },
   showRelatedText: {
-    fontFamily: FONT_BUTTON,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : FONT_BUTTON,
     fontWeight: '500',
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: 0.15,
     color: '#FFFFFF',
+    includeFontPadding: false,
+    textAlign: 'center',
   },
 });

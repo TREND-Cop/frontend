@@ -13,6 +13,7 @@ import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { SafeImage } from '../../components/ui/SafeImage';
 import { bookingStore } from '../../utils/bookingStore';
 import { ReportBottomSheet } from '../../components/ReportBottomSheet';
+import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
 
 // ── Exact Figma Vector Icons ──
 
@@ -150,6 +151,7 @@ const GoldStarIcon = ({ size = 16 }: { size?: number }) => (
 export const SuccessfulBookingDetailScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const bottomInset = Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16);
   const params = useLocalSearchParams();
 
   const [showReportModal, setShowReportModal] = useState(false);
@@ -231,7 +233,7 @@ export const SuccessfulBookingDetailScreen = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: Math.max(insets.bottom, 24) + 96 },
+          { paddingBottom: 120 + bottomInset },
         ]}
       >
         {/* ── Completed Booking Indicator Banner (Figma: height 84px, bg rgba(238, 248, 238, 0.8), borderRadius 24px) ── */}
@@ -359,7 +361,7 @@ export const SuccessfulBookingDetailScreen = () => {
       <View
         style={[
           styles.bottomActionBar,
-          { paddingBottom: Math.max(insets.bottom, 16) },
+          { paddingBottom: bottomInset },
         ]}
       >
         <TouchableOpacity
@@ -372,6 +374,8 @@ export const SuccessfulBookingDetailScreen = () => {
           </View>
         </TouchableOpacity>
       </View>
+
+      <NativeDockSpacer />
 
       {/* ── Support / Report Case Bottom Sheet ── */}
       <ReportBottomSheet

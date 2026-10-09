@@ -595,7 +595,7 @@ export const AppointmentDayScreen = ({ navigation }: { navigation?: any }) => {
                 );
               })}
               {/* Dummy filler elements to prevent incomplete bottom row from spreading out wide */}
-              {Array.from({ length: 8 }).map((_, i) => (
+              {Array.from({ length: 10 }).map((_, i) => (
                 <View key={`dummy_${i}`} style={styles.calendarDayCellDummy} pointerEvents="none" />
               ))}
             </View>

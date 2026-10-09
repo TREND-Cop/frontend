@@ -20,6 +20,7 @@ import { EmptyBookedItemScreen } from './EmptyBookedItemScreen';
 import { useBookingContext } from '../../store/BookingContext';
 import { getServiceByIdOrName } from '../../constants/serviceCatalog';
 import { typography } from '../../constants/theme';
+import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
 
 // ── Exact Figma Vector Icons ──
 
@@ -156,6 +157,7 @@ const StarLoadingIcon = ({ size = 72, color = 'rgba(0, 8, 20, 0.96)' }: { size?:
 export const OngoingAppointmentScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const bottomInset = Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16);
   const params = useLocalSearchParams();
   const { appointments, activeAppointment, updateAppointmentStatus } = useBookingContext();
 
@@ -363,7 +365,7 @@ export const OngoingAppointmentScreen = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: Math.max(insets.bottom, 24) + 90 },
+          { paddingBottom: 120 + bottomInset },
         ]}
       >
         {/* ── 1. Top Card: Ongoing Service Indicator (Figma: 358x86, radius 24px, bg rgba(238, 248, 238, 0.8)) ── */}
@@ -510,7 +512,7 @@ export const OngoingAppointmentScreen = () => {
       </ScrollView>
 
       {/* ── Sticky Bottom Action Bar (Figma: height 64px, shadow) ── */}
-      <View style={[styles.bottomActionBar, { paddingBottom: Math.max(16, insets.bottom) }]}>
+      <View style={[styles.bottomActionBar, { paddingBottom: bottomInset }]}>
         <TouchableOpacity
           style={[
             styles.serviceCompleteButton,
@@ -529,6 +531,8 @@ export const OngoingAppointmentScreen = () => {
           </Text>
         </TouchableOpacity>
       </View>
+
+      <NativeDockSpacer />
 
       {/* ── Share Modal ── */}
       <InAppShareModal

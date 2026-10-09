@@ -213,10 +213,9 @@ export const typography = {
       android: 'DMSans_700Bold',
       default: 'DMSans_700Bold',
     }),
-    fontWeight: '700' as const,
-    fontStyle: 'normal' as const,
+    ...(Platform.OS === 'ios' ? { fontWeight: '700' as const } : {}),
     fontSize: 24,
-    lineHeight: 32,
+    lineHeight: 28,
     letterSpacing: 0.3,
   },
 };

@@ -546,17 +546,7 @@ export const BookingReviewScreen = ({ navigation }: { navigation?: any }) => {
 
         {/* ─── Section 3: Add-One ───────────────────────────────────── */}
         <View style={styles.sectionBlock}>
-          <View style={styles.sectionHeaderBetween}>
-            <Text style={styles.sectionTitle}>Add-One</Text>
-            <TouchableOpacity
-              style={styles.addInlineButton}
-              activeOpacity={0.7}
-              onPress={handleAddMoreAddOn}
-            >
-              <Plus size={16} color="rgba(26, 130, 255, 0.9)" strokeWidth={2.2} />
-              <Text style={styles.addInlineText} numberOfLines={1}>Add Ones</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.sectionTitle}>Add-One</Text>
 
           {selectedAddOns.length > 0 && (
             <View style={styles.cardContainer}>

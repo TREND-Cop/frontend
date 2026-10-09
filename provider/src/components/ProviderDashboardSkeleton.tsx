@@ -154,7 +154,7 @@ export const ProviderDashboardSkeleton: React.FC = () => {
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingTop: Math.max(insets.top, 16) + 12,
+            paddingTop: Math.max(insets.top + 16, 56),
             paddingBottom: 160 + Math.max(insets.bottom, 16),
           },
         ]}

@@ -14,6 +14,7 @@ import { SafeImage } from '../../components/ui/SafeImage';
 import { bookingStore } from '../../utils/bookingStore';
 import { AppointmentTypeModal, AppointmentBookingType } from '../../components/AppointmentTypeModal';
 import { ReportBottomSheet } from '../../components/ReportBottomSheet';
+import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
 import { typography } from '../../constants/theme';
 
 // ── Exact Figma Vector Icons ──
@@ -150,6 +151,7 @@ const GoldStarIcon = ({ size = 16 }: { size?: number }) => (
 export const CancelledBookingDetailScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const bottomInset = Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16);
   const params = useLocalSearchParams();
 
   // Dynamic parameters with fallback to Figma specs
@@ -263,7 +265,7 @@ export const CancelledBookingDetailScreen = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: Math.max(insets.bottom, 24) + 100 },
+          { paddingBottom: 130 + bottomInset },
         ]}
       >
         {/* ── Cancelled Booking Indicator Banner ── */}
@@ -392,7 +394,7 @@ export const CancelledBookingDetailScreen = () => {
       </ScrollView>
 
       {/* ── Fixed Bottom Actions Bar ── */}
-      <View style={[styles.bottomBarContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <View style={[styles.bottomBarContainer, { paddingBottom: bottomInset }]}>
         <View style={styles.bottomButtonsRow}>
           {/* Reschedule Button */}
           <TouchableOpacity
@@ -413,6 +415,8 @@ export const CancelledBookingDetailScreen = () => {
           </TouchableOpacity>
         </View>
       </View>
+
+      <NativeDockSpacer />
 
       {/* Appointment Type Modal for Book Again */}
       <AppointmentTypeModal

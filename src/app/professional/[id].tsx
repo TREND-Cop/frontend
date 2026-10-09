@@ -9,6 +9,7 @@ import { shareStore } from '../../utils/shareStore';
 import { previewStore } from '../../utils/previewStore';
 import { getSafeBottomPadding } from '../../utils/safeArea';
 import { typography } from '../../constants/theme';
+import { BISOLA_PORTFOLIO_ITEMS } from '../../constants/specialistPortfolioCatalog';
 
 // ── Custom Figma-matching spec icons ──
 const WorkBagIcon = ({ size = 24, color = 'rgba(0, 8, 20, 0.96)' }) => (
@@ -76,14 +77,13 @@ const STATUS_CONFIG: Record<
   },
 };
 
-const nailPortfolioItems = [
-  { image: require('../../../assets/images/profile/14dcc3440340f9f140251ac160473457c89b198c.jpg'), title: 'Glossy French Manicure', price: '₦12,500', duration: '45min', rating: '4.9' },
-  { image: require('../../../assets/images/profile/30b9a5ab22324bd8357f666111d5584ad2e3c83e.jpg'), title: 'Abstract Marble Nails', price: '₦14,200', duration: '1hr', rating: '4.8' },
-  { image: require('../../../assets/images/profile/eb3281d09659fdef5e45647cf5529f61e83190f1.jpg'), title: 'Chrome Finish Acrylics', price: '₦16,000', duration: '1hr 15min', rating: '5.0' },
-  { image: require('../../../assets/images/profile/dry_wow_pedicure.jpg'), title: 'Dry Wow French Pedicure', price: '₦14,000', duration: '50min', rating: '4.9' },
-  { image: require('../../../assets/images/profile/ee549b1ea85771de4cd8695943af94f474fedf19.jpg'), title: 'Feet & Fingers Combo Art', price: '₦22,000', duration: '2hr', rating: '5.0' },
-  { image: require('../../../assets/images/profile/882a99380ae2d750b39f897365bd1d6083664a3b.jpg'), title: 'Chocolate Brown Acrylic Nails', price: '₦16,000', duration: '1hr 15min', rating: '4.8' },
-];
+const nailPortfolioItems = BISOLA_PORTFOLIO_ITEMS.map((item) => ({
+  image: item.image,
+  title: item.title,
+  price: item.price,
+  duration: item.duration,
+  rating: item.rating,
+}));
 
 const barberPortfolioItems = [
   { image: require('../../../assets/images/services/men_haircut.png'), title: 'Low Skin Fade & Lineup', price: '₦8,500', duration: '40min', rating: '4.9' },

@@ -1,17 +1,17 @@
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
   Animated,
-  Platform,
   Dimensions,
+  Image,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 
@@ -147,12 +147,20 @@ export const ProviderAppointmentSuccessScreen: React.FC = () => {
     buttonOpacity,
   ]);
 
+  const params = useLocalSearchParams<{ id?: string }>();
+
   const handleBack = () => {
     router.replace('/appointments');
   };
 
   const handleCheckStatus = () => {
-    router.replace('/appointments');
+    router.replace({
+      pathname: '/appointment/[id]' as any,
+      params: {
+        id: (params.id as string) || 'awaiting-1',
+        status: 'awaiting',
+      },
+    });
   };
 
   const scale = screenHeight / 844;
@@ -249,7 +257,9 @@ export const ProviderAppointmentSuccessScreen: React.FC = () => {
           activeOpacity={0.88}
           onPress={handleCheckStatus}
         >
-          <Text style={styles.actionButtonText}>check appointment status</Text>
+          <Text style={styles.actionButtonText} numberOfLines={1}>
+            Check Appointment Status
+          </Text>
         </TouchableOpacity>
       </Animated.View>
 
@@ -366,8 +376,6 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   actionButtonText: {
-    width: 203,
-    height: 24,
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',
     fontWeight: '500',
     fontSize: 16,

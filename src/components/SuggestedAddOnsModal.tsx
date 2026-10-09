@@ -956,16 +956,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0.15,
     color: '#FFFFFF',
   },
-  homeIndicatorWrapper: {
-    width: '100%',
-    alignItems: 'center',
-    paddingBottom: 8,
-    backgroundColor: '#FFFFFF',
-  },
-  homeIndicator: {
-    width: 134,
-    height: 5,
-    borderRadius: 100,
-    backgroundColor: '#000000',
-  },
 });

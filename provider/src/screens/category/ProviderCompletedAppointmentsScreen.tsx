@@ -14,7 +14,12 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
-import { ProviderAppointmentFilterModal } from '../../components/ProviderAppointmentFilterModal';
+import {
+  ProviderAppointmentFilterModal,
+  ProviderFilterState,
+  PRICE_STEPS,
+  matchAppointment,
+} from '../../components/ProviderAppointmentFilterModal';
 import { ProviderDateFilterModal } from '../../components/ProviderDateFilterModal';
 import { CategoryFourDotLoader } from '../../components/CategoryFourDotLoader';
 import { NoRecordedAppointmentsEmptyState } from '../../components/NoRecordedAppointmentsEmptyState';
@@ -144,34 +149,148 @@ function CheckmarkCircle02Icon({ size = 16 }: { size?: number }) {
 // ── Sample Completed Appointments Data (Matching Figma & Real Provider DB) ──
 const COMPLETED_APPOINTMENTS_DATA = [
   {
-    id: 'comp-1',
-    title: 'Crystal Nail Art',
+    id: 'comp-101',
+    title: 'Men Brade',
+    serviceTitle: 'Men Brade',
     duration: '1hr',
-    rating: '3.5',
-    price: '₦22,700',
-    image: require('../../../assets/images/appointments/nail_art.png'),
+    rating: '3.6',
+    price: '₦14,200',
+    image: require('../../../assets/images/appointments/men_braids.jpg'),
     completedDate: '8 June, 2026',
-    clientName: 'Ayobami Isaac',
+    time: '9:30am',
+    clientName: 'Samuel Akunne',
+    clientStatus: 'Returning Client',
+    gender: 'Male',
+    membership: '5 Days ago',
+    specialist: 'Bisola Olarewaju',
+    specialistRole: 'Nail Artist',
+    type: 'Home Service',
+    paymentType: 'Inter - Bank Transfer',
+    appointmentCost: '₦52,700',
+    trendPoints: '-₦2,700',
+    ticketNumber: '#3654376',
+    packagePrice: '₦4,500',
+    total: '₦50,000',
   },
   {
-    id: 'comp-2',
-    title: 'Crystal Nail Art',
+    id: 'comp-102',
+    title: 'Nail Art',
+    serviceTitle: 'Nail Art',
     duration: '1hr',
-    rating: '3.5',
-    price: '₦22,700',
+    rating: '5.0',
+    price: '₦14,200',
     image: require('../../../assets/images/appointments/nail_art.png'),
     completedDate: '8 June, 2026',
-    clientName: 'Ayobami Isaac',
+    time: '9:30am',
+    clientName: 'Samuel Akunne',
+    clientStatus: 'Subscriber Client',
+    gender: 'Male',
+    membership: '5 Days ago',
+    specialist: 'Amina Moham..',
+    specialistRole: 'Nail Artist',
+    type: 'In-Person',
+    paymentType: 'Cash Payment',
+    appointmentCost: '₦52,700',
+    trendPoints: '-₦2,700',
+    ticketNumber: '#3654376',
+    packagePrice: '₦4,500',
+    total: '₦50,000',
   },
   {
-    id: 'comp-3',
-    title: 'Crystal Nail Art',
+    id: 'comp-103',
+    title: 'Nail Art',
+    serviceTitle: 'Nail Art',
     duration: '1hr',
-    rating: '3.5',
-    price: '₦22,700',
+    rating: '5.0',
+    price: '₦14,200',
     image: require('../../../assets/images/appointments/nail_art.png'),
     completedDate: '8 June, 2026',
-    clientName: 'Ayobami Isaac',
+    time: '9:30am',
+    clientName: 'Samuel Akunne',
+    clientStatus: 'Verified Client',
+    gender: 'Male',
+    membership: '5 Days ago',
+    specialist: 'Amina Moham..',
+    specialistRole: 'Nail Artist',
+    type: 'In-Person',
+    paymentType: 'Inter - Bank Transfer',
+    appointmentCost: '₦52,700',
+    trendPoints: '-₦2,700',
+    ticketNumber: '#3654376',
+    packagePrice: '₦10,500',
+    total: '₦60,000',
+  },
+  {
+    id: 'comp-104',
+    title: 'Men Brade',
+    serviceTitle: 'Men Brade',
+    duration: '1hr',
+    rating: '3.6',
+    price: '₦14,200',
+    image: require('../../../assets/images/appointments/men_braids.jpg'),
+    completedDate: '8 June, 2026',
+    time: '9:30am',
+    clientName: 'Samuel Akunne',
+    clientStatus: 'Returning Client',
+    gender: 'Male',
+    membership: '5 Days ago',
+    specialist: 'Bisola Olarewaju',
+    specialistRole: 'Nail Artist',
+    type: 'Home Service',
+    paymentType: 'Card Payment',
+    appointmentCost: '₦52,700',
+    trendPoints: '-₦2,700',
+    ticketNumber: '#3654376',
+    packagePrice: '₦4,500',
+    total: '₦50,000',
+  },
+  {
+    id: 'comp-105',
+    title: 'Men Brade',
+    serviceTitle: 'Men Brade',
+    duration: '1hr',
+    rating: '3.6',
+    price: '₦14,200',
+    image: require('../../../assets/images/appointments/men_braids.jpg'),
+    completedDate: 'Nov 19, 2026',
+    time: '9:30am',
+    clientName: 'Samuel Akunne',
+    clientStatus: 'Returning Client',
+    gender: 'Male',
+    membership: '5 Days ago',
+    specialist: 'Bisola Olarewaju',
+    specialistRole: 'Nail Artist',
+    type: 'Home Service',
+    paymentType: 'Inter - Bank Transfer',
+    appointmentCost: '₦52,700',
+    trendPoints: '-₦2,700',
+    ticketNumber: '#3654376',
+    packagePrice: '₦4,500',
+    total: '₦50,000',
+  },
+  {
+    id: 'comp-106',
+    title: 'Nail Art',
+    serviceTitle: 'Nail Art',
+    duration: '1hr',
+    rating: '5.0',
+    price: '₦14,200',
+    image: require('../../../assets/images/appointments/nail_art.png'),
+    completedDate: 'Nov 19, 2026',
+    time: '9:30am',
+    clientName: 'Samuel Akunne',
+    clientStatus: 'Subscriber Client',
+    gender: 'Male',
+    membership: '5 Days ago',
+    specialist: 'Amina Moham..',
+    specialistRole: 'Nail Artist',
+    type: 'In-Person',
+    paymentType: 'Cash Payment',
+    appointmentCost: '₦52,700',
+    trendPoints: '-₦2,700',
+    ticketNumber: '#3654376',
+    packagePrice: '₦4,500',
+    total: '₦50,000',
   },
 ];
 
@@ -184,16 +303,93 @@ export default function ProviderCompletedAppointmentsScreen() {
   const [selectedDate, setSelectedDate] = useState('8 June, 2026');
   const [isNavigatingBack, setIsNavigatingBack] = useState(false);
 
+  const parsedInitialDate = useMemo(() => {
+    const yrMatch = selectedDate.match(/\b(19\d\d|20\d\d)\b/);
+    const yr = yrMatch ? parseInt(yrMatch[0], 10) : 2026;
+
+    const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+    const sLower = selectedDate.toLowerCase();
+    const moIdx = months.findIndex((m) => sLower.includes(m));
+    const mo = moIdx !== -1 ? moIdx : 5; // default June (5)
+
+    const dayMatch = selectedDate.match(/\b([1-9]|[12]\d|3[01])\b/);
+    const dy = dayMatch && !selectedDate.startsWith(dayMatch[0] + '9') ? parseInt(dayMatch[0], 10) : 8;
+
+    return { day: dy, month: mo, year: yr };
+  }, [selectedDate]);
+
+  const [appliedFilters, setAppliedFilters] = useState<ProviderFilterState | undefined>();
+
+  const activeFiltersCount = useMemo(() => {
+    if (!appliedFilters) return 0;
+    let count = 0;
+    if (
+      appliedFilters.minPrice > PRICE_STEPS[0] ||
+      appliedFilters.maxPrice < PRICE_STEPS[17] ||
+      (appliedFilters.customAmount && appliedFilters.customAmount.trim().length > 0)
+    ) {
+      count++;
+    }
+    if (appliedFilters.selectedServices && appliedFilters.selectedServices.length > 0) {
+      count += appliedFilters.selectedServices.length;
+    }
+    if (appliedFilters.selectedStaff && appliedFilters.selectedStaff.length > 0) {
+      count += appliedFilters.selectedStaff.length;
+    }
+    if (appliedFilters.customerType) count++;
+    if (appliedFilters.paymentMethod) count++;
+    if (appliedFilters.appointmentType) count++;
+    if (appliedFilters.bookedPackage) count++;
+    return count;
+  }, [appliedFilters]);
+
   const filteredAppointments = useMemo(() => {
-    if (!searchQuery.trim()) return COMPLETED_APPOINTMENTS_DATA;
-    const q = searchQuery.toLowerCase().trim();
-    return COMPLETED_APPOINTMENTS_DATA.filter(
-      (item) =>
-        item.title.toLowerCase().includes(q) ||
-        item.clientName.toLowerCase().includes(q) ||
-        item.price.toLowerCase().includes(q)
-    );
-  }, [searchQuery]);
+    let result = COMPLETED_APPOINTMENTS_DATA;
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(
+        (item) =>
+          item.title.toLowerCase().includes(q) ||
+          item.clientName.toLowerCase().includes(q) ||
+          item.price.toLowerCase().includes(q) ||
+          item.specialist?.toLowerCase().includes(q)
+      );
+    }
+
+    if (appliedFilters) {
+      result = result.filter((item) => matchAppointment(item, appliedFilters));
+    }
+
+    // Dynamic filtering by selectedDate (e.g. "8 June, 2026", "Nov 19, 2026", or "2026")
+    if (selectedDate && selectedDate.trim().length > 0) {
+      const normSelected = selectedDate.toLowerCase().replace(/,/g, '').trim();
+      result = result.filter((item) => {
+        const itemDate = (item.completedDate || '').toLowerCase().replace(/,/g, '').trim();
+        // Exact or substring match (e.g. "nov 19 2026" matches "nov 19 2026")
+        if (itemDate.includes(normSelected) || normSelected.includes(itemDate)) {
+          return true;
+        }
+
+        // Year only match (e.g. user selected "2026" or "2024")
+        if (/^\d{4}$/.test(normSelected)) {
+          return itemDate.includes(normSelected);
+        }
+
+        // Match month and year if formatted as "June 2026" or "Nov 2026"
+        const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+        const matchedMonth = months.find((m) => normSelected.includes(m));
+        const matchedYear = normSelected.match(/\b(19\d\d|20\d\d)\b/)?.[0];
+        if (matchedMonth && matchedYear) {
+          return itemDate.includes(matchedMonth) && itemDate.includes(matchedYear);
+        }
+
+        return false;
+      });
+    }
+
+    return result;
+  }, [searchQuery, appliedFilters, selectedDate]);
 
   const appointmentCountText =
     filteredAppointments.length === 0
@@ -259,10 +455,18 @@ export default function ProviderCompletedAppointmentsScreen() {
           {/* Filter Button (48x48px, radius: 24px) */}
           <TouchableOpacity
             activeOpacity={0.8}
-            style={styles.filterButton}
+            style={[
+              styles.filterButton,
+              activeFiltersCount > 0 && styles.filterButtonActive,
+            ]}
             onPress={() => setFilterModalVisible(true)}
           >
-            <FilterFunnelIcon size={24} color="#141B34" />
+            <FilterFunnelIcon size={24} color={activeFiltersCount > 0 ? '#FFFFFF' : '#141B34'} />
+            {activeFiltersCount > 0 && (
+              <View style={styles.filterBadge}>
+                <Text style={styles.filterBadgeText}>{activeFiltersCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -286,10 +490,12 @@ export default function ProviderCompletedAppointmentsScreen() {
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={[
-            styles.scrollContent,
+            styles.emptyScrollContent,
             { paddingBottom: Math.max(insets.bottom, 24) + 40 },
           ]}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           <NoRecordedAppointmentsEmptyState />
         </ScrollView>
@@ -301,6 +507,8 @@ export default function ProviderCompletedAppointmentsScreen() {
             { paddingBottom: Math.max(insets.bottom, 24) + 40 },
           ]}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           <View style={styles.cardsList}>
             {filteredAppointments.map((item) => (
@@ -323,11 +531,26 @@ export default function ProviderCompletedAppointmentsScreen() {
                     params: {
                       id: item.id,
                       title: item.title,
+                      serviceTitle: item.title,
                       clientName: item.clientName,
+                      clientStatus: item.clientStatus,
+                      gender: item.gender,
+                      membership: item.membership,
                       price: item.price,
                       duration: item.duration,
                       rating: item.rating,
+                      specialist: item.specialist,
+                      specialistRole: item.specialistRole,
+                      date: item.completedDate,
+                      time: item.time,
+                      type: item.type,
                       status: 'completed',
+                      paymentType: item.paymentType,
+                      appointmentCost: item.appointmentCost,
+                      trendPoints: item.trendPoints,
+                      ticketNumber: item.ticketNumber,
+                      packagePrice: item.packagePrice,
+                      total: item.total,
                     },
                   } as any);
                 }}
@@ -379,8 +602,16 @@ export default function ProviderCompletedAppointmentsScreen() {
       <ProviderAppointmentFilterModal
         visible={filterModalVisible}
         onClose={() => setFilterModalVisible(false)}
-        onApply={() => setFilterModalVisible(false)}
-        onClear={() => setFilterModalVisible(false)}
+        items={COMPLETED_APPOINTMENTS_DATA}
+        currentFilters={appliedFilters}
+        onApply={(f) => {
+          setAppliedFilters(f);
+          setFilterModalVisible(false);
+        }}
+        onClear={() => {
+          setAppliedFilters(undefined);
+          setFilterModalVisible(false);
+        }}
       />
 
       {/* Date Filter Bottom Sheet Modal (1:1 Figma Month/Year Filter) */}
@@ -388,7 +619,7 @@ export default function ProviderCompletedAppointmentsScreen() {
         visible={dateFilterModalVisible}
         onClose={() => setDateFilterModalVisible(false)}
         onSelectDate={(newDate) => setSelectedDate(newDate)}
-        initialDate={{ day: 8, month: 5, year: 2026 }}
+        initialDate={parsedInitialDate}
       />
 
       {/* Back Button Transition Four-Dot Loader Overlay */}
@@ -497,6 +728,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  filterButtonActive: {
+    backgroundColor: '#000814',
+    borderColor: '#000814',
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#CC2929',
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  filterBadgeText: {
+    fontFamily: FONT_MEDIUM,
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
 
   // Date picker & Appointments count (Frame 1000006427: height: 45px, gap: 5px)
   datePickerSection: {
@@ -533,6 +786,9 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  emptyScrollContent: {
+    flexGrow: 1,
   },
   scrollContent: {
     paddingHorizontal: 16,

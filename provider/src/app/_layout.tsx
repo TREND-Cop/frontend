@@ -15,6 +15,7 @@ import {
   Inter_400Regular,
   Inter_500Medium,
 } from '@expo-google-fonts/inter';
+import { calculateNativeDock } from '../utils/useNativeDock';
 
 // Global CSS reset for web to strip browser input outlines, focus rings, and autofill boxes
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
@@ -56,9 +57,10 @@ function GlobalSafeAreaInsetsAdapter({ children }: { children: React.ReactNode }
   const insets = useSafeAreaInsets();
   const adjustedInsets = useMemo(() => {
     if (!insets) return insets;
+    const { hasDock, dockHeight } = calculateNativeDock(insets.bottom);
     return {
       ...insets,
-      bottom: Platform.OS === 'android' ? Math.max(insets.bottom, 52) : insets.bottom,
+      bottom: hasDock ? dockHeight : insets.bottom,
     };
   }, [insets]);
 

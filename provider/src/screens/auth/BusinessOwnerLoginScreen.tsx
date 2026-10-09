@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Modal,
   FlatList,
   Pressable,
+  Keyboard,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -139,6 +140,30 @@ export const BusinessOwnerLoginScreen: React.FC = () => {
     }, 2000);
   };
 
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        setIsKeyboardVisible(true);
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+        setIsKeyboardVisible(false);
+      }
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
@@ -151,10 +176,15 @@ export const BusinessOwnerLoginScreen: React.FC = () => {
           style={styles.flexOne}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingTop: Math.max(insets.top + 20, 48) },
+            {
+              paddingTop: Math.max(insets.top + 64, 104),
+              paddingBottom: Math.max(insets.bottom + 16, 32) + (isKeyboardVisible ? keyboardHeight : 0),
+            },
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
         >
           {/* ── Header (width: 358px, gap: 16px, text-align: center) ── */}
           <View style={styles.header}>
@@ -333,11 +363,6 @@ export const BusinessOwnerLoginScreen: React.FC = () => {
               <Text style={styles.termsBlueText}>condition</Text>
             </TouchableOpacity>
           </View>
-
-          {/* Bottom Home Indicator Pill */}
-          <View style={styles.homeIndicatorWrapper} pointerEvents="none">
-            <View style={styles.homeIndicator} />
-          </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -429,9 +454,9 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
+    flexGrow: 1,
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingBottom: 24,
   },
 
   /* ── Header ── */
@@ -707,22 +732,6 @@ const styles = StyleSheet.create({
     color: 'rgba(26, 130, 255, 0.9)',
     textDecorationLine: 'underline',
     includeFontPadding: false,
-  },
-
-  /* ── Home Indicator ── */
-  homeIndicatorWrapper: {
-    width: '100%',
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-
-  homeIndicator: {
-    width: 134,
-    height: 5,
-    borderRadius: 100,
-    backgroundColor: '#000000',
   },
 
   /* ── Modal & Country Picker Sheet ── */

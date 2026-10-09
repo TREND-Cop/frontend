@@ -19,6 +19,7 @@ import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { SafeImage } from '../../components/ui/SafeImage';
 import * as ImagePicker from 'expo-image-picker';
 import { typography } from '../../constants/theme';
+import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
 
 // ── Exact Figma Vector Icons ──
 
@@ -113,6 +114,7 @@ const SATISFYING_OPTIONS: SatisfyingOption[] = [
 export const CustomerReviewScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const bottomInset = Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16);
   const params = useLocalSearchParams();
 
   const salonName = (params.salonName as string) || 'Luminous Lux';
@@ -326,7 +328,7 @@ export const CustomerReviewScreen = () => {
           keyboardDismissMode="on-drag"
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: Math.max(insets.bottom, 24) + (isKeyboardVisible ? 360 : 90) },
+            { paddingBottom: (isKeyboardVisible ? 360 : 120) + bottomInset },
           ]}
         >
         {/* ══════════════════════════════════════════════════════════
@@ -598,7 +600,7 @@ export const CustomerReviewScreen = () => {
 
       {/* ── Sticky Bottom Action Bar (Figma: height 60px, Submit Feedback) ── */}
       {!isKeyboardVisible && (
-        <View style={[styles.bottomActionBar, { paddingBottom: Math.max(16, insets.bottom) }]}>
+        <View style={[styles.bottomActionBar, { paddingBottom: bottomInset }]}>
           <TouchableOpacity
             style={styles.submitButton}
             activeOpacity={0.85}
@@ -609,6 +611,8 @@ export const CustomerReviewScreen = () => {
         </View>
       )}
       </KeyboardAvoidingView>
+
+      <NativeDockSpacer />
 
       {/* ── Review Submitted Success Modal ── */}
       <Modal
