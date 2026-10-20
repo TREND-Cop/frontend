@@ -1,6 +1,6 @@
 import React from 'react';
-import ProviderStaffDetailScreen from '../../screens/staff/ProviderStaffDetailScreen';
+import { StaffDetailPlaceholderScreen } from '../../screens/staff/StaffDetailPlaceholderScreen';
 
 export default function StaffDetailRoute() {
-  return <ProviderStaffDetailScreen />;
+  return <StaffDetailPlaceholderScreen />;
 }

@@ -13,13 +13,14 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Check, ChevronDown, X } from 'lucide-react-native';
+import { Check, ChevronDown, X, Eye, EyeOff } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { SearchablePicker } from '../../components/SearchablePicker';
 import { supabase } from '../../lib/supabase';
 import { isPhoneValid, isPasswordValid } from '../../constants/validation';
 import { useUserContext } from '../../store/UserContext';
 import { typography } from '../../constants/theme';
+import { GoogleIcon } from '../../components/GoogleIcon';
 
 // ── Country Data ──
 let CountryData: any;
@@ -41,32 +42,6 @@ try {
   };
 }
 
-// ── Google Gmail SVG Icon (Figma: logos:google-gmail 31.84x24) ──
-const GoogleGmailIcon = () => (
-  <Svg width={32} height={24} viewBox="0 0 256 193" fill="none">
-    <Path
-      d="M58.182 192.05V93.54L0 50.05v120c0 12.15 9.85 22 22 22h36.182Z"
-      fill="#4285F4"
-    />
-    <Path
-      d="M197.818 192.05h36.182c12.15 0 22-9.85 22-22V50.05l-58.182 43.49v98.51Z"
-      fill="#34A853"
-    />
-    <Path
-      d="M58.182 93.54l69.818 52.273 69.818-52.273V22c0-18.04-20.73-27.87-34.46-16.18L128 35.82 92.64 5.82C78.91-5.87 58.182 3.96 58.182 22v71.54Z"
-      fill="#EA4335"
-    />
-    <Path
-      d="M197.818 22v71.54l58.182-43.49V34.05c0-17.65-20.17-27.42-33.68-16.03L197.818 22Z"
-      fill="#FBBC04"
-    />
-    <Path
-      d="M0 50.05l58.182 43.49V22L33.68 5.97C20.17-5.42 0 4.35 0 22v28.05Z"
-      fill="#C5221F"
-    />
-  </Svg>
-);
-
 // ── Apple SVG Icon (Figma: si:apple-fill 32x32) ──
 const AppleIcon = () => (
   <Svg width={32} height={32} viewBox="0 0 24 24" fill="#000000">
@@ -81,6 +56,7 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
   // ── Form State ──
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState({
     code: '+234',
     flag: '🇳🇬',
@@ -175,7 +151,7 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* ── Top-Right Skip / X Button ── */}
       <TouchableOpacity
-        style={[styles.skipButton, { top: Math.max(insets.top, 16) }]}
+        style={styles.skipButton}
         onPress={handleSkip}
         activeOpacity={0.7}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -278,14 +254,27 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
                 onBlur={handlePasswordBlur}
                 placeholder="John1983"
                 placeholderTextColor="rgba(192, 192, 204, 0.96)"
-                secureTextEntry
+                secureTextEntry={!showPassword}
               />
 
               {passwordTouched && passwordValid && !passwordError && (
-                <View style={styles.checkmarkIcon}>
+                <View style={[styles.checkmarkIcon, { marginRight: 8 }]}>
                   <Check size={14} color="#FFFFFF" strokeWidth={3} />
                 </View>
               )}
+
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeButton}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                {showPassword ? (
+                  <EyeOff size={20} color="rgba(192, 192, 204, 0.96)" strokeWidth={1.8} />
+                ) : (
+                  <Eye size={20} color="rgba(192, 192, 204, 0.96)" strokeWidth={1.8} />
+                )}
+              </TouchableOpacity>
             </View>
             {passwordTouched && passwordError && (
               <Text style={styles.errorText}>{passwordError}</Text>
@@ -321,13 +310,13 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
 
           {/* ── Sign Up Options: Google & Apple (Figma: width 192px, height 56px, gap 80px) ── */}
           <View style={styles.socialRow}>
-            {/* Google Gmail Button */}
+            {/* Google Button */}
             <TouchableOpacity
               style={styles.socialButton}
               activeOpacity={0.7}
               onPress={() => console.log('Google Sign Up')}
             >
-              <GoogleGmailIcon />
+              <GoogleIcon size={28} />
             </TouchableOpacity>
 
             {/* Apple Button */}
@@ -419,7 +408,7 @@ const styles = StyleSheet.create({
   },
   skipButton: {
     position: 'absolute',
-    top: 12,
+    top: 16,
     right: 16,
     width: 40,
     height: 40,
@@ -437,6 +426,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
+    paddingTop: 83,
     paddingBottom: 40,
     alignItems: 'center',
   },
@@ -445,7 +435,6 @@ const styles = StyleSheet.create({
   headerContainer: {
     width: 278,
     alignItems: 'center',
-    gap: 8,
     marginBottom: 32,
   },
   headerTitle: {
@@ -456,6 +445,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 0.4,
     color: '#141A33',
+    marginBottom: 8,
   },
   headerSubtitle: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
@@ -545,6 +535,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#0C790C',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  eyeButton: {
+    paddingLeft: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   errorText: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',

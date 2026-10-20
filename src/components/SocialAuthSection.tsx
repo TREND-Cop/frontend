@@ -16,6 +16,7 @@ import React from 'react';
 import { Platform, View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { colors, typography, radius } from '../constants/theme';
+import { GoogleIcon } from './GoogleIcon';
 
 interface SocialAuthSectionProps {
   /** Text shown between the two divider lines (e.g. "Sign up with") */
@@ -64,28 +65,7 @@ export const SocialAuthSection: React.FC<SocialAuthSectionProps> = ({
           onPress={onGooglePress}
           activeOpacity={0.7}
         >
-          <Svg width={32} height={24} viewBox="0 0 256 193" fill="none">
-            <Path
-              d="M58.182 192.05V93.54L0 50.05v120c0 12.15 9.85 22 22 22h36.182Z"
-              fill="#4285F4"
-            />
-            <Path
-              d="M197.818 192.05h36.182c12.15 0 22-9.85 22-22V50.05l-58.182 43.49v98.51Z"
-              fill="#34A853"
-            />
-            <Path
-              d="M58.182 93.54l69.818 52.273 69.818-52.273V22c0-18.04-20.73-27.87-34.46-16.18L128 35.82 92.64 5.82C78.91-5.87 58.182 3.96 58.182 22v71.54Z"
-              fill="#EA4335"
-            />
-            <Path
-              d="M197.818 22v71.54l58.182-43.49V34.05c0-17.65-20.17-27.42-33.68-16.03L197.818 22Z"
-              fill="#FBBC04"
-            />
-            <Path
-              d="M0 50.05l58.182 43.49V22L33.68 5.97C20.17-5.42 0 4.35 0 22v28.05Z"
-              fill="#C5221F"
-            />
-          </Svg>
+          <GoogleIcon size={28} />
         </TouchableOpacity>
 
         {/* Apple Button */}

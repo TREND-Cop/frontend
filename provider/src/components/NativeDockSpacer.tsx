@@ -1,5 +1,6 @@
 import React from 'react';
-import { View } from 'react-native';
+import { View, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNativeDock } from '../utils/useNativeDock';
 
 export interface NativeDockSpacerProps {
@@ -18,7 +19,17 @@ export const NativeDockSpacer: React.FC<NativeDockSpacerProps> = ({
   backgroundColor = '#FFFFFF',
   minHeight,
 }) => {
+  const insets = useSafeAreaInsets();
   const { hasDock, dockHeight } = useNativeDock();
+
+  // On Android, only render barrier when there is an active 3-button dock or minHeight specified
+  if (Platform.OS === 'android') {
+    if (!hasDock && (!minHeight || minHeight <= 0)) {
+      return null;
+    }
+    const androidHeight = Math.max(insets.bottom, dockHeight, 48, minHeight ?? 0);
+    return <View style={{ height: androidHeight, backgroundColor, width: '100%' }} pointerEvents="none" />;
+  }
 
   if (!hasDock && (!minHeight || minHeight <= 0)) {
     return null;

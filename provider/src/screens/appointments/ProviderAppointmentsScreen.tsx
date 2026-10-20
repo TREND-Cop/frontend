@@ -210,7 +210,10 @@ export const ProviderAppointmentsScreen: React.FC = () => {
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingBottom: Math.max(insets.bottom, 24) + 24,
+            paddingBottom:
+              (Platform.OS === 'android'
+                ? Math.max(insets.bottom, 56)
+                : Math.max(insets.bottom, 24)) + 24,
           },
         ]}
         showsVerticalScrollIndicator={false}

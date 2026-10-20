@@ -38,6 +38,13 @@ export default function GalleryPreviewScreen() {
   
   const source = params.source as string;
   const isVideo = params.isVideo === 'true' || source === 'video';
+  const previewItems = previewStore.getPreviewItems();
+  const isStandalone =
+    params.standalone === 'true' ||
+    params.hideCard === 'true' ||
+    source === 'service-images' ||
+    source === 'style-service' ||
+    (!previewItems || previewItems.length === 0);
 
   // Dynamic titles matching Figma: "Portfolio" for video, "Luminous Lux Portfolio" for image portfolio
   const salonName = (params.salonName as string) || (params.salon as string) || 'Luminous Lux';
@@ -63,7 +70,6 @@ export default function GalleryPreviewScreen() {
     return previewStore.getInitialIndex();
   };
 
-  const previewItems = previewStore.getPreviewItems();
   const initialIndex = Math.max(0, Math.min(resolveInitialIndex(), images.length - 1));
   const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -72,7 +78,9 @@ export default function GalleryPreviewScreen() {
 
   // Exact card width matching the bottom card (358px max with 16px screen padding)
   const viewerWidth = Math.min(358, (width > 0 ? width : 390) - 32);
-  const estimatedHeight = Math.max(380, (height > 0 ? height : 844) - 64 - 116 - 90);
+  const estimatedHeight = isStandalone
+    ? Math.min(Math.round(viewerWidth * 1.34), Math.max(450, (height > 0 ? height : 844) - 64 - 100))
+    : Math.max(380, (height > 0 ? height : 844) - 64 - 116 - 90);
   const [viewerHeight, setViewerHeight] = useState<number>(estimatedHeight);
 
   const currentItem = previewItems && previewItems[activeIndex] ? previewItems[activeIndex] : null;
@@ -172,7 +180,13 @@ export default function GalleryPreviewScreen() {
       </View>
 
       {/* ─── Main Content Area: Comfortable floating image card aligned with bottom card ───────── */}
-      <View style={[styles.carouselWrapper, { paddingBottom: Math.max(16, insets.bottom + 8) }]}>
+      <View
+        style={[
+          styles.carouselWrapper,
+          { paddingBottom: Math.max(16, insets.bottom + 8) },
+          isStandalone && { justifyContent: 'center' },
+        ]}
+      >
         <View
           style={[
             styles.imageViewerContainer,
@@ -181,7 +195,7 @@ export default function GalleryPreviewScreen() {
               flex: 1,
               marginTop: 12,
               marginBottom: 16,
-              borderRadius: 0,
+              borderRadius: 24,
               overflow: 'hidden',
             },
           ]}
@@ -229,7 +243,7 @@ export default function GalleryPreviewScreen() {
                   justifyContent: 'center',
                   alignItems: 'center',
                   overflow: 'hidden',
-                  borderRadius: 0,
+                  borderRadius: 24,
                 }}
               >
                 <Image
@@ -237,6 +251,7 @@ export default function GalleryPreviewScreen() {
                   style={{
                     width: viewerWidth,
                     height: viewerHeight > 0 ? viewerHeight : '100%',
+                    borderRadius: 24,
                   }}
                   resizeMode="cover"
                 />
@@ -289,57 +304,59 @@ export default function GalleryPreviewScreen() {
           )}
         </View>
 
-        {/* ─── Bottom Floating Service Card (Figma: hair cut categories, 358px x 116px, border: 1px solid rgba(235, 235, 245, 0.96)) ── */}
-        <TouchableOpacity
-          style={[styles.bottomMediaCard, { width: viewerWidth }]}
-          activeOpacity={0.9}
-          onPress={() => {
-            router.push({
-              pathname: '/professional/style-details',
-              params: {
-                name: currentItemTitle,
-                title: currentItemTitle,
-                price: currentItemPrice,
-                duration: currentItemDuration,
-                rating: currentItemRating,
-                salonName: salonName,
-              },
-            } as any);
-          }}
-        >
-          {/* Thumbnail Container (Figma: 88px x 88px, padding: 4px, white background with shadow) */}
-          <View style={styles.bottomMediaThumbContainer}>
-            <SafeImage
-              source={images[activeIndex] || images[0]}
-              style={styles.bottomMediaThumb}
-              resizeMode="cover"
-            />
-          </View>
+        {/* ─── Bottom Floating Service Card (Only when NOT standalone) ── */}
+        {!isStandalone && currentItem && (
+          <TouchableOpacity
+            style={[styles.bottomMediaCard, { width: viewerWidth }]}
+            activeOpacity={0.9}
+            onPress={() => {
+              router.push({
+                pathname: '/professional/style-details',
+                params: {
+                  name: currentItemTitle,
+                  title: currentItemTitle,
+                  price: currentItemPrice,
+                  duration: currentItemDuration,
+                  rating: currentItemRating,
+                  salonName: salonName,
+                },
+              } as any);
+            }}
+          >
+            {/* Thumbnail Container (Figma: 88px x 88px, padding: 4px, white background with shadow) */}
+            <View style={styles.bottomMediaThumbContainer}>
+              <SafeImage
+                source={images[activeIndex] || images[0]}
+                style={styles.bottomMediaThumb}
+                resizeMode="cover"
+              />
+            </View>
 
-          {/* Details Column (Figma: Frame 1000006082, 232px x 80px) */}
-          <View style={styles.bottomMediaInfo}>
-            {/* Title (Figma: Label 14px SF Pro 400, color: rgba(248, 249, 250, 0.98)) */}
-            <Text style={styles.bottomMediaTitle} numberOfLines={1}>
-              {currentItemTitle}
-            </Text>
+            {/* Details Column (Figma: Frame 1000006082, 232px x 80px) */}
+            <View style={styles.bottomMediaInfo}>
+              {/* Title (Figma: Label 14px SF Pro 400, color: rgba(248, 249, 250, 0.98)) */}
+              <Text style={styles.bottomMediaTitle} numberOfLines={1}>
+                {currentItemTitle}
+              </Text>
 
-            {/* Price (Figma: 16px SF Pro 510, color: rgba(248, 249, 250, 0.98)) */}
-            <Text style={styles.bottomMediaPrice}>{currentItemPrice}</Text>
+              {/* Price (Figma: 16px SF Pro 510, color: rgba(248, 249, 250, 0.98)) */}
+              <Text style={styles.bottomMediaPrice}>{currentItemPrice}</Text>
 
-            {/* Duration & Rating Row (Figma: Frame 1000006081) */}
-            <View style={styles.bottomMediaMetaRow}>
-              <View style={styles.metaSubRow}>
-                <Clock size={16} color="rgba(248, 249, 250, 0.98)" />
-                <Text style={styles.bottomMediaMetaText}>{currentItemDuration}</Text>
-              </View>
+              {/* Duration & Rating Row (Figma: Frame 1000006081) */}
+              <View style={styles.bottomMediaMetaRow}>
+                <View style={styles.metaSubRow}>
+                  <Clock size={16} color="rgba(248, 249, 250, 0.98)" />
+                  <Text style={styles.bottomMediaMetaText}>{currentItemDuration}</Text>
+                </View>
 
-              <View style={styles.metaSubRow}>
-                <Star size={16} color="rgba(248, 155, 24, 0.96)" fill="rgba(248, 155, 24, 0.96)" />
-                <Text style={styles.bottomMediaMetaText}>{currentItemRating}</Text>
+                <View style={styles.metaSubRow}>
+                  <Star size={16} color="rgba(248, 155, 24, 0.96)" fill="rgba(248, 155, 24, 0.96)" />
+                  <Text style={styles.bottomMediaMetaText}>{currentItemRating}</Text>
+                </View>
               </View>
             </View>
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -393,7 +410,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 0,
+    borderRadius: 24,
     overflow: 'hidden',
     backgroundColor: 'rgba(20, 26, 51, 0.4)',
   },

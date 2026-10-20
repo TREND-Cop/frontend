@@ -33,7 +33,7 @@ const mediumFontFamily = Platform.select({
 const interMediumFontFamily = Platform.select({
   ios: 'Inter',
   android: 'Inter_500Medium',
-  default: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  default: 'Inter_500Medium, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
 });
 
 export const fontFamilies = {
@@ -106,7 +106,7 @@ export const typography = {
   button: Platform.select({
     ios: { fontFamily: 'Inter', fontSize: 16, lineHeight: 24, letterSpacing: 0.15, fontWeight: '500' as const, fontStyle: 'normal' as const },
     android: { fontFamily: 'Inter_500Medium', fontSize: 16, lineHeight: 24, letterSpacing: 0.15, fontWeight: '500' as const, fontStyle: 'normal' as const },
-    default: { fontFamily: 'Inter, sans-serif', fontSize: 16, lineHeight: 24, letterSpacing: 0.15, fontWeight: '500' as const, fontStyle: 'normal' as const },
+    default: { fontFamily: 'Inter_500Medium, Inter, sans-serif', fontSize: 16, lineHeight: 24, letterSpacing: 0.15, fontWeight: '500' as const, fontStyle: 'normal' as const },
   })!,
 
   // Numerals ( Numbers (Price Tags) ) - SF Pro on iOS (0.6px), DM Sans Regular on Android (0.5px)

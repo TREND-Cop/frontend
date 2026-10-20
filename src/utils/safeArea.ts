@@ -17,8 +17,8 @@ export function getSafeBottomPadding(
 ): number {
   const bottomInset = insets?.bottom || 0;
   if (bottomInset > 0) {
-    const effectiveBottom = Platform.OS === 'android' ? Math.max(bottomInset, 52) : bottomInset;
+    const effectiveBottom = Platform.OS === 'android' ? Math.max(bottomInset, 56) : bottomInset;
     return effectiveBottom + (Platform.OS === 'ios' ? 4 : extraSpacing);
   }
-  return Platform.OS === 'ios' ? 34 : (Platform.OS === 'android' ? 52 + extraSpacing : minPadding);
+  return Platform.OS === 'ios' ? 34 : (Platform.OS === 'android' ? 56 + extraSpacing : minPadding);
 }

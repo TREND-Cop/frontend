@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,20 @@ import {
   ScrollView,
   Share,
   Platform,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Share2 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
 
 export const TermsPolicyScreen: React.FC = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const [hasScrolledToEnd, setHasScrolledToEnd] = useState(false);
+  const layoutHeightRef = useRef(0);
+  const contentHeightRef = useRef(0);
 
   const handleGoBack = () => {
     if (router.canGoBack()) {
@@ -32,6 +38,23 @@ export const TermsPolicyScreen: React.FC = () => {
     } catch (error) {
       // Ignored
     }
+  };
+
+  const checkScrollToEnd = (offsetY: number, layoutHeight: number, contentHeight: number) => {
+    if (contentHeight <= layoutHeight + 10) {
+      setHasScrolledToEnd(true);
+      return;
+    }
+    if (layoutHeight + offsetY >= contentHeight - 24) {
+      setHasScrolledToEnd(true);
+    }
+  };
+
+  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
+    layoutHeightRef.current = layoutMeasurement.height;
+    contentHeightRef.current = contentSize.height;
+    checkScrollToEnd(contentOffset.y, layoutMeasurement.height, contentSize.height);
   };
 
   return (
@@ -64,6 +87,20 @@ export const TermsPolicyScreen: React.FC = () => {
         style={styles.scrollArea}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={handleScroll}
+        onLayout={(e) => {
+          layoutHeightRef.current = e.nativeEvent.layout.height;
+          if (contentHeightRef.current > 0) {
+            checkScrollToEnd(0, layoutHeightRef.current, contentHeightRef.current);
+          }
+        }}
+        onContentSizeChange={(_w, h) => {
+          contentHeightRef.current = h;
+          if (layoutHeightRef.current > 0) {
+            checkScrollToEnd(0, layoutHeightRef.current, h);
+          }
+        }}
       >
         {/* Section 1: Acceptance of use */}
         <View style={styles.sectionBlock}>
@@ -73,7 +110,7 @@ export const TermsPolicyScreen: React.FC = () => {
             website, and related services (the “Platform”), you agree to be bound
             by these Terms of Service (“Terms”). If you do not agree, do not use the
             Platform.{'\n'}
-            These Terms form a legally binding agreement between you and ...
+            These Terms form a legally binding agreement between you and TREND.
           </Text>
         </View>
 
@@ -116,6 +153,38 @@ export const TermsPolicyScreen: React.FC = () => {
           </View>
         </View>
       </ScrollView>
+
+      {/* ── Fixed Bottom Actions ("I accept" gated until scrolled to end) ── */}
+      <View
+        style={[
+          styles.footerContainer,
+          {
+            paddingBottom:
+              Platform.OS === 'android'
+                ? Math.max(insets.bottom, 56) + 12
+                : Math.max(insets.bottom, 20) + 12,
+          },
+        ]}
+      >
+        <TouchableOpacity
+          activeOpacity={0.85}
+          disabled={!hasScrolledToEnd}
+          style={[
+            styles.acceptButton,
+            !hasScrolledToEnd && styles.acceptButtonDisabled,
+          ]}
+          onPress={handleGoBack}
+        >
+          <Text
+            style={[
+              styles.acceptButtonText,
+              !hasScrolledToEnd && styles.acceptButtonTextDisabled,
+            ]}
+          >
+            I accept
+          </Text>
+        </TouchableOpacity>
+      </View>
       <NativeDockSpacer />
     </SafeAreaView>
   );
@@ -219,5 +288,37 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
     textAlign: 'justify',
+  },
+
+  // ── Footer & Accept Action ──
+  footerContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(235, 235, 245, 0.96)',
+    alignItems: 'center',
+  },
+  acceptButton: {
+    width: '100%',
+    maxWidth: 358,
+    height: 48,
+    backgroundColor: '#000814',
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  acceptButtonDisabled: {
+    backgroundColor: 'rgba(0, 8, 20, 0.25)',
+  },
+  acceptButtonText: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#FFFFFF',
+  },
+  acceptButtonTextDisabled: {
+    color: 'rgba(255, 255, 255, 0.65)',
   },
 });

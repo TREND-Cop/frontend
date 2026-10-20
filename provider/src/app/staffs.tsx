@@ -1,6 +1,6 @@
 import React from 'react';
-import ProviderStaffOnDutyScreen from '../screens/staff/ProviderStaffOnDutyScreen';
+import { StaffManagementScreen } from '../screens/staff/StaffManagementScreen';
 
 export default function StaffsPage() {
-  return <ProviderStaffOnDutyScreen />;
+  return <StaffManagementScreen />;
 }

@@ -246,6 +246,27 @@ export default function SelectedStyleScreen() {
     }, [])
   );
 
+  const handleOpenTopImagePreview = (index: number) => {
+    previewStore.setPreviewImages(
+      topSalonImages,
+      styleName || salonName,
+      undefined,
+      index
+    );
+    router.push({
+      pathname: '/professional/gallery-preview',
+      params: {
+        index: index.toString(),
+        initialIndex: index.toString(),
+        source: 'service-images',
+        title: styleName || salonName,
+        salonName: salonName,
+        standalone: 'true',
+        hideCard: 'true',
+      },
+    } as any);
+  };
+
   const handleBookNow = () => {
     if (!profileData.isLoggedIn) {
       setIsAuthPromptOpen(true);
@@ -382,9 +403,14 @@ export default function SelectedStyleScreen() {
         {/* ─── 1. Salon Images Grid (6 items: 3 columns x 2 rows) ─── */}
         <View style={styles.salonGridContainer}>
           {topSalonImages.map((img: any, idx: number) => (
-            <View key={idx} style={styles.salonGridImageWrapper}>
+            <TouchableOpacity
+              key={idx}
+              style={styles.salonGridImageWrapper}
+              activeOpacity={0.88}
+              onPress={() => handleOpenTopImagePreview(idx)}
+            >
               <SafeImage source={img} style={styles.salonGridImage} resizeMode="cover" />
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
 

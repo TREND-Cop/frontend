@@ -112,9 +112,9 @@ export const SignUpSuccessScreen = ({ navigation }: { navigation?: any }) => {
 
   const loaderOpacity = useRef(new Animated.Value(0)).current;
 
-  // 12 animated radial explosion particles with continuous twinkle
+  // 20 animated radial explosion particles with continuous twinkle
   const particleAnims = useRef(
-    Array.from({ length: 12 }, () => ({
+    Array.from({ length: 20 }, () => ({
       translateY: new Animated.Value(0),
       translateX: new Animated.Value(0),
       opacity: new Animated.Value(0),
@@ -137,6 +137,14 @@ export const SignUpSuccessScreen = ({ navigation }: { navigation?: any }) => {
     '#84CC16',
     '#6366F1',
     '#EAB308',
+    '#E02475',
+    '#00C2CB',
+    '#FF6B8B',
+    '#1A82FF',
+    '#FFD700',
+    '#0C790C',
+    '#A855F7',
+    '#FB923C',
   ];
 
   useEffect(() => {
@@ -314,7 +322,7 @@ export const SignUpSuccessScreen = ({ navigation }: { navigation?: any }) => {
 
     // ── 3. Radial Particle Burst + Continuous Floating Twinkle ──
     particleAnims.forEach((anim, i) => {
-      const angle = (i / 12) * 2 * Math.PI;
+      const angle = (i / particleAnims.length) * 2 * Math.PI;
       const distance = 75 + (i % 4) * 25;
       const targetX = Math.cos(angle) * distance;
       const targetY = Math.sin(angle) * distance - 25;

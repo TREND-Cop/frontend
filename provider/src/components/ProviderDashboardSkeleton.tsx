@@ -155,7 +155,11 @@ export const ProviderDashboardSkeleton: React.FC = () => {
           styles.scrollContent,
           {
             paddingTop: Math.max(insets.top + 16, 56),
-            paddingBottom: 160 + Math.max(insets.bottom, 16),
+            paddingBottom:
+              160 +
+              (Platform.OS === 'android'
+                ? Math.max(insets.bottom, 56)
+                : Math.max(insets.bottom, 16)),
           },
         ]}
         showsVerticalScrollIndicator={false}

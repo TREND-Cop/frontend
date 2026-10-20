@@ -153,8 +153,10 @@ export function ProviderMessagesScreen({ onTabChange }: ProviderMessagesScreenPr
   // Locked Bottom Navigation Bar offset:
   // Strictly locked at its designated bottom coordinate so it never moves when scrolling.
   // On iOS: safely above the Home Indicator (Math.max(insets.bottom, 20)).
-  // On Android: locked 16dp above the bottom navigation bar.
-  const lockedBottomOffset = Platform.OS === 'ios' ? Math.max(insets.bottom, 20) : 16;
+  // On Android: safely above the Android 3-button system dock / gesture pill (Math.max(insets.bottom, 56) + 16).
+  const lockedBottomOffset = Platform.OS === 'android'
+    ? Math.max(insets.bottom, 56) + 16
+    : Math.max(insets.bottom, 20);
 
   const [isMessagesLoading, setIsMessagesLoading] = useState(true);
 

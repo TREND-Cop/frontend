@@ -378,7 +378,17 @@ export const ProviderDateFilterModal: React.FC<ProviderDateFilterModalProps> = (
               </View>
 
               {/* Action Button: Select */}
-              <View style={[styles.bottomActionContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+              <View
+                style={[
+                  styles.bottomActionContainer,
+                  {
+                    paddingBottom:
+                      Platform.OS === 'android'
+                        ? Math.max(insets.bottom, 56)
+                        : Math.max(insets.bottom, 16),
+                  },
+                ]}
+              >
                 <TouchableOpacity
                   activeOpacity={0.8}
                   disabled={selectedDay === null}
@@ -490,7 +500,17 @@ export const ProviderDateFilterModal: React.FC<ProviderDateFilterModalProps> = (
               </View>
 
               {/* Action Button: Search date */}
-              <View style={[styles.bottomActionContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+              <View
+                style={[
+                  styles.bottomActionContainer,
+                  {
+                    paddingBottom:
+                      Platform.OS === 'android'
+                        ? Math.max(insets.bottom, 56)
+                        : Math.max(insets.bottom, 16),
+                  },
+                ]}
+              >
                 <TouchableOpacity
                   activeOpacity={0.85}
                   style={styles.searchDateActionButton}

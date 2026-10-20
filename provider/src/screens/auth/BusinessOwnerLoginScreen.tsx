@@ -51,7 +51,13 @@ const AppleIcon = ({ size = 24 }: { size?: number }) => (
   </Svg>
 );
 
-export const BusinessOwnerLoginScreen: React.FC = () => {
+export interface BusinessOwnerLoginScreenProps {
+  onNavigateSignUp?: () => void;
+}
+
+export const BusinessOwnerLoginScreen: React.FC<BusinessOwnerLoginScreenProps> = ({
+  onNavigateSignUp,
+}) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -177,7 +183,7 @@ export const BusinessOwnerLoginScreen: React.FC = () => {
           contentContainerStyle={[
             styles.scrollContent,
             {
-              paddingTop: Math.max(insets.top + 64, 104),
+              paddingTop: Math.max(insets.top + 39, 83),
               paddingBottom: Math.max(insets.bottom + 16, 32) + (isKeyboardVisible ? keyboardHeight : 0),
             },
           ]}
@@ -265,11 +271,17 @@ export const BusinessOwnerLoginScreen: React.FC = () => {
                 autoCapitalize="none"
               />
 
-              {/* Right: Valid Checkmark or Eye Toggle */}
-              {isPasswordValid && !passwordError ? (
-                <View style={styles.checkmarkCircle}>
-                  <Check size={12} color="#FFFFFF" strokeWidth={2.5} />
-                </View>
+              {/* Right: Exactly ONE icon (Checkmark when valid & unmasked, Eye Toggle otherwise) */}
+              {isPasswordValid && !passwordError && showPassword ? (
+                <TouchableOpacity
+                  onPress={() => setShowPassword(false)}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <View style={styles.checkmarkCircle}>
+                    <Check size={12} color="#FFFFFF" strokeWidth={2.5} />
+                  </View>
+                </TouchableOpacity>
               ) : (
                 <TouchableOpacity
                   onPress={() => setShowPassword(!showPassword)}
@@ -277,9 +289,9 @@ export const BusinessOwnerLoginScreen: React.FC = () => {
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   {showPassword ? (
-                    <EyeOff size={20} color="rgba(96, 96, 102, 0.96)" strokeWidth={1.5} />
-                  ) : (
                     <Eye size={20} color="rgba(96, 96, 102, 0.96)" strokeWidth={1.5} />
+                  ) : (
+                    <EyeOff size={20} color="rgba(96, 96, 102, 0.96)" strokeWidth={1.5} />
                   )}
                 </TouchableOpacity>
               )}
@@ -340,7 +352,13 @@ export const BusinessOwnerLoginScreen: React.FC = () => {
             <Text style={styles.noAccountText}>I don’t have an account</Text>
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={() => console.log('Navigate to Create Account')}
+              onPress={() => {
+                if (onNavigateSignUp) {
+                  onNavigateSignUp();
+                } else {
+                  router.push('/sign-up-business-owner' as any);
+                }
+              }}
             >
               <Text style={styles.createAccountLink}>Create Account</Text>
             </TouchableOpacity>

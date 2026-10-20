@@ -84,6 +84,44 @@ const launchImageLibrary = async (): Promise<string | null> => {
   }
 };
 
+/**
+ * Attempts to use expo-image-picker to open the camera.
+ */
+const launchCamera = async (): Promise<string | null> => {
+  try {
+    const ImagePicker = require('expo-image-picker');
+
+    // Request camera permissions
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert(
+        'Permission required',
+        'Please grant camera access to take a profile photo.'
+      );
+      return null;
+    }
+
+    // Launch camera
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1], // Square crop for avatar
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.[0]?.uri) {
+      return result.assets[0].uri;
+    }
+    return null;
+  } catch {
+    console.warn('expo-image-picker not available');
+    Alert.alert(
+      'Camera not available',
+      'Please install expo-image-picker to use this feature.'
+    );
+    return null;
+  }
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
@@ -95,6 +133,16 @@ export const UserProfileScreen = ({ navigation }: { navigation?: any }) => {
   const [showPhotoSheet, setShowPhotoSheet] = useState(false);
 
   // ── Handlers ────────────────────────────────────────────────────────────
+
+  /**
+   * Opens the device camera via expo-image-picker.
+   */
+  const handleOpenCamera = async () => {
+    const uri = await launchCamera();
+    if (uri) {
+      setProfileImageUri(uri);
+    }
+  };
 
   /**
    * Opens the device photo library via expo-image-picker.
@@ -198,6 +246,7 @@ export const UserProfileScreen = ({ navigation }: { navigation?: any }) => {
       {/* ─── Photo Upload Bottom Sheet ────────────────────────────── */}
       <PhotoUploadSheet
         visible={showPhotoSheet}
+        onOpenCamera={handleOpenCamera}
         onChoosePhoto={handleChoosePhoto}
         onSelectFile={handleSelectFile}
         onClose={() => setShowPhotoSheet(false)}

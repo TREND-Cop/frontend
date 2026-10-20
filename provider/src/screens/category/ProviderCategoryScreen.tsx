@@ -12,6 +12,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Svg, { Path, Rect } from 'react-native-svg';
+import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 
 const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
 const FONT_REGULAR = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular';
@@ -241,7 +242,12 @@ export default function ProviderCategoryScreen() {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: Math.max(insets.bottom, 24) + 40 },
+          {
+            paddingBottom:
+              (Platform.OS === 'android'
+                ? Math.max(insets.bottom, 56)
+                : Math.max(insets.bottom, 24)) + 40,
+          },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -360,6 +366,9 @@ export default function ProviderCategoryScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Android System Dock Barrier */}
+      <NativeDockSpacer backgroundColor="#FFFFFF" />
 
       {/* ── 4-Dot Full Screen Loader Overlay (Figma: #3F3F3F / dark background with 4 dots) ── */}
       <CategoryFourDotLoader visible={isActionLoading} />

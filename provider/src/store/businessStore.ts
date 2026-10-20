@@ -9,17 +9,25 @@ export interface BusinessProfile {
   reviewsCount: number;
   performanceStake: string;
   notificationBadgeCount: number;
+  photos?: string[];
+  operatingDays?: string;
+  operatingHours?: string;
+  gender?: string;
 }
 
 const DEFAULT_BUSINESS_PROFILE: BusinessProfile = {
   name: 'Luminous Lux',
   address: 'Street 11, off okiki road abuja.',
-  isOpen: false, // Starts as closed as per design mockup
+  isOpen: true, // Starts as open by default
   servicesCount: 8,
   photosCount: 24,
   reviewsCount: 14,
   performanceStake: '12%',
   notificationBadgeCount: 102,
+  photos: [],
+  operatingDays: 'Monday - Sunday',
+  operatingHours: '8:00am - 11:00pm',
+  gender: 'Unisex',
 };
 
 let businessState: BusinessProfile = { ...DEFAULT_BUSINESS_PROFILE };

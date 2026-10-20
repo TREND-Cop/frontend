@@ -71,6 +71,12 @@ function GlobalSafeAreaInsetsAdapter({ children }: { children: React.ReactNode }
   );
 }
 
+import { ProviderOnboardingProvider } from '../context/ProviderOnboardingContext';
+import { FirstTimeProvider } from '../context/FirstTimeContext';
+import { ServiceDraftProvider } from '../context/ServiceDraftContext';
+import { WorkPhotosProvider } from '../context/WorkPhotosContext';
+import { StaffProvider } from '../context/StaffContext';
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     DMSans_400Regular,
@@ -86,21 +92,31 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <GlobalSafeAreaInsetsAdapter>
-        <StatusBar style="dark" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: '#FFFFFF' },
-            animation: Platform.OS === 'ios' ? 'default' : 'fade_from_bottom',
-            navigationBarColor: '#FFFFFF',
-            navigationBarTranslucent: false,
-          }}
-        >
-          <Stack.Screen name="index" />
-        </Stack>
-      </GlobalSafeAreaInsetsAdapter>
-    </SafeAreaProvider>
+    <ProviderOnboardingProvider>
+      <FirstTimeProvider>
+        <ServiceDraftProvider>
+          <WorkPhotosProvider>
+            <StaffProvider>
+              <SafeAreaProvider>
+                <GlobalSafeAreaInsetsAdapter>
+                  <StatusBar style="dark" />
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    contentStyle: { backgroundColor: '#FFFFFF' },
+                    animation: Platform.OS === 'ios' ? 'default' : 'fade_from_bottom',
+                    navigationBarColor: '#FFFFFF',
+                    navigationBarTranslucent: false,
+                  }}
+                >
+                  <Stack.Screen name="index" />
+                </Stack>
+              </GlobalSafeAreaInsetsAdapter>
+            </SafeAreaProvider>
+            </StaffProvider>
+          </WorkPhotosProvider>
+        </ServiceDraftProvider>
+      </FirstTimeProvider>
+    </ProviderOnboardingProvider>
   );
 }

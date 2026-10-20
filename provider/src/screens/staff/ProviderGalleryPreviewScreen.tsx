@@ -16,6 +16,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
 import { ShareIcon } from '../../components/ShareIcon';
+import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 import { previewStore } from '../../utils/previewStore';
 import { shareStore } from '../../utils/shareStore';
 
@@ -216,7 +217,17 @@ export function ProviderGalleryPreviewScreen() {
       </View>
 
       {/* ─── Main Content Area: Floating Image Card ───────── */}
-      <View style={[styles.carouselWrapper, { paddingBottom: Math.max(16, insets.bottom + 8) }]}>
+      <View
+        style={[
+          styles.carouselWrapper,
+          {
+            paddingBottom:
+              Platform.OS === 'android'
+                ? Math.max(insets.bottom, 56)
+                : Math.max(16, insets.bottom + 8),
+          },
+        ]}
+      >
         <View
           style={[
             styles.imageViewerContainer,
@@ -354,6 +365,9 @@ export function ProviderGalleryPreviewScreen() {
           </View>
         </View>
       </View>
+
+      {/* Android System Navigation Dock Barrier */}
+      <NativeDockSpacer backgroundColor="rgba(0, 8, 20, 0.96)" />
     </SafeAreaView>
   );
 }

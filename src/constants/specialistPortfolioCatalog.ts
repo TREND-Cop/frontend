@@ -19,7 +19,7 @@ export const BISOLA_PORTFOLIO_ITEMS: PortfolioItem[] = [
   // ── Row 1 ──
   {
     id: 'bp-1',
-    image: require('../../../assets/images/portfolio/bisola_portfolio_1.png'),
+    image: require('../../assets/images/portfolio/bisola_portfolio_1.png'),
     height: 239,
     title: 'Baby Blue Ribbon Acrylics',
     price: '₦18,500',
@@ -30,7 +30,7 @@ export const BISOLA_PORTFOLIO_ITEMS: PortfolioItem[] = [
   },
   {
     id: 'bp-2',
-    image: require('../../../assets/images/portfolio/bisola_portfolio_2.png'),
+    image: require('../../assets/images/portfolio/bisola_portfolio_2.png'),
     height: 188,
     title: 'Gold Starfish Ocean Tips',
     price: '₦16,000',
@@ -42,7 +42,7 @@ export const BISOLA_PORTFOLIO_ITEMS: PortfolioItem[] = [
   // ── Row 2 ──
   {
     id: 'bp-3',
-    image: require('../../../assets/images/portfolio/bisola_portfolio_3.png'),
+    image: require('../../assets/images/portfolio/bisola_portfolio_3.png'),
     height: 188,
     title: 'Tropical Monstera Art',
     price: '₦15,000',
@@ -53,7 +53,7 @@ export const BISOLA_PORTFOLIO_ITEMS: PortfolioItem[] = [
   },
   {
     id: 'bp-4',
-    image: require('../../../assets/images/portfolio/bisola_portfolio_4.png'),
+    image: require('../../assets/images/portfolio/bisola_portfolio_4.png'),
     height: 239,
     title: 'Midnight Floral French Set',
     price: '₦22,000',
@@ -65,7 +65,7 @@ export const BISOLA_PORTFOLIO_ITEMS: PortfolioItem[] = [
   // ── Row 3 ──
   {
     id: 'bp-5',
-    image: require('../../../assets/images/portfolio/bisola_portfolio_5.png'),
+    image: require('../../assets/images/portfolio/bisola_portfolio_5.png'),
     height: 239,
     title: 'Burgundy Star Ombre',
     price: '₦19,500',
@@ -76,7 +76,7 @@ export const BISOLA_PORTFOLIO_ITEMS: PortfolioItem[] = [
   },
   {
     id: 'bp-6',
-    image: require('../../../assets/images/portfolio/bisola_portfolio_6.png'),
+    image: require('../../assets/images/portfolio/bisola_portfolio_6.png'),
     height: 188,
     title: 'Hot Pink Floral Pedicure',
     price: '₦14,000',

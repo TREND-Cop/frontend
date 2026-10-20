@@ -1,8 +1,8 @@
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
   Image,
@@ -24,6 +24,18 @@ import { ProviderDashboardSkeleton } from '../../components/ProviderDashboardSke
 import { useAppointments, useOngoingAppointments } from '../../store/appointmentStore';
 import { useBusinessStore } from '../../store/businessStore';
 import { useStaffStore } from '../../store/staffStore';
+import { useFirstTime } from '../../context/FirstTimeContext';
+import { WelcomeCard } from '../../components/tutorial/WelcomeCard';
+import { SpotlightOverlay } from '../../components/tutorial/SpotlightOverlay';
+import { TutorialTarget } from '../../components/tutorial/TutorialTarget';
+import { ConnectAccountModal } from '../../components/tutorial/ConnectAccountModal';
+import { TrialNoticeModal } from '../../components/tutorial/TrialNoticeModal';
+import { PayoutTermsNotice } from '../../components/payout/PayoutTermsNotice';
+import { LoadingOverlay } from '../../components/LoadingOverlay';
+import { DashboardCard } from '../../components/DashboardCard';
+import { useProviderOnboarding } from '../../context/ProviderOnboardingContext';
+import { TUTORIAL_TIMINGS, FORCE_FIRST_TIME_FLOW } from '../../constants/tutorial.config';
+import { triggerLightHaptic } from '../../utils/haptics';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -286,8 +298,10 @@ export const ProviderDashboardScreen: React.FC = () => {
   // Locked Bottom Navigation Bar offset:
   // Strictly locked at its designated bottom coordinate so it never moves when scrolling.
   // On iOS: safely above the Home Indicator (Math.max(insets.bottom, 20)).
-  // On Android: locked 16dp above the bottom navigation bar.
-  const lockedBottomOffset = Platform.OS === 'ios' ? Math.max(insets.bottom, 20) : 16;
+  // On Android: safely above the Android 3-button system dock / gesture pill (Math.max(insets.bottom, 56) + 16).
+  const lockedBottomOffset = Platform.OS === 'android'
+    ? Math.max(insets.bottom, 56) + 16
+    : Math.max(insets.bottom, 20);
   const { business, toggleIsOpen, updateProfile } = useBusinessStore();
   const { appointments } = useAppointments();
   const { ongoingAppointments } = useOngoingAppointments();
@@ -322,6 +336,50 @@ export const ProviderDashboardScreen: React.FC = () => {
   const [isDashboardLoading, setIsDashboardLoading] = useState(true);
   const [showCategoryOverlay, setShowCategoryOverlay] = useState(false);
 
+  const {
+    phase,
+    currentStep,
+    hasSeenFirstTime,
+    startFirstTimeFlow,
+    handleGetStarted,
+    isSpotlightTarget,
+    registerScrollView,
+    handleScroll,
+    setScreenInsets,
+    handleContentSizeChange,
+    measureTarget,
+    handleConnectAccount,
+    handleMaybeLater,
+    handleDismissTrialNotice,
+  } = useFirstTime();
+
+  const scrollViewRef = useRef<ScrollView>(null);
+  const confettiFiredRef = useRef(false);
+
+  useEffect(() => {
+    setScreenInsets({ top: insets.top, bottom: insets.bottom });
+  }, [insets.top, insets.bottom, setScreenInsets]);
+
+  // Payouts First-Time Flow states
+  const params = useLocalSearchParams<{ fromSignup?: string }>();
+  const {
+    payoutMethod,
+    showDashboardOverlayAfterPayout,
+    setShowDashboardOverlayAfterPayout,
+    justSignedUp,
+    setJustSignedUp,
+  } = useProviderOnboarding();
+  const [isPayoutTermsOpen, setIsPayoutTermsOpen] = useState(false);
+
+  useEffect(() => {
+    if (showDashboardOverlayAfterPayout) {
+      const timer = setTimeout(() => {
+        setShowDashboardOverlayAfterPayout(false);
+      }, 1100);
+      return () => clearTimeout(timer);
+    }
+  }, [showDashboardOverlayAfterPayout, setShowDashboardOverlayAfterPayout]);
+
   // Figma Annotation: "All screens returning back to the dashboard should go through a skeleton loader beforing seeing the dashboard"
   useFocusEffect(
     useCallback(() => {
@@ -335,6 +393,22 @@ export const ProviderDashboardScreen: React.FC = () => {
       };
     }, [])
   );
+
+  const isFromSignup = params.fromSignup === 'true' || justSignedUp;
+
+  useEffect(() => {
+    if (!isDashboardLoading && !confettiFiredRef.current) {
+      confettiFiredRef.current = true;
+      // Only launch the tutorial if coming directly after signup and has not seen it yet
+      if (isFromSignup && (!hasSeenFirstTime || FORCE_FIRST_TIME_FLOW)) {
+        setJustSignedUp(false);
+        if (params.fromSignup) {
+          router.setParams({ fromSignup: undefined });
+        }
+        startFirstTimeFlow();
+      }
+    }
+  }, [isDashboardLoading, isFromSignup, hasSeenFirstTime, startFirstTimeFlow, setJustSignedUp, params.fromSignup, router]);
 
   const handleCategoriesPress = () => {
     setShowCategoryOverlay(true);
@@ -355,22 +429,31 @@ export const ProviderDashboardScreen: React.FC = () => {
       ) : (
         /* Main Scroll Content */
         <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          {
-            paddingTop: Math.max(insets.top + 16, 56),
-            paddingBottom: 130 + lockedBottomOffset,
-          },
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
+          ref={(node) => {
+            (scrollViewRef as any).current = node;
+            registerScrollView(node);
+          }}
+          scrollEnabled={true}
+          scrollEventThrottle={16}
+          onScroll={(e) => handleScroll(e.nativeEvent.contentOffset.y)}
+          onContentSizeChange={handleContentSizeChange}
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingTop: Math.max(insets.top + 16, 56),
+              paddingBottom: 80 + 36 + lockedBottomOffset + insets.bottom + 64,
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
         {/* ── Business Name and Open/Closed Button (width: 358px, height: 52px) ── */}
         <View style={styles.businessHeader}>
           {/* Dashboard and Date / Address Info (Interactive - Tap to edit) */}
           <TouchableOpacity
             activeOpacity={0.8}
             style={styles.businessInfoColumn}
+            disabled={phase === 'tour'}
             onPress={handleOpenEditModal}
           >
             {/* Luminous Lux (Full dynamic name) */}
@@ -388,121 +471,101 @@ export const ProviderDashboardScreen: React.FC = () => {
           </TouchableOpacity>
 
           {/* Closed / Open Business Switch Toggle (width: 104px, height: 40px) */}
-          <BusinessStatusSwitch
-            isOpen={business.isOpen}
-            onToggle={toggleIsOpen}
-          />
+          <TutorialTarget id="business_status_switch" borderRadius={32}>
+            <BusinessStatusSwitch
+              isOpen={business.isOpen}
+              onToggle={toggleIsOpen}
+              disabled={phase === 'tour'}
+            />
+          </TutorialTarget>
         </View>
 
         {/* ── Staff Dashboard Section (width: 358px) ── */}
         <View style={styles.sectionContainer}>
-          {/* Section Heading: Staff Dashboard */}
-          <Text style={styles.sectionTitle}>Staff Dashboard</Text>
+          {/* Section Heading: Appointment Dashboard */}
+          <Text style={styles.sectionTitle}>Appointment Dashboard</Text>
 
           {/* Booking Dashboard 2x2 Grid (358px wide, 24px col gap, 40px row gap) */}
           <View style={styles.cardsGrid}>
             {/* ── Card 1: Appointments (167x120) with Notification Badge ── */}
-            <View style={styles.cardWrapper}>
-              <TouchableOpacity
-                activeOpacity={0.85}
-                style={styles.card120}
-                onPress={() => router.push('/appointments' as any)}
-              >
-                {/* Top Row: Appointments */}
-                <View style={styles.cardHeaderRow}>
-                  <Text style={styles.cardTitleText}>Appointments</Text>
-                </View>
-
-                {/* Bottom Row: Pending count + Calendar Icon (24x24 in Figma) */}
-                <View style={styles.cardFooterRow}>
-                  <View style={styles.statTagRow}>
-                    <Text style={styles.statNumberText}>{pendingAppointmentsCount}</Text>
-                    <Text style={styles.statLabelText}>Pending</Text>
+            <DashboardCard
+              targetId="appointments_card"
+              cardHeight={120}
+              title="Appointments"
+              count={isSpotlightTarget('appointments_card') ? '0' : pendingAppointmentsCount}
+              label="Pending"
+              icon={
+                <Image
+                  source={require('../../../assets/images/dashboard/appointments_calendar.png')}
+                  style={styles.calendarIconImage}
+                  resizeMode="contain"
+                />
+              }
+              badge={
+                !isSpotlightTarget('appointments_card') ? (
+                  <View style={styles.notificationBadge} pointerEvents="none">
+                    <Text style={styles.notificationBadgeText}>
+                      {business.notificationBadgeCount || pendingAppointmentsCount + ongoingAppointmentsCount}
+                    </Text>
                   </View>
-                  <Image
-                    source={require('../../../assets/images/dashboard/appointments_calendar.png')}
-                    style={styles.calendarIconImage}
-                    resizeMode="contain"
-                  />
-                </View>
-              </TouchableOpacity>
-
-              {/* Notification Badge: (width: 26px, height: 20px, top: -3px, left: 143px) */}
-              <View style={styles.notificationBadge} pointerEvents="none">
-                <Text style={styles.notificationBadgeText}>
-                  {business.notificationBadgeCount || pendingAppointmentsCount + ongoingAppointmentsCount}
-                </Text>
-              </View>
-            </View>
+                ) : null
+              }
+              onPress={() => router.push('/appointments' as any)}
+              disabled={phase === 'tour'}
+            />
 
             {/* ── Card 2: In Progress (167x120) ── */}
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.card120}
+            <DashboardCard
+              targetId="in_progress_card"
+              cardHeight={120}
+              title="In Progress"
+              count={isSpotlightTarget('in_progress_card') ? '0' : ongoingAppointmentsCount}
+              label="Ongoing"
+              icon={
+                <Image
+                  source={require('../../../assets/images/dashboard/in_progress_spinner.png')}
+                  style={{ width: 26, height: 26, transform: [{ rotate: '67.75deg' }] }}
+                  resizeMode="contain"
+                />
+              }
               onPress={() => router.push('/ongoing-appointments')}
-            >
-              <View style={styles.cardHeaderRow}>
-                <Text style={styles.cardTitleText}>In Progress</Text>
-              </View>
-
-              <View style={styles.cardFooterRow}>
-                <View style={styles.statTagRow}>
-                  <Text style={styles.statNumberText}>{ongoingAppointmentsCount}</Text>
-                  <Text style={styles.statLabelText}>Ongoing</Text>
-                </View>
-              </View>
-
-              <Image
-                source={require('../../../assets/images/dashboard/in_progress_spinner.png')}
-                style={styles.spinnerIconImage}
-                resizeMode="contain"
-              />
-            </TouchableOpacity>
+              disabled={phase === 'tour'}
+            />
 
             {/* ── Card 3: My Staffs (167x120) ── */}
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.card120}
-              onPress={() => router.push('/staffs')}
-            >
-              <View style={styles.cardHeaderRow}>
-                <Text style={styles.cardTitleText}>My Staffs</Text>
-              </View>
-
-              <View style={styles.cardFooterRow}>
-                <View style={styles.statTagRow}>
-                  <Text style={styles.statNumberText}>{onDutyStaffCount}</Text>
-                  <Text style={styles.statLabelText}>On Duty</Text>
-                </View>
+            <DashboardCard
+              targetId="staff_status_card"
+              cardHeight={120}
+              title="Staff Status"
+              count={isSpotlightTarget('staff_status_card') ? '0' : onDutyStaffCount}
+              label="On Duty"
+              icon={
                 <Image
                   source={require('../../../assets/images/dashboard/my_staffs_group.png')}
                   style={{ width: 32, height: 32 }}
                   resizeMode="contain"
                 />
-              </View>
-            </TouchableOpacity>
+              }
+              onPress={() => router.push('/staffs')}
+              disabled={phase === 'tour'}
+            />
 
             {/* ── Card 4: Categories (167x120) ── */}
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.card120}
-              onPress={handleCategoriesPress}
-            >
-              <View style={styles.cardHeaderRow}>
-                <Text style={styles.cardTitleText}>Categories</Text>
-              </View>
-
-              <View style={styles.cardFooterRow}>
-                <View style={styles.statTagRow}>
-                  <Text style={styles.statLabelText}>More Options</Text>
-                </View>
+            <DashboardCard
+              targetId="appointment_history_card"
+              cardHeight={120}
+              title="Appointment History"
+              label="More Options"
+              icon={
                 <Image
                   source={require('../../../assets/images/dashboard/categories_grid.png')}
                   style={{ width: 26, height: 26 }}
                   resizeMode="contain"
                 />
-              </View>
-            </TouchableOpacity>
+              }
+              onPress={handleCategoriesPress}
+              disabled={phase === 'tour'}
+            />
           </View>
         </View>
 
@@ -519,156 +582,119 @@ export const ProviderDashboardScreen: React.FC = () => {
           {/* Business Dashboard 3x2 Grid (358px wide, 24px col gap, 40px row gap) */}
           <View style={styles.cardsGrid}>
             {/* ── Card 1: Manage Business Service (167x136) ── */}
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.card136}
-              onPress={() => router.push('/category' as any)}
-            >
-              <View style={styles.cardHeaderRowMultiLine}>
-                <Text style={styles.cardTitleTextMultiLine}>
-                  Manage Business Service
-                </Text>
-              </View>
-
-              <View style={styles.cardFooterRow}>
-                <View style={styles.statTagRow}>
-                  <Text style={styles.statNumberText}>{business.servicesCount}</Text>
-                  <Text style={styles.statLabelText}>Services</Text>
-                </View>
+            <DashboardCard
+              targetId="add_service_card"
+              cardHeight={136}
+              title="Add Service"
+              count={isSpotlightTarget('add_service_card') ? '0' : business.servicesCount}
+              label="Added Services"
+              icon={
                 <Image
                   source={require('../../../assets/images/dashboard/manage_service_add.png')}
                   style={{ width: 35, height: 35 }}
                   resizeMode="contain"
                 />
-              </View>
-            </TouchableOpacity>
+              }
+              onPress={() => router.push('/services' as any)}
+              disabled={phase === 'tour'}
+            />
 
             {/* ── Card 2: Post Service Photos (167x136) ── */}
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.card136}
-              onPress={() => router.push('/category' as any)}
-            >
-              <View style={styles.cardHeaderRowMultiLine}>
-                <Text style={styles.cardTitleTextMultiLine}>
-                  Post Service Photos
-                </Text>
-              </View>
-
-              <View style={styles.cardFooterRow}>
-                <View style={styles.statTagRow}>
-                  <Text style={styles.statNumberText}>{business.photosCount}</Text>
-                  <Text style={styles.statLabelText}>Photos</Text>
-                </View>
+            <DashboardCard
+              targetId="post_work_card"
+              cardHeight={136}
+              title="Post Work"
+              count={isSpotlightTarget('post_work_card') ? '0' : business.photosCount}
+              label="Posts"
+              icon={
                 <Image
                   source={require('../../../assets/images/dashboard/post_photos_camera.png')}
                   style={{ width: 31, height: 22 }}
                   resizeMode="contain"
                 />
-              </View>
-            </TouchableOpacity>
+              }
+              onPress={() => router.push('/post-work' as any)}
+              disabled={phase === 'tour'}
+            />
 
             {/* ── Card 3: Staff Management (167x136) ── */}
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.card136}
-              onPress={() => router.push('/staffs' as any)}
-            >
-              <View style={styles.cardHeaderRowMultiLine}>
-                <Text style={styles.cardTitleTextMultiLine}>
-                  Staff Management
-                </Text>
-              </View>
-
-              <View style={styles.cardFooterRow}>
-                <View style={styles.statTagRow}>
-                  <Text style={styles.statNumberText}>{totalStaffCount}</Text>
-                  <Text style={styles.statLabelText}>Staffs</Text>
-                </View>
+            <DashboardCard
+              targetId="staff_management_card"
+              cardHeight={136}
+              title="Staff Management"
+              count={isSpotlightTarget('staff_management_card') ? '0' : totalStaffCount}
+              label="Hired Staff"
+              icon={
                 <Image
                   source={require('../../../assets/images/dashboard/staff_management_users.png')}
                   style={{ width: 32, height: 32 }}
                   resizeMode="contain"
                 />
-              </View>
-            </TouchableOpacity>
+              }
+              onPress={() => router.push('/staffs' as any)}
+              disabled={phase === 'tour'}
+            />
 
             {/* ── Card 4: Business Statistics (167x136) ── */}
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.card136}
-              onPress={() => router.push('/category' as any)}
-            >
-              <View style={styles.cardHeaderRowMultiLine}>
-                <Text style={styles.cardTitleTextMultiLine}>
-                  Business Statistics
-                </Text>
-              </View>
-
-              <View style={styles.cardFooterRow}>
-                <Text style={styles.statLabelText}>Today</Text>
-
-                {/* Performance Stake: Triangle + percentage */}
+            <DashboardCard
+              targetId="business_statistics_card"
+              cardHeight={136}
+              title="Business Statistics"
+              label="Today"
+              icon={
                 <View style={styles.performanceStake}>
                   <TriangleIcon size={12} />
                   <Text style={styles.performancePercentText}>{business.performanceStake}</Text>
                 </View>
-              </View>
-            </TouchableOpacity>
+              }
+              onPress={() => router.push('/category' as any)}
+              disabled={phase === 'tour'}
+            />
 
             {/* ── Card 5: Clients Reviews and Comments (167x136) ── */}
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.card136}
-              onPress={() => router.push('/category' as any)}
-            >
-              <View style={styles.cardHeaderRowMultiLine}>
-                <Text style={styles.cardTitleTextMultiLine}>
-                  Clients Reviews and Comments
-                </Text>
-              </View>
-
-              <View style={styles.cardFooterRow}>
-                <View style={styles.statTagRow}>
-                  <Text style={styles.statNumberText}>{business.reviewsCount}</Text>
-                  <Text style={styles.statLabelText}>Reviews</Text>
-                </View>
+            <DashboardCard
+              targetId="clients_review_card"
+              cardHeight={136}
+              title="Clients Reviews"
+              count={isSpotlightTarget('clients_review_card') ? '0' : business.reviewsCount}
+              label="Reviews"
+              icon={
                 <Image
                   source={require('../../../assets/images/dashboard/reviews_chat_bubbles.png')}
                   style={{ width: 32, height: 32 }}
                   resizeMode="contain"
                 />
-              </View>
-            </TouchableOpacity>
+              }
+              onPress={() => router.push('/category' as any)}
+              disabled={phase === 'tour'}
+            />
 
             {/* ── Card 6: Business Management (167x136) ── */}
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.card136}
-              onPress={() => router.push('/category' as any)}
-            >
-              <View style={styles.cardHeaderRowMultiLine}>
-                <Text style={styles.cardTitleTextMultiLine}>
-                  Business Management
-                </Text>
-              </View>
-
-              <View style={styles.cardFooterRow}>
-                <Text style={styles.statLabelText}>Edit Information</Text>
+            <DashboardCard
+              targetId="edit_business_profile_card"
+              cardHeight={136}
+              title="Edit Business Profile"
+              label="Edit Information"
+              icon={
                 <Image
                   source={require('../../../assets/images/dashboard/business_folder.png')}
                   style={{ width: 30, height: 30 }}
                   resizeMode="contain"
                 />
-              </View>
-            </TouchableOpacity>
+              }
+              onPress={() => router.push('/category' as any)}
+              disabled={phase === 'tour'}
+            />
           </View>
         </View>
       </ScrollView>
       )}
 
       {/* ── Fixed Bottom Navigation Container (Locked at bottom, 100% stationary) ── */}
-      <View pointerEvents="box-none" style={styles.bottomFixedContainer}>
+      <View
+        pointerEvents={phase === 'tour' ? 'none' : 'box-none'}
+        style={styles.bottomFixedContainer}
+      >
         {/* Backdrop Fade & Solid White Shield to completely mask scrolling cards */}
         <View
           style={[
@@ -696,7 +722,7 @@ export const ProviderDashboardScreen: React.FC = () => {
 
         {/* ── App Navigation Bar (width: 300px, height: 80px, radius: 40px, locked) ── */}
         <View
-          pointerEvents="box-none"
+          pointerEvents={phase === 'tour' ? 'none' : 'box-none'}
           style={[
             styles.bottomNavContainer,
             {
@@ -709,7 +735,11 @@ export const ProviderDashboardScreen: React.FC = () => {
             <TouchableOpacity
               style={styles.navTabItem}
               activeOpacity={0.8}
-              onPress={() => setActiveTab('dashboard')}
+              disabled={phase === 'tour'}
+              onPress={() => {
+                triggerLightHaptic();
+                setActiveTab('dashboard');
+              }}
             >
               <View style={styles.navTabContent}>
                 <DashboardNavIcon size={24} active={activeTab === 'dashboard'} />
@@ -733,7 +763,11 @@ export const ProviderDashboardScreen: React.FC = () => {
             <TouchableOpacity
               style={styles.navTabItem}
               activeOpacity={0.8}
-              onPress={() => router.push('/messages' as any)}
+              disabled={phase === 'tour'}
+              onPress={() => {
+                triggerLightHaptic();
+                router.push('/messages' as any);
+              }}
             >
               <View style={styles.navTabContent}>
                 <ChattingNavIcon size={24} active={activeTab === 'messages'} />
@@ -756,7 +790,11 @@ export const ProviderDashboardScreen: React.FC = () => {
             <TouchableOpacity
               style={styles.navTabItem}
               activeOpacity={0.8}
-              onPress={() => setActiveTab('profile')}
+              disabled={phase === 'tour'}
+              onPress={() => {
+                triggerLightHaptic();
+                setActiveTab('profile');
+              }}
             >
               <View style={styles.navTabContent}>
                 <ProfileNavIcon size={24} active={activeTab === 'profile'} />
@@ -837,6 +875,53 @@ export const ProviderDashboardScreen: React.FC = () => {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* ── Tutorial First-Time Flow: Welcome Card (with background falling confetti) & Spotlight Overlay ── */}
+      <WelcomeCard
+        visible={phase === 'welcome'}
+        onGetStarted={handleGetStarted}
+      />
+      <SpotlightOverlay />
+
+      {/* ── First-Time Flow Closing Cards: Connect Account & Trial Notice ── */}
+      <ConnectAccountModal
+        visible={phase === 'connectPrompt'}
+        onConnectAccount={() => {
+          handleConnectAccount();
+          if (payoutMethod) {
+            router.push('/payout-method' as any);
+          } else {
+            setIsPayoutTermsOpen(true);
+          }
+        }}
+        onMaybeLater={handleMaybeLater}
+      />
+      <TrialNoticeModal
+        visible={phase === 'trialNotice'}
+        onUnderstand={handleDismissTrialNotice}
+      />
+
+      {/* ── Payout Privacy & Terms Notice Bottom Sheet ── */}
+      <PayoutTermsNotice
+        visible={isPayoutTermsOpen}
+        onAgree={() => {
+          setIsPayoutTermsOpen(false);
+          router.push('/payout-form' as any);
+        }}
+        onDecline={() => {
+          setIsPayoutTermsOpen(false);
+        }}
+      />
+
+      {/* ── 4-Dot Dimmed Loading Overlay after Returning from Payouts Success ── */}
+      <LoadingOverlay
+        visible={showDashboardOverlayAfterPayout}
+        dotsCount={4}
+        paddingTop={429}
+        dotSize={16}
+        dotGap={20}
+        overlayOpacity={0.1}
+      />
     </View>
   );
 };
@@ -936,6 +1021,18 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: 167,
     height: 120,
+  },
+
+  cardWrapper120: {
+    position: 'relative',
+    width: 167,
+    height: 120,
+  },
+
+  cardWrapper136: {
+    position: 'relative',
+    width: 167,
+    height: 136,
   },
 
   /* ── 120px Card (Appointment Dashboard) ── */

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SkeletonBox } from './ProviderDashboardSkeleton';
 
@@ -30,7 +30,13 @@ export const ProviderMessagesSkeleton: React.FC = () => {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingBottom: 160 + Math.max(insets.bottom, 16) },
+          {
+            paddingBottom:
+              160 +
+              (Platform.OS === 'android'
+                ? Math.max(insets.bottom, 56)
+                : Math.max(insets.bottom, 16)),
+          },
         ]}
         showsVerticalScrollIndicator={false}
       >

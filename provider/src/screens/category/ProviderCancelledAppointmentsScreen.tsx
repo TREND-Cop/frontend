@@ -394,7 +394,12 @@ export default function ProviderCancelledAppointmentsScreen() {
           style={styles.scrollView}
           contentContainerStyle={[
             styles.emptyScrollContent,
-            { paddingBottom: Math.max(insets.bottom, 24) + 40 },
+            {
+              paddingBottom:
+                (Platform.OS === 'android'
+                  ? Math.max(insets.bottom, 56)
+                  : Math.max(insets.bottom, 24)) + 40,
+            },
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -407,7 +412,12 @@ export default function ProviderCancelledAppointmentsScreen() {
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: Math.max(insets.bottom, 24) + 40 },
+            {
+              paddingBottom:
+                (Platform.OS === 'android'
+                  ? Math.max(insets.bottom, 56)
+                  : Math.max(insets.bottom, 24)) + 40,
+            },
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"

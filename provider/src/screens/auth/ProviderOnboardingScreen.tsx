@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,11 +7,14 @@ import {
   ImageBackground,
   Platform,
   Dimensions,
+  Animated,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
+import { TactilePressable } from '../../components/ui/TactilePressable';
+import { triggerLightHaptic } from '../../utils/haptics';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -78,14 +81,29 @@ function UsersRoundIcon({ size = 20, color = 'rgba(96, 96, 102, 0.96)' }: { size
 }
 
 export interface ProviderOnboardingScreenProps {
+  initialTab?: 'login' | 'create_account';
   onSelectRole?: (role: 'business_owner' | 'staff', mode: 'login' | 'create_account') => void;
 }
 
 export const ProviderOnboardingScreen: React.FC<ProviderOnboardingScreenProps> = ({
+  initialTab = 'create_account',
   onSelectRole,
 }) => {
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = useState<'login' | 'create_account'>('login');
+  const [activeTab, setActiveTab] = useState<'login' | 'create_account'>(initialTab);
+  const pillAnim = useRef(new Animated.Value(initialTab === 'login' ? 0 : 162)).current;
+
+  const handleTabChange = (tab: 'login' | 'create_account') => {
+    if (tab === activeTab) return;
+    triggerLightHaptic();
+    setActiveTab(tab);
+    Animated.spring(pillAnim, {
+      toValue: tab === 'login' ? 0 : 162,
+      friction: 8,
+      tension: 140,
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  };
 
   const handleRolePress = (role: 'business_owner' | 'staff') => {
     if (onSelectRole) {
@@ -108,22 +126,37 @@ export const ProviderOnboardingScreen: React.FC<ProviderOnboardingScreenProps> =
       </ImageBackground>
 
       {/* ── Entry Bottom Sheet (390px x 379px, 24px radius top) ── */}
-      <View style={[styles.entryBottomSheet, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        {/* Welcome to Trend For Business */}
+      <View
+        style={[
+          styles.entryBottomSheet,
+          {
+            height: 379 + (Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 0)),
+            paddingBottom: (Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 0)) + 12,
+          },
+        ]}
+      >
+        {/* Welcome to Trend For Business (top: 24px) */}
         <Text style={styles.welcomeToTrendForBusiness}>
           Welcome to Trend For Business
         </Text>
 
-        {/* ── Button Frame (358px x 56px, 32px radius, segmented) ── */}
+        {/* ── Button Frame (358px x 56px, 32px radius, top: 80px) ── */}
         <View style={styles.buttonFrame}>
-          {/* Active Tab Highlight Pill */}
-          <TouchableOpacity
-            activeOpacity={0.9}
+          {/* Animated Active Highlight Pill (164px x 40px, 24px radius, top: 8px) */}
+          <Animated.View
             style={[
-              styles.tabPill,
-              activeTab === 'login' ? styles.tabPillActive : styles.tabPillInactive,
+              styles.activeTabPill,
+              {
+                transform: [{ translateX: pillAnim }],
+              },
             ]}
-            onPress={() => setActiveTab('login')}
+          />
+
+          {/* Login Tab Button (164px x 40px, left: 16px) */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.tabButtonLeft}
+            onPress={() => handleTabChange('login')}
           >
             <Text
               style={[
@@ -135,13 +168,11 @@ export const ProviderOnboardingScreen: React.FC<ProviderOnboardingScreenProps> =
             </Text>
           </TouchableOpacity>
 
+          {/* Create Account Tab Button (164px x 40px, left: 178px) */}
           <TouchableOpacity
-            activeOpacity={0.9}
-            style={[
-              styles.tabPill,
-              activeTab === 'create_account' ? styles.tabPillActive : styles.tabPillInactive,
-            ]}
-            onPress={() => setActiveTab('create_account')}
+            activeOpacity={0.85}
+            style={styles.tabButtonRight}
+            onPress={() => handleTabChange('create_account')}
           >
             <Text
               style={[
@@ -154,56 +185,72 @@ export const ProviderOnboardingScreen: React.FC<ProviderOnboardingScreenProps> =
           </TouchableOpacity>
         </View>
 
-        {/* ── Buttons Row (358px x 112px, 24px gap) ── */}
-        <View style={styles.buttons}>
-          {/* ── Business Owner Button (167px x 112px) ── */}
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={styles.businessOwnerButton}
+        {/* ── Role Selection Area (top: 192px) ── */}
+        {activeTab === 'create_account' ? (
+          /* ── Create Account Mode: Single Business Owner Card (358px x 112px, NO STAFF) ── */
+          <TactilePressable
+            style={styles.businessOwnerButtonFull}
             onPress={() => handleRolePress('business_owner')}
           >
-            {/* Frame 1000006400 */}
-            <View style={styles.roleHeaderRow}>
-              {/* Frame 1000006399: 32x32 circle */}
+            {/* Frame 1000006400 (198px x 32px, gap: 6px) */}
+            <View style={styles.roleHeaderRowFull}>
+              {/* Frame 1000006399 (32px x 32px, radius: 24px) */}
               <View style={styles.iconCircle}>
                 <Store02Icon size={20} color="rgba(96, 96, 102, 0.96)" />
               </View>
-              {/* Login as */}
-              <Text style={styles.loginAsText}>
-                {activeTab === 'login' ? 'Login as' : 'Sign up as'}
+              {/* Create an account as a */}
+              <Text style={styles.createAccountAsText}>
+                Create an account as a
               </Text>
             </View>
 
-            {/* Business Owner Title */}
-            <Text style={styles.roleTitle} numberOfLines={1} adjustsFontSizeToFit>
+            {/* Business Owner Title (324px x 24px) */}
+            <Text style={styles.roleTitleFull} numberOfLines={1}>
               Business Owner
             </Text>
-          </TouchableOpacity>
-
-          {/* ── Staff Button (167px x 112px) ── */}
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={styles.staffButton}
-            onPress={() => handleRolePress('staff')}
-          >
-            {/* Frame 1000006400 */}
-            <View style={styles.roleHeaderRow}>
-              {/* Frame 1000006399: 32x32 circle */}
-              <View style={styles.iconCircle}>
-                <UsersRoundIcon size={20} color="rgba(96, 96, 102, 0.96)" />
+          </TactilePressable>
+        ) : (
+          /* ── Login Mode: Business Owner & Staff Side-by-Side (358px x 112px, gap: 24px) ── */
+          <View style={styles.buttonsRow}>
+            {/* Business Owner Button (167px x 112px) */}
+            <TactilePressable
+              style={styles.businessOwnerButtonHalf}
+              onPress={() => handleRolePress('business_owner')}
+            >
+              <View style={styles.roleHeaderRowHalf}>
+                <View style={styles.iconCircle}>
+                  <Store02Icon size={20} color="rgba(96, 96, 102, 0.96)" />
+                </View>
+                <Text style={styles.loginAsText}>
+                  Login as
+                </Text>
               </View>
-              {/* Login as */}
-              <Text style={styles.loginAsText}>
-                {activeTab === 'login' ? 'Login as' : 'Sign up as'}
-              </Text>
-            </View>
 
-            {/* Staff Title */}
-            <Text style={[styles.roleTitle, styles.staffRoleTitle]} numberOfLines={1}>
-              Staff
-            </Text>
-          </TouchableOpacity>
-        </View>
+              <Text style={styles.roleTitleHalf} numberOfLines={1} adjustsFontSizeToFit>
+                Business Owner
+              </Text>
+            </TactilePressable>
+
+            {/* Staff Button (167px x 112px) */}
+            <TactilePressable
+              style={styles.staffButtonHalf}
+              onPress={() => handleRolePress('staff')}
+            >
+              <View style={styles.roleHeaderRowHalf}>
+                <View style={styles.iconCircle}>
+                  <UsersRoundIcon size={20} color="rgba(96, 96, 102, 0.96)" />
+                </View>
+                <Text style={styles.loginAsText}>
+                  Login as
+                </Text>
+              </View>
+
+              <Text style={[styles.roleTitleHalf, styles.staffRoleTitle]} numberOfLines={1}>
+                Staff
+              </Text>
+            </TactilePressable>
+          </View>
+        )}
       </View>
 
       {/* Android System Dock Barrier */}
@@ -256,7 +303,7 @@ const styles = StyleSheet.create({
     height: 24,
     left: '50%',
     marginLeft: -128.5,
-    top: 16,
+    top: 24,
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
     fontWeight: '500',
     fontSize: 16,
@@ -267,7 +314,7 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 
-  /* button frame */
+  /* button frame (358px x 56px, 32px radius, top: 80px) */
   buttonFrame: {
     position: 'absolute',
     width: 358,
@@ -277,28 +324,39 @@ const styles = StyleSheet.create({
     top: 80,
     backgroundColor: 'rgba(247, 247, 247, 0.96)',
     borderRadius: 32,
-    padding: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
   },
 
-  /* Segmented Tab Pill */
-  tabPill: {
+  /* Active Highlight Pill (164px x 40px, 24px radius, top: 8px) */
+  activeTabPill: {
+    position: 'absolute',
+    width: 164,
     height: 40,
+    left: 16,
+    top: 8,
+    backgroundColor: 'rgba(0, 8, 20, 0.96)',
     borderRadius: 24,
+  },
+
+  /* Left button touchable (Login) */
+  tabButtonLeft: {
+    position: 'absolute',
+    left: 16,
+    top: 8,
+    width: 164,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
 
-  tabPillActive: {
-    backgroundColor: 'rgba(0, 8, 20, 0.96)',
-    paddingHorizontal: 28,
-  },
-
-  tabPillInactive: {
-    backgroundColor: 'transparent',
-    paddingHorizontal: 20,
+  /* Right button touchable (Create Account) */
+  tabButtonRight: {
+    position: 'absolute',
+    left: 178,
+    top: 8,
+    width: 164,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
   /* Segmented Tab Text */
@@ -319,8 +377,71 @@ const styles = StyleSheet.create({
     color: 'rgba(96, 96, 102, 0.96)',
   },
 
-  /* buttons (action row) */
-  buttons: {
+  /* ── CREATE ACCOUNT MODE: Full-width Business Owner button (358px x 112px) ── */
+  businessOwnerButtonFull: {
+    position: 'absolute',
+    width: 358,
+    height: 112,
+    left: '50%',
+    marginLeft: -179,
+    top: 192,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(235, 235, 245, 0.96)',
+    borderStyle: 'solid',
+    borderRadius: 24,
+    padding: 16,
+    gap: 8,
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: 'rgba(133, 139, 148, 0.12)',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+
+  /* Frame 1000006400 (198px x 32px, gap: 6px) */
+  roleHeaderRowFull: {
+    width: 198,
+    height: 32,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 0,
+    gap: 6,
+  },
+
+  /* Create an account as a (160px x 20px, 14px 400, line-height: 20px) */
+  createAccountAsText: {
+    width: 160,
+    height: 20,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.4,
+    color: 'rgba(96, 96, 102, 0.96)',
+    includeFontPadding: false,
+  },
+
+  /* Business Owner Title (324px x 24px, 16px 500, line-height: 24px) */
+  roleTitleFull: {
+    width: 324,
+    height: 24,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.5,
+    textAlign: 'center',
+    color: '#000000',
+    includeFontPadding: false,
+  },
+
+  /* ── LOGIN MODE: Side-by-side buttons row (358px x 112px, gap: 24px) ── */
+  buttonsRow: {
     position: 'absolute',
     width: 358,
     height: 112,
@@ -333,11 +454,10 @@ const styles = StyleSheet.create({
     gap: 24,
   },
 
-  /* business owner button */
-  businessOwnerButton: {
+  businessOwnerButtonHalf: {
     width: 167,
     height: 112,
-    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: 'rgba(235, 235, 245, 0.96)',
     borderStyle: 'solid',
@@ -346,13 +466,17 @@ const styles = StyleSheet.create({
     gap: 8,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: 'rgba(133, 139, 148, 0.12)',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 4,
   },
 
-  /* staff button */
-  staffButton: {
+  staffButtonHalf: {
     width: 167,
     height: 112,
-    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: 'rgba(235, 235, 245, 0.96)',
     borderStyle: 'solid',
@@ -361,10 +485,14 @@ const styles = StyleSheet.create({
     gap: 8,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: 'rgba(133, 139, 148, 0.12)',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 4,
   },
 
-  /* Frame 1000006400 */
-  roleHeaderRow: {
+  roleHeaderRowHalf: {
     width: 96,
     height: 32,
     flexDirection: 'row',
@@ -373,17 +501,18 @@ const styles = StyleSheet.create({
     gap: 6,
   },
 
-  /* Frame 1000006399 */
+  /* Frame 1000006399 (32px x 32px, radius: 24px) */
   iconCircle: {
     width: 32,
     height: 32,
     backgroundColor: 'rgba(247, 247, 247, 0.96)',
     borderRadius: 24,
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 8,
   },
 
-  /* Login as */
   loginAsText: {
     width: 58,
     height: 20,
@@ -396,8 +525,7 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 
-  /* Business Owner & Staff Role Titles */
-  roleTitle: {
+  roleTitleHalf: {
     width: 133,
     height: 24,
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',

@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
+import { triggerLightHaptic } from '../utils/haptics';
 
 interface BusinessStatusSwitchProps {
   isOpen: boolean;
@@ -16,7 +17,7 @@ interface BusinessStatusSwitchProps {
 }
 
 function SquareLock02Icon({
-  isOpen = false,
+  isOpen = true,
   size = 16,
   color,
 }: {
@@ -94,7 +95,10 @@ export const BusinessStatusSwitch: React.FC<BusinessStatusSwitchProps> = ({
   return (
     <TouchableOpacity
       activeOpacity={0.85}
-      onPress={onToggle}
+      onPress={() => {
+        triggerLightHaptic();
+        onToggle();
+      }}
       disabled={disabled}
       accessibilityRole="switch"
       accessibilityState={{ checked: isOpen }}
