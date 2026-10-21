@@ -19,10 +19,14 @@ export interface DeletePostDialogProps {
   visible: boolean;
   onCancel: () => void;
   onConfirm: () => void;
+  title?: string;
+  description?: string;
+  confirmText?: string;
+  cancelText?: string;
 }
 
 /**
- * 1:1 Figma Delete Post Dialog (Frame S3)
+ * 1:1 Figma Delete Post Dialog (Frame S3 & P5)
  * Dimensions: width 326px, height 232px, radius 16px.
  * Full-screen dimmed backdrop covers header, status bar, and entire screen.
  */
@@ -30,6 +34,10 @@ export const DeletePostDialog: React.FC<DeletePostDialogProps> = ({
   visible,
   onCancel,
   onConfirm,
+  title = 'Delete Post?',
+  description = 'The post will be removed from your business dashboard and clients can no longer see it.',
+  confirmText = 'Yes, Delete',
+  cancelText = 'No,Cancel It.',
 }) => {
   return (
     <Modal
@@ -60,32 +68,30 @@ export const DeletePostDialog: React.FC<DeletePostDialogProps> = ({
 
           {/* Texts */}
           <View style={styles.textContainer}>
-            <Text style={styles.titleText}>Delete Post?</Text>
-            <Text style={styles.bodyText}>
-              The post will be removed from your business dashboard and clients can no longer see it.
-            </Text>
+            <Text style={styles.titleText}>{title}</Text>
+            <Text style={styles.bodyText}>{description}</Text>
           </View>
 
           {/* Action buttons row */}
           <View style={styles.buttonsRow}>
-            {/* "Yes, Delete" (outlined red pill) */}
+            {/* Confirm button (outlined red pill) */}
             <TouchableOpacity
               style={styles.yesButton}
               activeOpacity={0.8}
               onPress={onConfirm}
-              accessibilityLabel="Yes, Delete"
+              accessibilityLabel={confirmText}
             >
-              <Text style={styles.yesButtonText}>Yes, Delete</Text>
+              <Text style={styles.yesButtonText}>{confirmText}</Text>
             </TouchableOpacity>
 
-            {/* "No,Cancel It." (outlined grey pill) */}
+            {/* Cancel button (outlined grey pill) */}
             <TouchableOpacity
               style={styles.noButton}
               activeOpacity={0.8}
               onPress={onCancel}
-              accessibilityLabel="No,Cancel It."
+              accessibilityLabel={cancelText}
             >
-              <Text style={styles.noButtonText}>No,Cancel It.</Text>
+              <Text style={styles.noButtonText}>{cancelText}</Text>
             </TouchableOpacity>
           </View>
         </View>

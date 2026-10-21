@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Platform, Keyboard } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNativeDock } from '../utils/useNativeDock';
 
@@ -14,6 +14,7 @@ export interface NativeDockSpacerProps {
  * Guarantees that scrollable screens and card lists never bleed or scroll underneath
  * the Android 3-button navigation dock (◁ ○ □) or iOS home bar on native builds.
  * When gesture navigation is used (no dock), renders null so the screen is completely full.
+ * Automatically hides when keyboard is visible to avoid double bottom padding.
  */
 export const NativeDockSpacer: React.FC<NativeDockSpacerProps> = ({
   backgroundColor = '#FFFFFF',
@@ -21,6 +22,26 @@ export const NativeDockSpacer: React.FC<NativeDockSpacerProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const { hasDock, dockHeight } = useNativeDock();
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  if (isKeyboardVisible) {
+    return null;
+  }
 
   // On Android, only render barrier when there is an active 3-button dock or minHeight specified
   if (Platform.OS === 'android') {

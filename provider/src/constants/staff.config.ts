@@ -11,17 +11,24 @@ import { StaffMember } from '../context/StaffContext';
  * Set to `false` (default) to test the "No Staff Found" empty state (M1 / M2).
  * Set to `true` to test the Staff List with existing staff (M3).
  */
-export const DEV_SAMPLE_STAFF = false;
+export const DEV_SAMPLE_STAFF = true;
 
 /**
  * Mock duration (ms) for skeleton loader on screen entry (800-1200ms per spec)
  */
 export const STAFF_SKELETON_MS = 1000;
+export const STAFF_DETAIL_SKELETON_MS = 1000;
+
+// TODO (Asset): Export final sample portfolio images from Figma
+const SAMPLE_PORTFOLIO_1 = require('../../assets/images/portfolio/staff_portfolio_1.png');
+const SAMPLE_PORTFOLIO_2 = require('../../assets/images/portfolio/staff_portfolio_2.png');
+const SAMPLE_PORTFOLIO_3 = require('../../assets/images/portfolio/staff_portfolio_3.png');
+const SAMPLE_PORTFOLIO_4 = require('../../assets/images/portfolio/staff_portfolio_4.png');
 
 /**
  * Design sample staff data from Figma frames:
- * - Annabelle Gideon (Barber, 5 years Experience)
- * - Udoka Oyemechi (Barber, 5 years Experience)
+ * - staff_1: Unverified member (matches D1: banner, 'Not Verified', 4 portfolio photos with 1st 'New' tag, matches P2-P4)
+ * - staff_2: Verified member (matches D2: blue badge, no banner, 0 portfolio photos, matches P1 empty state)
  */
 export const MOCK_SAMPLE_STAFF: StaffMember[] = [
   {
@@ -29,29 +36,37 @@ export const MOCK_SAMPLE_STAFF: StaffMember[] = [
     name: 'Annabelle Gideon',
     photoUri: null,
     avatarUri: null,
-    roles: ['Barber'],
-    role: 'Barber',
+    roles: ['Nail Artist', 'Barber'],
+    role: 'Nail Artist',
     experienceYears: 5,
     yearsExperience: 5,
-    workHours: { start: '9:00am', end: '7:00pm' },
-    breakHours: { start: '12:00pm', end: '1:00pm' },
-    workDays: ['Monday', 'Wednesday', 'Sunday'],
-    loginCode: '123456',
-    isVerified: true,
+    workHours: { start: '7:30am', end: '9:30pm' },
+    breakHours: { start: '7:30am', end: '9:30pm' },
+    workDays: ['Monday', 'Wednesday', 'Friday'],
+    loginCode: '1234',
+    isVerified: false,
+    portfolio: [
+      { id: 'photo_1', uri: SAMPLE_PORTFOLIO_1, isNew: true },
+      { id: 'photo_2', uri: SAMPLE_PORTFOLIO_2, isNew: false },
+      { id: 'photo_3', uri: SAMPLE_PORTFOLIO_3, isNew: false },
+      { id: 'photo_4', uri: SAMPLE_PORTFOLIO_4, isNew: false },
+    ],
   },
   {
     id: 'staff_2',
     name: 'Udoka Oyemechi',
     photoUri: null,
     avatarUri: null,
-    roles: ['Barber'],
-    role: 'Barber',
-    experienceYears: 5,
-    yearsExperience: 5,
-    workHours: { start: '9:00am', end: '7:00pm' },
-    breakHours: { start: '1:00pm', end: '2:00pm' },
-    workDays: ['Tuesday', 'Thursday', 'Saturday'],
-    loginCode: '654321',
+    roles: ['Nail Artist'],
+    role: 'Nail Artist',
+    experienceYears: 3,
+    yearsExperience: 3,
+    workHours: { start: '8:00am', end: '6:00pm' },
+    breakHours: null,
+    workDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+    loginCode: '5678',
     isVerified: true,
+    portfolio: [],
   },
 ];
+

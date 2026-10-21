@@ -422,6 +422,7 @@ export const EditServiceScreen: React.FC = () => {
           style={styles.scrollContainer}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
           {/* ── 1. Add service image (6 slots, no subtitle, NO ✕ badge) ── */}
@@ -788,7 +789,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 24,
+    paddingBottom: 40,
   },
   fieldSection: {
     width: '100%',

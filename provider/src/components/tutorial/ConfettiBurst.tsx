@@ -210,18 +210,10 @@ export const ConfettiBurst: React.FC<ConfettiBurstProps> = ({
   onAnimationEnd,
   isExiting = false,
 }) => {
-  const [reduceMotion, setReduceMotion] = useState(false);
   const exitOpacity = useRef(new Animated.Value(1)).current;
   const isMountedRef = useRef(true);
-
-  // Check reduced motion accessibility
-  useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
-    const sub = AccessibilityInfo.addEventListener?.('reduceMotionChanged', setReduceMotion);
-    return () => {
-      sub?.remove?.();
-    };
-  }, []);
+  const onAnimationEndRef = useRef(onAnimationEnd);
+  onAnimationEndRef.current = onAnimationEnd;
 
   // Compute canonical cannon origins if not supplied (anchored at tab bar ends)
   const leftX = leftOrigin?.x ?? Math.max(28, (SCREEN_WIDTH - 300) / 2 + 16);
@@ -387,7 +379,7 @@ export const ConfettiBurst: React.FC<ConfettiBurstProps> = ({
 
   // Orchestrated Single-Pass Execution: No loops, no respawns
   useEffect(() => {
-    if (!visible || reduceMotion) return;
+    if (!visible) return;
     isMountedRef.current = true;
     exitOpacity.setValue(1);
 
@@ -416,7 +408,7 @@ export const ConfettiBurst: React.FC<ConfettiBurstProps> = ({
     );
     const endTimer = setTimeout(() => {
       if (isMountedRef.current) {
-        onAnimationEnd?.();
+        onAnimationEndRef.current?.();
       }
     }, maxEnd + 100);
     activeTimers.push(endTimer);
@@ -426,7 +418,7 @@ export const ConfettiBurst: React.FC<ConfettiBurstProps> = ({
       activeTimers.forEach(clearTimeout);
       activeAnimations.forEach((a) => a.stop());
     };
-  }, [visible, particles, reduceMotion, onAnimationEnd, exitOpacity]);
+  }, [visible, particles, exitOpacity]);
 
   // Exit trigger when user taps 'Get started'
   useEffect(() => {
@@ -440,12 +432,11 @@ export const ConfettiBurst: React.FC<ConfettiBurstProps> = ({
     }
   }, [isExiting, exitOpacity]);
 
-  if (!visible || reduceMotion) return null;
+  if (!visible) return null;
 
   return (
     <Animated.View
       pointerEvents="none"
-      renderToHardwareTextureAndroid={true}
       style={[styles.container, { opacity: exitOpacity }]}
     >
       {particles.map((p) => {
@@ -509,12 +500,15 @@ export const ConfettiBurst: React.FC<ConfettiBurstProps> = ({
                 }}
               />
             ) : p.shape === 'sparkle' ? (
-              <Svg width={p.size * 1.5} height={p.size * 1.5} viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M12 0 L14.5 9.5 L24 12 L14.5 14.5 L12 24 L9.5 14.5 L0 12 L9.5 9.5 Z"
-                  fill={p.color}
-                />
-              </Svg>
+              <View
+                style={{
+                  width: p.size * 1.1,
+                  height: p.size * 1.1,
+                  transform: [{ rotate: '45deg' }],
+                  backgroundColor: p.color,
+                  borderRadius: 1,
+                }}
+              />
             ) : (
               <View
                 style={{
@@ -535,8 +529,8 @@ export const ConfettiBurst: React.FC<ConfettiBurstProps> = ({
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFill,
-    zIndex: 2,
-    elevation: 2,
+    zIndex: 9995,
+    elevation: 35,
   },
   particleWrapper: {
     position: 'absolute',

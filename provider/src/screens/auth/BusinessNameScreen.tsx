@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
+  ScrollView,
   KeyboardAvoidingView,
   Platform,
   TouchableWithoutFeedback,
@@ -25,6 +26,33 @@ export const BusinessNameScreen: React.FC = () => {
 
   const [name, setName] = useState(businessName);
   const [error, setError] = useState<string | null>(null);
+  const [isFocused, setIsFocused] = useState(true);
+
+  // ── Keyboard State & Scroll Ref ──
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setIsKeyboardVisible(true);
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setIsKeyboardVisible(false);
+        setKeyboardHeight(0);
+      }
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const handleNextPress = () => {
     const trimmed = name.trim();
@@ -50,34 +78,50 @@ export const BusinessNameScreen: React.FC = () => {
         style={styles.flexOne}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View
-            style={[
-              styles.contentContainer,
-              {
-                paddingTop: Math.max(insets.top + 8, 20),
-                paddingBottom: Math.max(insets.bottom + 16, 24),
-              },
-            ]}
-          >
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.flexOne}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingTop: Math.max(insets.top + 8, 20),
+              paddingBottom: Math.max(insets.bottom + 16, 24),
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+        >
+          <View style={styles.topContent}>
             {/* ── Unified Step Progress Header (Step 2 of 4) ── */}
             <StepProgressHeader
               currentStep={2}
               totalSteps={4}
               onBack={handleBackPress}
+              marginBottom={isKeyboardVisible ? 40 : 120}
             />
 
             {/* ── Centered Large Input Area (Frame 1000006546) ── */}
             <View style={styles.centeredInputArea}>
               <TextInput
                 style={[styles.businessNameInput, error ? styles.inputErrorColor : null]}
-                placeholder="Enter Your Business Name"
+                placeholder={isFocused ? '' : 'Enter Your Business Name'}
                 placeholderTextColor="rgba(192, 192, 204, 0.96)"
                 value={name}
                 onChangeText={(val) => {
                   setName(val);
                   if (error) setError(null);
                 }}
+                onFocus={() => {
+                  setIsFocused(true);
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollToEnd({ animated: true });
+                  }, 150);
+                }}
+                onBlur={() => setIsFocused(false)}
+                textAlign="center"
+                cursorColor="#000814"
+                selectionColor={Platform.OS === 'ios' ? '#000814' : 'rgba(0, 8, 20, 0.25)'}
                 autoCapitalize="words"
                 autoFocus
               />
@@ -91,19 +135,19 @@ export const BusinessNameScreen: React.FC = () => {
 
               {error && <Text style={styles.errorText}>{error}</Text>}
             </View>
-
-            {/* ── Next Button (Stays visible above keyboard) ── */}
-            <View style={styles.buttonWrapper}>
-              <TouchableOpacity
-                activeOpacity={0.85}
-                style={styles.nextButton}
-                onPress={handleNextPress}
-              >
-                <Text style={styles.nextButtonText}>Next</Text>
-              </TouchableOpacity>
-            </View>
           </View>
-        </TouchableWithoutFeedback>
+
+          {/* ── Next Button (Stays visible above keyboard) ── */}
+          <View style={styles.buttonWrapper}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.nextButton}
+              onPress={handleNextPress}
+            >
+              <Text style={styles.nextButtonText}>Next</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
 
       {/* Android System Dock Barrier */}
@@ -122,10 +166,16 @@ const styles = StyleSheet.create({
   flexOne: {
     flex: 1,
   },
-  contentContainer: {
-    flex: 1,
+  scrollContent: {
     paddingHorizontal: 16,
+    alignItems: 'center',
+    flexGrow: 1,
     justifyContent: 'space-between',
+  },
+  topContent: {
+    width: '100%',
+    maxWidth: 358,
+    alignItems: 'center',
   },
 
   /* Centered Input (Frame 1000006546: width 358px, height 52px) */

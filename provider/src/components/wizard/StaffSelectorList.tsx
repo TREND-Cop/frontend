@@ -11,6 +11,7 @@ import {
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { StaffMember } from '../../hooks/useStaff';
 import { triggerLightHaptic } from '../../utils/haptics';
+import { NoStaffIllustration } from '../staff/NoStaffIllustration';
 
 const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
 const FONT_REGULAR = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular';
@@ -88,21 +89,6 @@ function CheckmarkCircleIcon({ isSelected }: { isSelected: boolean }) {
   );
 }
 
-function NoStaffIllustration() {
-  return (
-    <Svg width={150} height={150} viewBox="0 0 150 150" fill="none">
-      <Rect x="20" y="10" width="110" height="110" rx="24" fill="#F2F4F7" />
-      <Rect x="25" y="15" width="100" height="100" rx="22" fill="#E4E7EC" />
-      <Rect x="30" y="20" width="90" height="90" rx="20" fill="#EAECF0" />
-      <Circle cx="75" cy="54" r="16" fill="#98A2B3" />
-      <Path
-        d="M50 92c0-13.8 11.2-24 25-24s25 10.2 25 24v2H50v-2z"
-        fill="#98A2B3"
-      />
-    </Svg>
-  );
-}
-
 export interface StaffSelectorListProps {
   staffList: StaffMember[];
   selectedIds: string[];
@@ -154,12 +140,12 @@ export const StaffSelectorList: React.FC<StaffSelectorListProps> = ({
     return (
       <View style={styles.emptyContainer} testID={testID}>
         <View style={styles.illustrationWrapper}>
-          <NoStaffIllustration />
+          <NoStaffIllustration size={150} />
         </View>
 
         <Text style={styles.emptyTitle}>No Staff Found</Text>
         <Text style={styles.emptySubtitle}>
-          You currently have no registered staff members.
+          Add staffs who will provide your services to clients.
         </Text>
 
         <View style={styles.emptyButtonsContainer}>
@@ -186,10 +172,10 @@ export const StaffSelectorList: React.FC<StaffSelectorListProps> = ({
                 triggerLightHaptic();
                 onNoStaff();
               }}
-              accessibilityLabel="I don't have staff"
+              accessibilityLabel="I dont have staffs"
               accessibilityRole="button"
             >
-              <Text style={styles.noStaffButtonText}>I don't have staff</Text>
+              <Text style={styles.noStaffButtonText}>I dont have staffs</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -440,12 +426,13 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontFamily: FONT_MEDIUM,
     fontWeight: '500',
-    fontSize: 20,
-    lineHeight: 28,
-    letterSpacing: 0.2,
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.5,
     color: '#000000',
-    marginBottom: 8,
+    marginBottom: 16,
     textAlign: 'center',
+    includeFontPadding: false,
   },
   emptySubtitle: {
     fontFamily: FONT_REGULAR,
@@ -455,7 +442,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 40,
+    includeFontPadding: false,
   },
   emptyButtonsContainer: {
     width: '100%',

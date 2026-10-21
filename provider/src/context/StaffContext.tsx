@@ -6,6 +6,12 @@ import { DEV_SAMPLE_STAFF, MOCK_SAMPLE_STAFF } from '../constants/staff.config';
  *
  * TODO (Backend): shape to confirm with backend schema
  */
+export interface PortfolioPhoto {
+  id: string;
+  uri: any;
+  isNew?: boolean;
+}
+
 export interface StaffMember {
   id: string;
   name: string;
@@ -23,6 +29,7 @@ export interface StaffMember {
   workDays?: string[];
   loginCode?: string | null;
   isVerified?: boolean;
+  portfolio?: PortfolioPhoto[];
 }
 
 export interface StaffContextType {
@@ -31,6 +38,7 @@ export interface StaffContextType {
   addStaff: (member: Omit<StaffMember, 'id'> | StaffMember) => void;
   updateStaff: (id: string, updates: Partial<StaffMember>) => void;
   removeStaff: (id: string) => void;
+  removePortfolioPhotos: (staffId: string, photoIds: string[]) => void;
   setOwnerIsProvider: (value: boolean) => void;
 }
 
@@ -101,6 +109,20 @@ export const StaffProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setStaff((prev) => prev.filter((item) => item.id !== id));
   }, []);
 
+  const removePortfolioPhotos = useCallback((staffId: string, photoIds: string[]) => {
+    setStaff((prev) =>
+      prev.map((item) => {
+        if (item.id !== staffId) return item;
+        const currentPortfolio = item.portfolio || [];
+        const updatedPortfolio = currentPortfolio.filter((p) => !photoIds.includes(p.id));
+        return {
+          ...item,
+          portfolio: updatedPortfolio,
+        };
+      })
+    );
+  }, []);
+
   const value = useMemo<StaffContextType>(
     () => ({
       staff,
@@ -108,13 +130,26 @@ export const StaffProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       addStaff,
       updateStaff,
       removeStaff,
+      removePortfolioPhotos,
       setOwnerIsProvider,
     }),
-    [staff, ownerIsProvider, addStaff, updateStaff, removeStaff]
+    [staff, ownerIsProvider, addStaff, updateStaff, removeStaff, removePortfolioPhotos]
   );
 
   return <StaffContext.Provider value={value}>{children}</StaffContext.Provider>;
 };
+
+/**
+ * deleteStaffPhotos Stub
+ * TODO (Backend): Connect to real backend photo deletion API
+ */
+export async function deleteStaffPhotos(
+  _staffId: string,
+  _photoIds: string[]
+): Promise<void> {
+  // Mock network delay (800-1200ms per spec)
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+}
 
 /**
  * useStaffStore Hook
@@ -131,9 +166,22 @@ export function useStaffStore(): StaffContextType {
 export const useStaffContext = useStaffStore;
 
 /**
+ * useStaffMember Hook
+ * Reads a single member from the staff store by id.
+ */
+export function useStaffMember(id: string | undefined): StaffMember | undefined {
+  const { staff } = useStaffStore();
+  return useMemo(() => {
+    if (!id) return undefined;
+    return staff.find((m) => m.id === id);
+  }, [staff, id]);
+}
+
+/**
  * useStaffLoading Stub
  * TODO (Backend): Connect to real backend staff fetching lifecycle
  */
 export function useStaffLoading(): boolean {
   return false;
 }
+

@@ -38,15 +38,24 @@ export const EditStaffScreen: React.FC = () => {
   // Search input state
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Working copy: selected staff IDs initialized from draft on mount
-  const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>(() => [
-    ...draft.staffIds,
-  ]);
+  // Valid staff IDs in the store
+  const validStaffIdSet = useMemo(() => new Set(staffList.map((s) => s.id)), [staffList]);
 
-  // Dirty check: differs from committed draft.staffIds
+  // Working copy: selected staff IDs initialized from draft on mount, ignoring any removed staff
+  const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>(() =>
+    draft.staffIds.filter((id) => staffList.some((s) => s.id === id))
+  );
+
+  // Baseline draft IDs filtered against the store
+  const validDraftStaffIds = useMemo(
+    () => draft.staffIds.filter((id) => validStaffIdSet.has(id)),
+    [draft.staffIds, validStaffIdSet]
+  );
+
+  // Dirty check: differs from committed valid draft staff IDs
   const isDirty = useMemo(
-    () => isSliceDirty(selectedStaffIds, draft.staffIds),
-    [selectedStaffIds, draft.staffIds]
+    () => isSliceDirty(selectedStaffIds, validDraftStaffIds),
+    [selectedStaffIds, validDraftStaffIds]
   );
 
   const handleToggleSelect = (staffId: string) => {

@@ -289,8 +289,8 @@ export const BusinessPhotosScreen: React.FC = () => {
     }
 
     const finalDays = operatingDays || 'Mondays & Sundays';
-    const finalOpen = formatTimeSegment(openingTime, '8:00 am');
-    const finalClose = formatTimeSegment(closingTime, '8:00 pm');
+    const finalOpen = formatTimeSegment(openingTime, '0:00 am');
+    const finalClose = formatTimeSegment(closingTime, '0:00 pm');
     const finalHours = `${finalOpen} - ${finalClose}`;
 
     setErrors({});
@@ -451,7 +451,7 @@ export const BusinessPhotosScreen: React.FC = () => {
                         setErrors((prev) => ({ ...prev, openingHours: undefined }));
                       }
                     }}
-                    placeholder="8:00 am"
+                    placeholder="0:00 am"
                     label="Opening Hours"
                     error={errors.openingHours}
                     hourAccessibilityLabel="Opening hour"
@@ -471,7 +471,7 @@ export const BusinessPhotosScreen: React.FC = () => {
                         setErrors((prev) => ({ ...prev, closingHours: undefined }));
                       }
                     }}
-                    placeholder="8:00 pm"
+                    placeholder="0:00 pm"
                     label="Closing Hours"
                     error={errors.closingHours}
                     hourAccessibilityLabel="Closing hour"

@@ -1,27 +1,24 @@
 import React from 'react';
-import Svg, { Rect, Circle, Path } from 'react-native-svg';
+import { Image, ImageStyle, StyleProp } from 'react-native';
+
+interface NoStaffIllustrationProps {
+  size?: number;
+  style?: StyleProp<ImageStyle>;
+}
 
 /**
- * 1:1 "No Staff Found" Illustration (Frame M1 / Rectangle 283)
- * Reused from the service wizard's Add Staff step per spec.
+ * 1:1 "No Staff Found" Illustration (Frame 1000006541 / Rectangle 283)
+ * Exact Figma graphic: overlapping tilted card with user silhouette inside soft circular container.
  */
-export function NoStaffIllustration({ size = 120 }: { size?: number }) {
+export function NoStaffIllustration({ size = 150, style }: NoStaffIllustrationProps) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 150 150" fill="none">
-      {/* Background soft shadow card */}
-      <Rect x="20" y="10" width="110" height="110" rx="24" fill="#F2F4F7" />
-      {/* Middle card */}
-      <Rect x="25" y="15" width="100" height="100" rx="22" fill="#E4E7EC" />
-      {/* Front primary card */}
-      <Rect x="30" y="20" width="90" height="90" rx="20" fill="#EAECF0" />
-      {/* User Avatar Silhouette */}
-      <Circle cx="75" cy="54" r="16" fill="#98A2B3" />
-      <Path
-        d="M51 92c0-8 6-16 24-16s24 8 24 16"
-        fill="#98A2B3"
-      />
-    </Svg>
+    <Image
+      source={require('../../../assets/images/staff/no_staff_illustration.png')}
+      style={[{ width: size, height: size }, style]}
+      resizeMode="contain"
+    />
   );
 }
 
 export default NoStaffIllustration;
+

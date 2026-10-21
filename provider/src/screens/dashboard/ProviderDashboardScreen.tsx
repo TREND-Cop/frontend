@@ -442,7 +442,8 @@ export const ProviderDashboardScreen: React.FC = () => {
             styles.scrollContent,
             {
               paddingTop: Math.max(insets.top + 16, 56),
-              paddingBottom: 80 + 36 + lockedBottomOffset + insets.bottom + 64,
+              paddingBottom:
+                80 + 36 + lockedBottomOffset + insets.bottom + (phase === 'tour' ? 360 : 64),
             },
           ]}
           showsVerticalScrollIndicator={false}

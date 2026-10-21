@@ -201,9 +201,9 @@ export const SpotlightOverlay: React.FC = () => {
   const target = activeTargetRect;
 
   // Placement rule calculation:
-  // Step 1 to 5 (Upper Appointment Dashboard): bubble sits BELOW target
-  // Step 6 to 11 (Lower Business Dashboard): bubble sits ABOVE target
-  let side: 'below' | 'above' = stepNumber <= 5 ? 'below' : 'above';
+  // Universal standard: bubble sits comfortably BELOW target
+  // Only fall back to 'above' if spaceBelow is constrained and spaceAbove has sufficient room
+  let side: 'below' | 'above' = 'below';
   let spaceBelow = 0;
   let spaceAbove = 0;
   let bubbleTop = 0;
@@ -214,19 +214,10 @@ export const SpotlightOverlay: React.FC = () => {
     spaceBelow = bottomLimit - (target.y + target.height);
     spaceAbove = target.y - topLimit;
 
-    // Honor step affinity while guaranteeing safe clearance
-    if (stepNumber <= 5) {
-      if (spaceBelow < bubbleMeasuredHeight + GAP && spaceAbove >= bubbleMeasuredHeight + GAP) {
-        side = 'above';
-      } else {
-        side = 'below';
-      }
+    if (spaceBelow < bubbleMeasuredHeight + GAP && spaceAbove >= bubbleMeasuredHeight + GAP) {
+      side = 'above';
     } else {
-      if (spaceAbove < bubbleMeasuredHeight + GAP && spaceBelow >= bubbleMeasuredHeight + GAP) {
-        side = 'below';
-      } else {
-        side = 'above';
-      }
+      side = 'below';
     }
 
     const computedTop =

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  Keyboard,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -92,6 +93,33 @@ export const BusinessOwnerProfileScreen: React.FC<BusinessOwnerProfileScreenProp
   const [fullName, setFullName] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [fullNameError, setFullNameError] = useState<string | null>(null);
+  const [isFocused, setIsFocused] = useState(false);
+
+  // ── Keyboard State & Scroll Ref ──
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setIsKeyboardVisible(true);
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setIsKeyboardVisible(false);
+        setKeyboardHeight(0);
+      }
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // ── Bottom Sheet & Loading State (Frame 8) ──
   const [showPhotoSheet, setShowPhotoSheet] = useState(false);
@@ -222,6 +250,7 @@ export const BusinessOwnerProfileScreen: React.FC<BusinessOwnerProfileScreenProp
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
+          ref={scrollViewRef}
           style={styles.flexOne}
           contentContainerStyle={[
             styles.scrollContent,
@@ -232,6 +261,7 @@ export const BusinessOwnerProfileScreen: React.FC<BusinessOwnerProfileScreenProp
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           <View style={styles.topContent}>
             {/* ── Unified Step Progress Header (Step 1 of 4) ── */}
@@ -239,11 +269,11 @@ export const BusinessOwnerProfileScreen: React.FC<BusinessOwnerProfileScreenProp
               currentStep={1}
               totalSteps={4}
               onBack={handleBackPress}
-              marginBottom={40}
+              marginBottom={isKeyboardVisible ? 20 : 40}
             />
 
             {/* ── Title and Subtitle (358px x 96px, gap: 16px) ── */}
-            <View style={styles.titleSection}>
+            <View style={[styles.titleSection, isKeyboardVisible && styles.titleSectionCompact]}>
               <Text style={styles.screenTitle}>Business owner profile</Text>
               <Text style={styles.screenSubtitle}>
                 Just a few details so we can recognize you as the official owner of your business.
@@ -251,7 +281,7 @@ export const BusinessOwnerProfileScreen: React.FC<BusinessOwnerProfileScreenProp
             </View>
 
             {/* ── Circular Profile Avatar Area ── */}
-            <View style={styles.avatarSection}>
+            <View style={[styles.avatarSection, isKeyboardVisible && styles.avatarSectionCompact]}>
               <TouchableOpacity
                 activeOpacity={0.85}
                 style={styles.avatarTouchArea}
@@ -280,13 +310,23 @@ export const BusinessOwnerProfileScreen: React.FC<BusinessOwnerProfileScreenProp
             <View style={styles.fullNameSection}>
               <TextInput
                 style={styles.fullNameInput}
-                placeholder="Full Name"
+                placeholder={isFocused ? '' : 'Full Name'}
                 placeholderTextColor="rgba(192, 192, 204, 0.96)"
                 value={fullName}
                 onChangeText={(text) => {
                   setFullName(text);
                   if (fullNameError) setFullNameError(null);
                 }}
+                onFocus={() => {
+                  setIsFocused(true);
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollToEnd({ animated: true });
+                  }, 150);
+                }}
+                onBlur={() => setIsFocused(false)}
+                textAlign="center"
+                cursorColor="#000814"
+                selectionColor={Platform.OS === 'ios' ? '#000814' : 'rgba(0, 8, 20, 0.25)'}
                 autoCapitalize="words"
               />
               {/* Underline: Line 64 (1px solid #ebebf5) */}
@@ -367,6 +407,9 @@ const styles = StyleSheet.create({
     gap: 16,
     marginBottom: 56,
   },
+  titleSectionCompact: {
+    marginBottom: 20,
+  },
   screenTitle: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
     fontWeight: '500',
@@ -389,6 +432,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 64,
+  },
+  avatarSectionCompact: {
+    marginBottom: 24,
   },
   avatarTouchArea: {
     width: 140,

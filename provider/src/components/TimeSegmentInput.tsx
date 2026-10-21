@@ -9,6 +9,21 @@ import {
   Keyboard,
   Pressable,
 } from 'react-native';
+import Svg, { Path, Circle } from 'react-native-svg';
+
+function CircleXBadgeIcon({ size = 24 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" fill="rgba(204, 41, 41, 0.9)" />
+      <Path
+        d="M9 9l6 6M15 9l-6 6"
+        stroke="#FFFFFF"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
 
 export interface TimeSegmentValue {
   hour: number | null;
@@ -19,30 +34,34 @@ export interface TimeSegmentValue {
 export interface TimeSegmentInputProps {
   value: TimeSegmentValue | null;
   onChange: (val: TimeSegmentValue) => void;
-  placeholder?: string; // "8:00 am" or "8:00 pm"
+  placeholder?: string; // "0:00 am" or "0:00 pm"
   label: string; // "Opening Hours" or "Closing Hours"
   error?: string;
   hourAccessibilityLabel?: string;
   minuteAccessibilityLabel?: string;
   periodAccessibilityLabel?: string;
+  clearable?: boolean;
+  onClear?: () => void;
 }
 
 type ActiveSection = 'hour' | 'minute' | 'period' | null;
 
 /**
  * Reusable segmented time input component for Trend Business Onboarding (Step 4).
- * Enforces typing rules: hour (1-12) -> minute (00-59) -> period (am/pm).
+ * Enforces typing rules: hour (0-12) -> minute (00-59) -> period (am/pm).
  * Uses a single hidden TextInput as the digit-capture point for 100% Android, iOS & Web reliability.
  */
 export const TimeSegmentInput: React.FC<TimeSegmentInputProps> = ({
   value,
   onChange,
-  placeholder = '8:00 am',
+  placeholder = '0:00 am',
   label,
   error,
   hourAccessibilityLabel,
   minuteAccessibilityLabel,
   periodAccessibilityLabel,
+  clearable = false,
+  onClear,
 }) => {
   const [activeSection, setActiveSection] = useState<ActiveSection>(null);
   const [hourBuffer, setHourBuffer] = useState<string>('');
@@ -51,12 +70,21 @@ export const TimeSegmentInput: React.FC<TimeSegmentInputProps> = ({
 
   const inputRef = useRef<TextInput>(null);
 
-  // Derive default period from placeholder (e.g. "8:00 am" -> "am", "8:00 pm" -> "pm")
+  const handleClear = useCallback(() => {
+    setActiveSection(null);
+    setHourBuffer('');
+    setMinuteBuffer('');
+    setHiddenText(' ');
+    onChange({ hour: null, minute: null, period: null });
+    onClear?.();
+  }, [onChange, onClear]);
+
+  // Derive default period from placeholder (e.g. "0:00 am" -> "am", "0:00 pm" -> "pm")
   const defaultPeriod: 'am' | 'pm' = placeholder.toLowerCase().includes('pm') ? 'pm' : 'am';
 
-  // Check whether valid numerical values exist (strictly check against null and undefined)
+  // Check whether valid numerical values exist (strictly check against null and undefined, 0 is valid)
   const hasValidHour =
-    typeof value?.hour === 'number' && !isNaN(value.hour) && value.hour >= 1 && value.hour <= 12;
+    typeof value?.hour === 'number' && !isNaN(value.hour) && value.hour >= 0 && value.hour <= 12;
   const hasValidMinute =
     typeof value?.minute === 'number' && !isNaN(value.minute) && value.minute >= 0 && value.minute <= 59;
   const hasValidPeriod =
@@ -95,7 +123,7 @@ export const TimeSegmentInput: React.FC<TimeSegmentInputProps> = ({
         // Tapping period toggles am <-> pm
         const currentPeriod = value?.period ?? defaultPeriod;
         const newPeriod: 'am' | 'pm' = currentPeriod === 'am' ? 'pm' : 'am';
-        const currentHour = value?.hour ?? 8;
+        const currentHour = value?.hour ?? 0;
         const currentMinute = value?.minute ?? 0;
         onChange({
           hour: currentHour,
@@ -120,7 +148,7 @@ export const TimeSegmentInput: React.FC<TimeSegmentInputProps> = ({
       // Normalize a lone typed minute digit (e.g. '5' -> 5, rendered as '05')
       const m = parseInt(minuteBuffer, 10);
       onChange({
-        hour: value?.hour ?? 8,
+        hour: value?.hour ?? 0,
         minute: m,
         period: value?.period ?? defaultPeriod,
       });
@@ -137,8 +165,11 @@ export const TimeSegmentInput: React.FC<TimeSegmentInputProps> = ({
         if (hourBuffer === '') {
           // First digit of hour
           if (digit === '0') {
-            // First digit 0 -> wait. 0 alone is not a valid hour (00 rejected)
+            // First digit 0: set hour to 0 and wait for possible second digit
             setHourBuffer('0');
+            const m = value?.minute ?? 0;
+            const p = value?.period ?? defaultPeriod;
+            onChange({ hour: 0, minute: m, period: p });
           } else if (digit >= '2' && digit <= '9') {
             // First digit 2-9 -> commit that hour immediately and move to minutes
             const h = parseInt(digit, 10);
@@ -212,7 +243,7 @@ export const TimeSegmentInput: React.FC<TimeSegmentInputProps> = ({
             setMinuteBuffer(digit);
             const m = parseInt(digit, 10);
             onChange({
-              hour: value?.hour ?? 8,
+              hour: value?.hour ?? 0,
               minute: m,
               period: value?.period ?? defaultPeriod,
             });
@@ -220,7 +251,7 @@ export const TimeSegmentInput: React.FC<TimeSegmentInputProps> = ({
             // 6-9 -> commit 0X (06-09) and move to period
             const m = parseInt(digit, 10);
             onChange({
-              hour: value?.hour ?? 8,
+              hour: value?.hour ?? 0,
               minute: m,
               period: value?.period ?? defaultPeriod,
             });
@@ -233,7 +264,7 @@ export const TimeSegmentInput: React.FC<TimeSegmentInputProps> = ({
           const mStr = minuteBuffer + digit;
           const m = parseInt(mStr, 10);
           onChange({
-            hour: value?.hour ?? 8,
+            hour: value?.hour ?? 0,
             minute: m,
             period: value?.period ?? defaultPeriod,
           });
@@ -354,7 +385,7 @@ export const TimeSegmentInput: React.FC<TimeSegmentInputProps> = ({
   const displayMinute = hasValidMinute ? String(value!.minute).padStart(2, '0') : '';
   const displayPeriod = hasValidPeriod ? value!.period! : defaultPeriod;
 
-  const placeholderHour = placeholder.split(':')[0]?.trim() || '8';
+  const placeholderHour = placeholder.split(':')[0]?.trim() || '0';
   const placeholderMinute = '00';
 
   return (
@@ -491,6 +522,19 @@ export const TimeSegmentInput: React.FC<TimeSegmentInputProps> = ({
             },
           })}
         />
+
+        {/* ── Clear Button (Frame E1 / E5: circle-x 24x24) ── */}
+        {clearable && isSet && (
+          <TouchableOpacity
+            activeOpacity={0.7}
+            style={styles.clearBadgeButton}
+            onPress={handleClear}
+            accessibilityRole="button"
+            accessibilityLabel={`Clear ${label}`}
+          >
+            <CircleXBadgeIcon size={24} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* ── Required Error Message ── */}
@@ -504,6 +548,14 @@ export default TimeSegmentInput;
 const styles = StyleSheet.create({
   container: {
     width: '100%',
+  },
+  clearBadgeButton: {
+    position: 'absolute',
+    right: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   pillContainer: {
     width: '100%',

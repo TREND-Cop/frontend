@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   sectionHeaderContainer: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   sectionHeaderLabel: {
     fontFamily: FONT_MEDIUM,
@@ -342,10 +342,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
-    marginTop: 4,
+    marginTop: 6,
   },
   packageBlock: {
-    marginBottom: 40,
+    marginBottom: 48,
   },
   packageImagesLabel: {
     fontFamily: FONT_REGULAR,
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
-    marginBottom: 16,
+    marginBottom: 18,
   },
   imageGrid: {
     flexDirection: 'row',
@@ -410,8 +410,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 24,
-    marginBottom: 8,
+    marginTop: 32,
+    marginBottom: 12,
   },
   fieldLabel: {
     fontFamily: FONT_MEDIUM,
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 0.5,
     color: '#000000',
-    marginTop: 24,
+    marginTop: 36,
     marginBottom: 16,
   },
   twoColumnRow: {
@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   priceInputField: {
     height: 48,
@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    marginTop: 8,
+    marginTop: 20,
   },
   addPackageText: {
     fontFamily: FONT_REGULAR,

@@ -161,16 +161,16 @@ export const StaffManagementScreen: React.FC = () => {
                 <Text style={styles.staffLabelSmall}>Staff</Text>
 
                 <View style={styles.emptyStateBody}>
-                  {/* 120x120 Illustration */}
+                  {/* 150x150 Illustration */}
                   <View style={styles.illustrationWrapper}>
-                    <NoStaffIllustration size={120} />
+                    <NoStaffIllustration size={150} />
                   </View>
 
                   {/* Copy */}
                   <View style={styles.emptyCopyBox}>
                     <Text style={styles.emptyTitle}>No Staff Found</Text>
                     <Text style={styles.emptySubtitle}>
-                      Add staff who will provide your services to clients.
+                      Add staffs who will provide your services to clients.
                     </Text>
                   </View>
 
@@ -188,16 +188,16 @@ export const StaffManagementScreen: React.FC = () => {
                       <Text style={styles.darkActionText}>Add staff</Text>
                     </TouchableOpacity>
 
-                    {/* Light Pill: I don't have staff */}
+                    {/* Light Pill: I dont have staffs */}
                     <TouchableOpacity
                       activeOpacity={0.85}
                       style={styles.lightActionButton}
                       onPress={handleNoStaffPress}
                       accessible
                       accessibilityRole="button"
-                      accessibilityLabel="I don't have staff"
+                      accessibilityLabel="I dont have staffs"
                     >
-                      <Text style={styles.lightActionText}>I don't have staff</Text>
+                      <Text style={styles.lightActionText}>I dont have staffs</Text>
                     </TouchableOpacity>
                   </View>
                 </View>

@@ -9,6 +9,7 @@ import {
   ScrollView,
   Platform,
   KeyboardAvoidingView,
+  Keyboard,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -129,7 +130,26 @@ export function ProviderInChatScreen() {
   }, [conversation.id]);
 
   const [inputText, setInputText] = useState('');
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => {
+        setIsKeyboardVisible(true);
+        setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 120);
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const handleSend = () => {
     const trimmed = inputText.trim();
@@ -193,52 +213,54 @@ export function ProviderInChatScreen() {
   const hasInput = inputText.trim().length > 0;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.keyboardAvoid}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <View style={styles.container}>
-        <StatusBar style="dark" />
+    <View style={styles.container}>
+      <StatusBar style="dark" />
 
-        {/* ── Top Header (height: 60px, border-bottom: 1px, 1:1 Figma) ── */}
-        <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
-          <View style={styles.headerRow}>
-            {/* Back button (44x44px) */}
-            <TouchableOpacity
-              style={styles.backButton}
-              activeOpacity={0.7}
-              onPress={() => router.back()}
-              accessibilityLabel="Back to messages"
-            >
-              <ArrowLeft02Icon size={24} color="#141B34" />
-            </TouchableOpacity>
+      {/* ── Top Header (height: 60px, border-bottom: 1px, 1:1 Figma) ── */}
+      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+        <View style={styles.headerRow}>
+          {/* Back button (44x44px) */}
+          <TouchableOpacity
+            style={styles.backButton}
+            activeOpacity={0.7}
+            onPress={() => router.back()}
+            accessibilityLabel="Back to messages"
+          >
+            <ArrowLeft02Icon size={24} color="#141B34" />
+          </TouchableOpacity>
 
-            {/* Profile and Name (Clickable -> Navigates to Staff or Client Profile) */}
-            <TouchableOpacity
-              style={styles.profileRow}
-              activeOpacity={0.7}
-              onPress={handleHeaderProfilePress}
-            >
-              {/* Ellipse 194 (40x40px avatar) */}
-              <Image
-                source={avatarSource}
-                style={styles.avatarImage}
-                resizeMode="cover"
-              />
+          {/* Profile and Name (Clickable -> Navigates to Staff or Client Profile) */}
+          <TouchableOpacity
+            style={styles.profileRow}
+            activeOpacity={0.7}
+            onPress={handleHeaderProfilePress}
+          >
+            {/* Ellipse 194 (40x40px avatar) */}
+            <Image
+              source={avatarSource}
+              style={styles.avatarImage}
+              resizeMode="cover"
+            />
 
-              {/* Name & Role/Status Text Block */}
-              <View style={styles.profileTextCol}>
-                <Text style={styles.profileNameText} numberOfLines={1}>
-                  {clientName}
-                </Text>
-                <View style={styles.onlineStatusRow}>
-                  <View style={styles.onlineDot} />
-                  <Text style={styles.profileRoleText}>Online</Text>
-                </View>
+            {/* Name & Role/Status Text Block */}
+            <View style={styles.profileTextCol}>
+              <Text style={styles.profileNameText} numberOfLines={1}>
+                {clientName}
+              </Text>
+              <View style={styles.onlineStatusRow}>
+                <View style={styles.onlineDot} />
+                <Text style={styles.profileRoleText}>Online</Text>
               </View>
-            </TouchableOpacity>
-          </View>
+            </View>
+          </TouchableOpacity>
         </View>
+      </View>
+
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
 
         {/* ── Chat Body / Scroll Area ── */}
         <ScrollView
@@ -250,6 +272,7 @@ export function ProviderInChatScreen() {
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           {messages.length === 0 ? (
             /* ── 1:1 Figma Empty Message In-Chat State ── */
@@ -394,7 +417,12 @@ export function ProviderInChatScreen() {
         </ScrollView>
 
         {/* ── Bottom Message Input Bar (height: 64px, 1:1 Figma) ── */}
-        <View style={styles.inputBarContainer}>
+        <View
+          style={[
+            styles.inputBarContainer,
+            { paddingBottom: isKeyboardVisible ? 8 : Math.max(insets.bottom, 8) },
+          ]}
+        >
           <View style={styles.inputInnerRow}>
             {/* Image and Text Input Field (width: 306px, gap: 16px) */}
             <View style={styles.imageAndInputRow}>
@@ -442,11 +470,11 @@ export function ProviderInChatScreen() {
             </TouchableOpacity>
           </View>
         </View>
+      </KeyboardAvoidingView>
 
-        {/* ── Android Native System Navigation Bar Barrier ── */}
-        <NativeDockSpacer backgroundColor="#FFFFFF" />
-      </View>
-    </KeyboardAvoidingView>
+      {/* ── Android Native System Navigation Bar Barrier ── */}
+      <NativeDockSpacer backgroundColor="#FFFFFF" />
+    </View>
   );
 }
 

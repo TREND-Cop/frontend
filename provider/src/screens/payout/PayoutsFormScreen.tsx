@@ -370,6 +370,7 @@ export const PayoutsFormScreen: React.FC = () => {
             { paddingBottom: Math.max(insets.bottom + 34, 48) },
           ]}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
           {/* ── InfoBanner Tag (358px wide x 72px high, green tint #EEF8EE 0.8, top: 132px, 24px below header) ── */}

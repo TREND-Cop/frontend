@@ -184,13 +184,12 @@ export const BusinessOwnerLoginScreen: React.FC<BusinessOwnerLoginScreenProps> =
             styles.scrollContent,
             {
               paddingTop: Math.max(insets.top + 39, 83),
-              paddingBottom: Math.max(insets.bottom + 16, 32) + (isKeyboardVisible ? keyboardHeight : 0),
+              paddingBottom: Math.max(insets.bottom + 16, 32),
             },
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
-          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+          keyboardDismissMode="on-drag"
         >
           {/* ── Header (width: 358px, gap: 16px, text-align: center) ── */}
           <View style={styles.header}>

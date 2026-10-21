@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -28,7 +28,6 @@ export const WelcomeCard: React.FC<WelcomeCardProps> = ({
   visible,
   onGetStarted,
 }) => {
-  const [reduceMotion, setReduceMotion] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
   const [isConfettiActive, setIsConfettiActive] = useState(true);
 
@@ -55,16 +54,11 @@ export const WelcomeCard: React.FC<WelcomeCardProps> = ({
   // Bottom tab bar center Y
   const tabY = SCREEN_HEIGHT - 64;
 
-  const leftOrigin = { x: tabLeftX, y: tabY };
-  const rightOrigin = { x: tabRightX, y: tabY };
+  const leftOrigin = useMemo(() => ({ x: tabLeftX, y: tabY }), [tabLeftX, tabY]);
+  const rightOrigin = useMemo(() => ({ x: tabRightX, y: tabY }), [tabRightX, tabY]);
 
-  // Check reduced motion setting
-  useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
-    const sub = AccessibilityInfo.addEventListener?.('reduceMotionChanged', setReduceMotion);
-    return () => {
-      sub?.remove?.();
-    };
+  const handleConfettiEnd = useCallback(() => {
+    setIsConfettiActive(false);
   }, []);
 
   // Orchestrated Entrance Timeline
@@ -79,32 +73,6 @@ export const WelcomeCard: React.FC<WelcomeCardProps> = ({
       buttonOpacity.setValue(0);
       setIsExiting(false);
       setIsConfettiActive(true);
-      return;
-    }
-
-    if (reduceMotion) {
-      // Accessible graceful 200ms fade
-      Animated.parallel([
-        Animated.timing(backdropOpacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(cardOpacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        cardScale.setValue(1);
-        cardTranslateY.setValue(0);
-        titleOpacity.setValue(1);
-        titleTranslateY.setValue(0);
-        subtitleOpacity.setValue(1);
-        subtitleTranslateY.setValue(0);
-        buttonOpacity.setValue(1);
-        buttonTranslateY.setValue(0);
-      });
       return;
     }
 
@@ -218,7 +186,6 @@ export const WelcomeCard: React.FC<WelcomeCardProps> = ({
     };
   }, [
     visible,
-    reduceMotion,
     backdropOpacity,
     cardScale,
     cardTranslateY,
@@ -235,11 +202,6 @@ export const WelcomeCard: React.FC<WelcomeCardProps> = ({
   const handlePress = useCallback(() => {
     if (isExiting) return;
     setIsExiting(true);
-
-    if (reduceMotion) {
-      onGetStarted();
-      return;
-    }
 
     // Card exit: scale 1 -> 0.96, opacity 1 -> 0 over 180ms (Easing.in(cubic))
     Animated.parallel([
@@ -259,7 +221,7 @@ export const WelcomeCard: React.FC<WelcomeCardProps> = ({
       // Seamless hand-off: backdrop stays dimmed, spotlight cutout smoothly takes over
       onGetStarted();
     });
-  }, [isExiting, reduceMotion, cardOpacity, cardScale, onGetStarted]);
+  }, [isExiting, cardOpacity, cardScale, onGetStarted]);
 
   if (!visible) return null;
 
@@ -275,26 +237,15 @@ export const WelcomeCard: React.FC<WelcomeCardProps> = ({
       />
 
       {/* ── Party Poppers / Cannons at Tab Bar Ends ── */}
-      {!reduceMotion && (
+      {isConfettiActive && !isExiting && (
         <PartyPoppers
-          visible={visible && isConfettiActive && !isExiting}
-          leftOrigin={leftOrigin}
-          rightOrigin={rightOrigin}
-        />
-      )}
-
-      {/* ── Confetti Burst (Layer 2: Behind the Pop-Up Card) ── */}
-      {!reduceMotion && isConfettiActive && (
-        <ConfettiBurst
           visible={visible}
           leftOrigin={leftOrigin}
           rightOrigin={rightOrigin}
-          isExiting={isExiting}
-          onAnimationEnd={() => setIsConfettiActive(false)}
         />
       )}
 
-      {/* ── Pop-Up Card Container (Layer 3: Guaranteed on Top of Confetti) ── */}
+      {/* ── Pop-Up Card Container (Layer 2) ── */}
       <View style={styles.cardCenterContainer} pointerEvents="box-none">
         <Animated.View
           style={[
@@ -369,6 +320,17 @@ export const WelcomeCard: React.FC<WelcomeCardProps> = ({
           </View>
         </Animated.View>
       </View>
+
+      {/* ── Confetti Burst (Layer 3: Renders over the card across full screen) ── */}
+      {isConfettiActive && (
+        <ConfettiBurst
+          visible={visible}
+          leftOrigin={leftOrigin}
+          rightOrigin={rightOrigin}
+          isExiting={isExiting}
+          onAnimationEnd={handleConfettiEnd}
+        />
+      )}
     </View>
   );
 };

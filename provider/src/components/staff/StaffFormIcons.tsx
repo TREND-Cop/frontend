@@ -228,3 +228,133 @@ export function ArrowDown01Icon({
     </Svg>
   );
 }
+
+/**
+ * 1:1 Figma arrow-right-01 Chevron Icon (24x24)
+ */
+export function ArrowRight01Icon({
+  size = 24,
+  color = '#141B34',
+}: {
+  size?: number;
+  color?: string;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 18l6-6-6-6"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/**
+ * 1:1 Figma clock-hour-3 Icon (24x24)
+ */
+export function ClockHour3Icon({
+  size = 24,
+  color = '#141B34',
+}: {
+  size?: number;
+  color?: string;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9.5" stroke={color} strokeWidth={1.5} />
+      <Path
+        d="M12 6.5v5.5h4"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/**
+ * 1:1 Figma calendar-days Icon (24x24)
+ */
+export function CalendarDaysIcon({
+  size = 24,
+  color = '#141B34',
+}: {
+  size?: number;
+  color?: string;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="17" rx="3" stroke={color} strokeWidth={1.5} />
+      <Path d="M3 9h18M8 2v4M16 2v4" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+      <Circle cx="8" cy="13" r="1" fill={color} />
+      <Circle cx="12" cy="13" r="1" fill={color} />
+      <Circle cx="16" cy="13" r="1" fill={color} />
+      <Circle cx="8" cy="17" r="1" fill={color} />
+      <Circle cx="12" cy="17" r="1" fill={color} />
+    </Svg>
+  );
+}
+
+/**
+ * 1:1 Figma shield-check Outline Icon (24x24)
+ * Used in non-tappable verification status row
+ */
+export function ShieldCheckOutlineIcon({
+  size = 24,
+  color = '#141B34',
+}: {
+  size?: number;
+  color?: string;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 3.5s7.5 2 7.5 7.5c0 5.5-4.5 9-7.5 10.5C9 20 4.5 16.5 4.5 11 4.5 5.5 12 3.5 12 3.5z"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M8.5 11.5l2.5 2.5 5-5"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+/**
+ * 1:1 Figma Blue Verified Badge Icon (20x20 / 24x24)
+ * Filled shield with white checkmark matching D2 & banner illustration
+ */
+export function BlueVerifiedBadgeIcon({
+  size = 20,
+}: {
+  size?: number;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <Path
+        d="M10 2.5s6.5 1.5 6.5 6c0 4.5-3.8 7.5-6.5 9C7.3 16 3.5 13 3.5 8.5c0-4.5 6.5-6 6.5-6z"
+        fill="rgba(26, 130, 255, 0.9)"
+        stroke="rgba(26, 130, 255, 0.9)"
+        strokeWidth={1.2}
+      />
+      <Path
+        d="M7 9.5l2 2 4.5-4.5"
+        stroke="#FFFFFF"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+

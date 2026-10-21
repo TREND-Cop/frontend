@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,8 @@ import {
   StyleSheet,
   Pressable,
   Platform,
-  KeyboardAvoidingView,
+  Keyboard,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
@@ -297,14 +298,37 @@ export const AmenitiesBottomSheet: React.FC<AmenitiesBottomSheetProps> = ({
   onClose,
 }) => {
   const insets = useSafeAreaInsets();
+  const scrollViewRef = useRef<ScrollView>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [customAmenity, setCustomAmenity] = useState(initialCustomAmenity);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      if (e?.endCoordinates?.height) {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   // Sync initial selection when opened
   useEffect(() => {
     if (visible) {
       setSelectedIds(selectedAmenities);
       setCustomAmenity(initialCustomAmenity);
+    } else {
+      setKeyboardHeight(0);
     }
   }, [visible, selectedAmenities, initialCustomAmenity]);
 
@@ -324,9 +348,15 @@ export const AmenitiesBottomSheet: React.FC<AmenitiesBottomSheetProps> = ({
 
   const handleConfirm = useCallback(() => {
     if (!isConfirmActive) return;
+    Keyboard.dismiss();
     onConfirm(selectedIds, customAmenity.trim());
     onClose();
   }, [isConfirmActive, selectedIds, customAmenity, onConfirm, onClose]);
+
+  const handleDismiss = () => {
+    Keyboard.dismiss();
+    onClose();
+  };
 
   return (
     <Modal
@@ -334,15 +364,26 @@ export const AmenitiesBottomSheet: React.FC<AmenitiesBottomSheetProps> = ({
       animationType="slide"
       transparent
       statusBarTranslucent
-      onRequestClose={onClose}
+      onRequestClose={handleDismiss}
     >
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <View
+        style={[
+          styles.overlay,
+          keyboardHeight > 0 ? { paddingBottom: keyboardHeight } : null,
+        ]}
       >
-        <Pressable style={styles.backdrop} onPress={onClose} />
+        <Pressable style={styles.backdrop} onPress={handleDismiss} />
 
-        <View style={styles.sheetContainer}>
+        <View
+          style={[
+            styles.sheetContainer,
+            keyboardHeight > 0
+              ? {
+                  maxHeight: Dimensions.get('window').height - keyboardHeight - (insets.top || 20),
+                }
+              : null,
+          ]}
+        >
           {/* ── Header (56px, borderBottom 1px #ebebf5) ── */}
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Amenities</Text>
@@ -350,10 +391,15 @@ export const AmenitiesBottomSheet: React.FC<AmenitiesBottomSheetProps> = ({
 
           {/* ── Scrollable Content (gap: 40px across categories) ── */}
           <ScrollView
-            style={styles.scrollView}
+            ref={scrollViewRef}
+            style={[
+              styles.scrollView,
+              keyboardHeight > 0 ? { flexShrink: 1, maxHeight: undefined } : null,
+            ]}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
             {AMENITY_CATEGORIES.map((category) => (
               <View key={category.title} style={styles.categorySection}>
@@ -398,6 +444,11 @@ export const AmenitiesBottomSheet: React.FC<AmenitiesBottomSheetProps> = ({
                 placeholderTextColor="rgba(96, 96, 102, 0.96)"
                 value={customAmenity}
                 onChangeText={setCustomAmenity}
+                onFocus={() => {
+                  setTimeout(() => {
+                    scrollViewRef.current?.scrollToEnd({ animated: true });
+                  }, 150);
+                }}
                 returnKeyType="done"
               />
             </View>
@@ -409,7 +460,9 @@ export const AmenitiesBottomSheet: React.FC<AmenitiesBottomSheetProps> = ({
               styles.actionButtonContainer,
               {
                 paddingBottom:
-                  Platform.OS === 'android'
+                  keyboardHeight > 0
+                    ? 8
+                    : Platform.OS === 'android'
                     ? Math.max(insets.bottom, 56)
                     : Math.max(insets.bottom, 16),
               },
@@ -435,7 +488,7 @@ export const AmenitiesBottomSheet: React.FC<AmenitiesBottomSheetProps> = ({
             </TouchableOpacity>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 };

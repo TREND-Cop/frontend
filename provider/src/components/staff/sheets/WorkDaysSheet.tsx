@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -48,6 +48,7 @@ export function formatWorkDays(selectedDays: string[]): string {
 
 export interface WorkDaysSheetProps {
   visible: boolean;
+  mode?: 'add' | 'edit';
   selectedDays: string[];
   onConfirm: (days: string[]) => void;
   onClose: () => void;
@@ -69,7 +70,7 @@ function CloseIcon({ size = 24 }: { size?: number }) {
 }
 
 // ── 1:1 Figma checkmark-circle-02 (24x24) ──
-function DayCheckIcon({ isSelected }: { isSelected: boolean }) {
+function DayCheckIcon({ isSelected, disabled }: { isSelected: boolean; disabled?: boolean }) {
   if (isSelected) {
     return (
       <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
@@ -84,31 +85,41 @@ function DayCheckIcon({ isSelected }: { isSelected: boolean }) {
       </Svg>
     );
   }
+  const strokeColor = disabled ? 'rgba(235, 235, 245, 0.96)' : 'rgba(192, 192, 204, 0.96)';
   return (
     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Circle
         cx="12"
         cy="12"
         r="10.5"
-        stroke="rgba(235, 235, 245, 0.96)"
+        stroke={strokeColor}
         strokeWidth={1.5}
       />
     </Svg>
   );
 }
 
+// ── Red Circle ✕ Badge Icon (24x24) ──
+function CircleXBadgeIcon({ size = 24 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" fill="rgba(204, 41, 41, 0.9)" />
+      <Path
+        d="M9 9l6 6M15 9l-6 6"
+        stroke="#FFFFFF"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
 /**
- * 1:1 Figma WorkDaysSheet (Frames B2 & B3, CSS Spec "work days bottom sheet")
- *
- * Measurements from CSS:
- * - Sheet: 390px wide, minHeight 542px, radius 24px 24px 0 0
- * - Header: height 62px, padding 8px 16px, borderBottom 1px solid rgba(235, 235, 245, 0.96)
- * - Dates grid: 358px wide, height 294px
- * - Chips: 167px wide, 48px height, radius 24px, padding 8px 16px, colGap 24px, rowGap 31.5px
- * - Footer: height 80px, padding 16px, 358x48px Confirm pill button
+ * 1:1 Figma WorkDaysSheet (Frames B2/B3 in Add mode, Frame E4 in Edit mode)
  */
 export const WorkDaysSheet: React.FC<WorkDaysSheetProps> = ({
   visible,
+  mode = 'add',
   selectedDays: initialSelectedDays,
   onConfirm,
   onClose,
@@ -118,7 +129,7 @@ export const WorkDaysSheet: React.FC<WorkDaysSheetProps> = ({
 
   useEffect(() => {
     if (visible) {
-      setWorkingDays(initialSelectedDays || []);
+      setWorkingDays(initialSelectedDays ? [...initialSelectedDays] : []);
     }
   }, [visible, initialSelectedDays]);
 
@@ -135,25 +146,50 @@ export const WorkDaysSheet: React.FC<WorkDaysSheetProps> = ({
     });
   };
 
+  const handleAddDayInEdit = (day: string) => {
+    if (workingDays.includes(day)) return;
+    triggerLightHaptic();
+    setWorkingDays((prev) => [...prev, day]);
+  };
+
+  const handleRemoveDayInEdit = (day: string) => {
+    triggerLightHaptic();
+    setWorkingDays((prev) => prev.filter((d) => d !== day));
+  };
+
   const handleToggleEveryday = () => {
     triggerLightHaptic();
-    if (isAllSelected) {
-      // Clear all
-      setWorkingDays([]);
-    } else {
-      // Select all 7
+    if (mode === 'edit') {
+      // In edit mode: "Everyday" adds all remaining days
       setWorkingDays([...ALL_WEEK_DAYS]);
+    } else {
+      if (isAllSelected) {
+        setWorkingDays([]);
+      } else {
+        setWorkingDays([...ALL_WEEK_DAYS]);
+      }
     }
   };
 
+  const orderedWorkingDays = useMemo(() => {
+    return ALL_WEEK_DAYS.filter((d) => workingDays.includes(d));
+  }, [workingDays]);
+
   const hasSelection = workingDays.length > 0;
 
-  const handleConfirmPress = () => {
-    if (!hasSelection) return;
+  const isChanged = useMemo(() => {
+    if (mode !== 'edit') return true;
+    if (!initialSelectedDays) return workingDays.length > 0;
+    if (orderedWorkingDays.length !== initialSelectedDays.length) return true;
+    return orderedWorkingDays.some((d, i) => d !== initialSelectedDays[i]);
+  }, [mode, orderedWorkingDays, initialSelectedDays, workingDays]);
 
+  const canConfirm = hasSelection && isChanged;
+
+  const handleConfirmPress = () => {
+    if (!canConfirm) return;
     triggerLightHaptic();
-    const ordered = ALL_WEEK_DAYS.filter((d) => workingDays.includes(d));
-    onConfirm(ordered);
+    onConfirm(orderedWorkingDays);
     onClose();
   };
 
@@ -195,13 +231,42 @@ export const WorkDaysSheet: React.FC<WorkDaysSheetProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* ── 2. Dates Grid (358x294, CSS Spec) ── */}
           <ScrollView
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
+            {/* ── 2. Edit Mode: Current Work Day Section (Frame E4) ── */}
+            {mode === 'edit' && (
+              <View style={styles.currentSection}>
+                <Text style={styles.sectionHeading}>Current Work Day</Text>
+                <View style={styles.chipsRow}>
+                  {orderedWorkingDays.map((day) => (
+                    <View key={day} style={styles.dayChip}>
+                      <Text style={styles.dayChipText} numberOfLines={1}>{day}</Text>
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => handleRemoveDayInEdit(day)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Remove ${day}`}
+                      >
+                        <CircleXBadgeIcon size={24} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+
+                <Text style={styles.sectionHeading}>Select Work Day</Text>
+                <Text style={styles.helperText}>How many days a week will the staff work?</Text>
+              </View>
+            )}
+
+            {/* ── 3. Dates Grid (358x294, CSS Spec) ── */}
             <View style={styles.datesGrid}>
               {dayPairs.map(([leftItem, rightItem], rowIdx) => {
+                const isLeftAlreadyAdded = mode === 'edit' && leftItem !== 'Everyday' && workingDays.includes(leftItem);
+                const isRightAlreadyAdded = mode === 'edit' && rightItem !== 'Everyday' && workingDays.includes(rightItem);
+                const isEverydayDisabled = mode === 'edit' && isAllSelected;
+
                 const isLeftSelected = leftItem === 'Everyday' ? isAllSelected : workingDays.includes(leftItem);
                 const isRightSelected = rightItem === 'Everyday' ? isAllSelected : workingDays.includes(rightItem);
 
@@ -209,12 +274,23 @@ export const WorkDaysSheet: React.FC<WorkDaysSheetProps> = ({
                   <View key={`row_${rowIdx}`} style={styles.gridRow}>
                     {/* Left Chip */}
                     <TouchableOpacity
-                      activeOpacity={0.7}
+                      activeOpacity={isLeftAlreadyAdded ? 1 : 0.7}
                       style={[
                         styles.chip,
                         isLeftSelected ? styles.chipSelected : styles.chipUnselected,
+                        isLeftAlreadyAdded && styles.chipDisabled,
                       ]}
-                      onPress={() => (leftItem === 'Everyday' ? handleToggleEveryday() : handleToggleDay(leftItem))}
+                      onPress={() => {
+                        if (isLeftAlreadyAdded) return;
+                        if (leftItem === 'Everyday') {
+                          handleToggleEveryday();
+                        } else if (mode === 'edit') {
+                          handleAddDayInEdit(leftItem);
+                        } else {
+                          handleToggleDay(leftItem);
+                        }
+                      }}
+                      disabled={isLeftAlreadyAdded}
                       accessible
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: isLeftSelected }}
@@ -224,23 +300,36 @@ export const WorkDaysSheet: React.FC<WorkDaysSheetProps> = ({
                         style={[
                           styles.chipText,
                           isLeftSelected ? styles.chipTextSelected : styles.chipTextUnselected,
+                          isLeftAlreadyAdded && styles.chipTextDisabled,
                         ]}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
                       >
                         {leftItem}
                       </Text>
-                      <DayCheckIcon isSelected={isLeftSelected} />
+                      <DayCheckIcon
+                        isSelected={isLeftSelected}
+                        disabled={isLeftAlreadyAdded}
+                      />
                     </TouchableOpacity>
 
                     {/* Right Chip */}
                     <TouchableOpacity
-                      activeOpacity={0.7}
+                      activeOpacity={isRightAlreadyAdded || isEverydayDisabled ? 1 : 0.7}
                       style={[
                         styles.chip,
                         isRightSelected ? styles.chipSelected : styles.chipUnselected,
+                        (isRightAlreadyAdded || isEverydayDisabled) && styles.chipDisabled,
                       ]}
-                      onPress={() => (rightItem === 'Everyday' ? handleToggleEveryday() : handleToggleDay(rightItem))}
+                      onPress={() => {
+                        if (isRightAlreadyAdded || isEverydayDisabled) return;
+                        if (rightItem === 'Everyday') {
+                          handleToggleEveryday();
+                        } else if (mode === 'edit') {
+                          handleAddDayInEdit(rightItem);
+                        } else {
+                          handleToggleDay(rightItem);
+                        }
+                      }}
+                      disabled={isRightAlreadyAdded || isEverydayDisabled}
                       accessible
                       accessibilityRole="checkbox"
                       accessibilityState={{ checked: isRightSelected }}
@@ -250,13 +339,15 @@ export const WorkDaysSheet: React.FC<WorkDaysSheetProps> = ({
                         style={[
                           styles.chipText,
                           isRightSelected ? styles.chipTextSelected : styles.chipTextUnselected,
+                          (isRightAlreadyAdded || isEverydayDisabled) && styles.chipTextDisabled,
                         ]}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
                       >
                         {rightItem}
                       </Text>
-                      <DayCheckIcon isSelected={isRightSelected} />
+                      <DayCheckIcon
+                        isSelected={isRightSelected}
+                        disabled={isRightAlreadyAdded || isEverydayDisabled}
+                      />
                     </TouchableOpacity>
                   </View>
                 );
@@ -264,15 +355,15 @@ export const WorkDaysSheet: React.FC<WorkDaysSheetProps> = ({
             </View>
           </ScrollView>
 
-          {/* ── 3. Action Button (80px, CSS Spec) ── */}
+          {/* ── 4. Action Button (Confirm) ── */}
           <View style={styles.actionButtonContainer}>
             <TouchableOpacity
-              activeOpacity={0.85}
+              activeOpacity={canConfirm ? 0.85 : 1}
               style={[
                 styles.confirmButton,
-                hasSelection ? styles.confirmButtonActive : styles.confirmButtonDisabled,
+                canConfirm ? styles.confirmButtonActive : styles.confirmButtonDisabled,
               ]}
-              disabled={!hasSelection}
+              disabled={!canConfirm}
               onPress={handleConfirmPress}
               accessible
               accessibilityRole="button"
@@ -281,7 +372,7 @@ export const WorkDaysSheet: React.FC<WorkDaysSheetProps> = ({
               <Text
                 style={[
                   styles.confirmButtonText,
-                  hasSelection ? styles.confirmTextActive : styles.confirmTextDisabled,
+                  canConfirm ? styles.confirmTextActive : styles.confirmTextDisabled,
                 ]}
               >
                 Confirm
@@ -314,7 +405,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     minHeight: 542,
-    maxHeight: '90%',
+    maxHeight: '92%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -8 },
     shadowOpacity: 0.12,
@@ -342,6 +433,7 @@ const styles = StyleSheet.create({
   closeButton: {
     position: 'absolute',
     right: 16,
+    top: 11,
     width: 40,
     height: 40,
     borderRadius: 24,
@@ -351,80 +443,131 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 36,
-    paddingBottom: 16,
-    alignItems: 'center',
+    paddingTop: 24,
+    paddingBottom: 24,
   },
-  datesGrid: {
-    width: 358,
-    gap: 31.5,
+  currentSection: {
+    width: '100%',
+    marginBottom: 24,
   },
-  gridRow: {
+  sectionHeading: {
+    fontFamily: FONT_MEDIUM,
+    fontWeight: '500',
+    fontSize: 20,
+    lineHeight: 28,
+    letterSpacing: 0.2,
+    color: '#000000',
+    marginBottom: 12,
+  },
+  chipsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: 358,
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 20,
   },
-  chip: {
-    width: 167,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+  dayChip: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
+    paddingVertical: 8,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(192, 192, 204, 0.96)',
+    minWidth: 140,
+    gap: 12,
+  },
+  dayChipText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.4,
+    color: 'rgba(0, 8, 20, 0.96)',
+  },
+  helperText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.4,
+    color: 'rgba(96, 96, 102, 0.96)',
+    marginBottom: 16,
+  },
+  datesGrid: {
+    width: '100%',
+    gap: 16,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  chip: {
+    flex: 1,
+    height: 48,
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   chipUnselected: {
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
     borderWidth: 1,
     borderColor: 'rgba(235, 235, 245, 0.96)',
   },
   chipSelected: {
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
     borderWidth: 1,
     borderColor: 'rgba(192, 192, 204, 0.96)',
+  },
+  chipDisabled: {
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(235, 235, 245, 0.96)',
+    opacity: 0.35,
   },
   chipText: {
     fontFamily: FONT_REGULAR,
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: 0.4,
-    flex: 1,
-    marginRight: 8,
   },
   chipTextUnselected: {
     color: 'rgba(0, 8, 20, 0.96)',
   },
   chipTextSelected: {
     color: '#000000',
+    fontFamily: FONT_MEDIUM,
+  },
+  chipTextDisabled: {
+    color: 'rgba(96, 96, 102, 0.96)',
   },
   actionButtonContainer: {
-    width: '100%',
-    height: 80,
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: 16,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(235, 235, 245, 0.96)',
     backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   confirmButton: {
-    width: 358,
+    width: '100%',
     height: 48,
     borderRadius: 24,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   confirmButtonActive: {
     backgroundColor: 'rgba(0, 8, 20, 0.96)',
-    shadowColor: '#858B94',
-    shadowOffset: { width: 4, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 3,
   },
   confirmButtonDisabled: {
     backgroundColor: 'rgba(247, 247, 247, 0.96)',
   },
   confirmButtonText: {
     fontFamily: FONT_BUTTON,
+    fontWeight: '500',
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: 0.15,

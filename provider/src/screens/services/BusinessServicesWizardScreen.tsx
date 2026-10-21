@@ -12,7 +12,7 @@ import {
   KeyboardAvoidingView,
   LayoutChangeEvent,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -163,6 +163,7 @@ function formatWithCommas(value: string): string {
 
 export const BusinessServicesWizardScreen: React.FC = () => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ skeleton?: string }>();
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -509,9 +510,15 @@ export const BusinessServicesWizardScreen: React.FC = () => {
         <ScrollView
           ref={scrollViewRef}
           style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingBottom: Math.max(insets.bottom, 16) + 60,
+            },
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           {/* ── 2. Stepper ── */}
           <View style={styles.stepperWrapper}>
@@ -820,7 +827,15 @@ export const BusinessServicesWizardScreen: React.FC = () => {
         </ScrollView>
 
         {/* ── 13. Sticky Footer & Toast Indicator ── */}
-        <View style={styles.stickyFooter}>
+        <View
+          style={[
+            styles.stickyFooter,
+            {
+              paddingTop: 12,
+              paddingBottom: Math.max(insets.bottom, 16),
+            },
+          ]}
+        >
           {hasAttemptedSubmit && firstMissingField && (
             <View style={styles.toastContainer}>
               <View style={styles.toastPill}>
@@ -957,28 +972,29 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 24,
   },
 
   stepperWrapper: {
     width: '100%',
     alignItems: 'center',
-    marginBottom: 24,
+    marginTop: 8,
+    marginBottom: 36,
   },
   infoBannerWrapper: {
     width: '100%',
-    marginBottom: 32,
+    marginBottom: 40,
   },
 
   fieldSection: {
     width: '100%',
-    marginBottom: 32,
+    marginBottom: 40,
   },
   labelWithInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   fieldLabel: {
     fontFamily: FONT_MEDIUM,
@@ -996,7 +1012,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 0.5,
     color: '#000000',
-    marginBottom: 8,
+    marginBottom: 12,
     includeFontPadding: false,
   },
   fieldSubtitle: {
@@ -1006,7 +1022,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
-    marginBottom: 16,
+    marginBottom: 20,
     includeFontPadding: false,
   },
   subFieldLabel: {
@@ -1016,7 +1032,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
-    marginBottom: 8,
+    marginBottom: 10,
     includeFontPadding: false,
   },
   helperText: {
@@ -1026,7 +1042,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
-    marginTop: 8,
+    marginTop: 10,
     includeFontPadding: false,
   },
   helperTextError: {

@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
-import { useStaffStore, StaffMember, useStaffLoading } from '../context/StaffContext';
+import { useStaffStore, StaffMember, useStaffLoading, useStaffMember } from '../context/StaffContext';
 import { DEV_SAMPLE_STAFF } from '../constants/staff.config';
 
-export { StaffMember, DEV_SAMPLE_STAFF };
+export { StaffMember, DEV_SAMPLE_STAFF, useStaffMember };
 
 export interface UseStaffResult {
   staffList: StaffMember[];

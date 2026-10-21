@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,8 @@ import {
   StyleSheet,
   Pressable,
   Platform,
-  KeyboardAvoidingView,
+  Keyboard,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -18,12 +19,16 @@ import { triggerLightHaptic } from '../../../utils/haptics';
 
 const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
 const FONT_REGULAR = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular';
+const FONT_BUTTON = Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium';
 
 export interface StaffRoleSheetProps {
   visible: boolean;
+  mode?: 'add' | 'edit';
   selectedRoleName?: string;
   disabledRoleNames?: string[];
-  onSelectRole: (role: StaffRoleItem) => void;
+  currentRoles?: string[];
+  onSelectRole?: (role: StaffRoleItem) => void;
+  onConfirmRoles?: (roles: string[]) => void;
   onClose: () => void;
 }
 
@@ -58,7 +63,7 @@ function CloseIcon({ size = 24 }: { size?: number }) {
 }
 
 // ── Radio Check Icon ──
-function RadioCheckIcon({ isSelected }: { isSelected: boolean }) {
+function RadioCheckIcon({ isSelected, disabled }: { isSelected: boolean; disabled?: boolean }) {
   if (isSelected) {
     return (
       <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
@@ -67,43 +72,103 @@ function RadioCheckIcon({ isSelected }: { isSelected: boolean }) {
       </Svg>
     );
   }
+  const strokeColor = disabled ? 'rgba(235, 235, 245, 0.96)' : 'rgba(192, 192, 204, 0.96)';
   return (
     <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="rgba(192, 192, 204, 0.96)" strokeWidth={1.5} />
+      <Circle cx="12" cy="12" r="10" stroke={strokeColor} strokeWidth={1.5} />
+    </Svg>
+  );
+}
+
+// ── Red Circle ✕ Badge Icon (24x24) ──
+function CircleXBadgeIcon({ size = 24 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" fill="rgba(204, 41, 41, 0.9)" />
+      <Path
+        d="M9 9l6 6M15 9l-6 6"
+        stroke="#FFFFFF"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
     </Svg>
   );
 }
 
 /**
- * 1:1 Figma StaffRoleSheet (Frames B1)
+ * 1:1 Figma StaffRoleSheet (Frames B1 in Add mode, Frame E2 in Edit mode)
  *
  * Implements:
- * - Grouped sections with category headers
- * - Search by role name (case-insensitive, trimmed)
- * - Roles already selected in another slot are disabled / hidden
- * - Tapping a role selects it and closes the sheet immediately
- * - Keyboard avoiding view with smooth scrolling
+ * - mode === 'add' (default):
+ *   - Selects 1 role for a slot, closes immediately
+ * - mode === 'edit':
+ *   - "Current Staff Role" section with chips + red ✕
+ *   - "Select Staff Role" section with search and grouped list
+ *   - Tapping role adds chip (max 3)
+ *   - Bottom "Confirm" button (active when valid & changed)
  */
 export const StaffRoleSheet: React.FC<StaffRoleSheetProps> = ({
   visible,
+  mode = 'add',
   selectedRoleName,
   disabledRoleNames = [],
+  currentRoles = [],
   onSelectRole,
+  onConfirmRoles,
   onClose,
 }) => {
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
-  // Filter sections by search query and remove disabled roles
+  // Keyboard height handling
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      if (e?.endCoordinates?.height) {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  // Edit mode working copy
+  const [workingRoles, setWorkingRoles] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!visible) {
+      setKeyboardHeight(0);
+      return;
+    }
+    if (mode === 'edit') {
+      setWorkingRoles(currentRoles ? [...currentRoles] : []);
+      setSearchQuery('');
+    }
+  }, [visible, mode, currentRoles]);
+
+  // Combined disabled list: in add mode disabledRoleNames; in edit mode workingRoles
+  const activeDisabledRoles = useMemo(() => {
+    if (mode === 'edit') {
+      return workingRoles;
+    }
+    return disabledRoleNames;
+  }, [mode, workingRoles, disabledRoleNames]);
+
+  // Filter sections by search query
   const sections = useMemo(() => {
     const trimmed = searchQuery.trim().toLowerCase();
 
     return STAFF_ROLE_GROUPS.map((group) => {
       const filteredRoles = group.roles.filter((role) => {
-        // Exclude if already selected in another slot
-        if (disabledRoleNames.includes(role.name)) {
-          return false;
-        }
         if (!trimmed) return true;
         return role.name.toLowerCase().includes(trimmed);
       });
@@ -114,11 +179,48 @@ export const StaffRoleSheet: React.FC<StaffRoleSheetProps> = ({
         data: filteredRoles,
       };
     }).filter((section) => section.data.length > 0);
-  }, [searchQuery, disabledRoleNames]);
+  }, [searchQuery]);
 
   const handleSelect = (role: StaffRoleItem) => {
     triggerLightHaptic();
-    onSelectRole(role);
+    if (mode === 'edit') {
+      if (workingRoles.includes(role.name)) {
+        return;
+      }
+      if (workingRoles.length >= 3) {
+        return;
+      }
+      setWorkingRoles((prev) => [...prev, role.name]);
+    } else {
+      Keyboard.dismiss();
+      onSelectRole?.(role);
+      onClose();
+    }
+  };
+
+  const handleRemoveRole = (roleName: string) => {
+    triggerLightHaptic();
+    setWorkingRoles((prev) => prev.filter((r) => r !== roleName));
+  };
+
+  const isChanged = useMemo(() => {
+    if (!currentRoles) return workingRoles.length > 0;
+    if (workingRoles.length !== currentRoles.length) return true;
+    return workingRoles.some((r, i) => r !== currentRoles[i]);
+  }, [workingRoles, currentRoles]);
+
+  const canConfirm = workingRoles.length >= 1 && isChanged;
+
+  const handleConfirm = () => {
+    if (!canConfirm) return;
+    triggerLightHaptic();
+    Keyboard.dismiss();
+    onConfirmRoles?.(workingRoles);
+    onClose();
+  };
+
+  const handleDismiss = () => {
+    Keyboard.dismiss();
     onClose();
   };
 
@@ -127,22 +229,35 @@ export const StaffRoleSheet: React.FC<StaffRoleSheetProps> = ({
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={onClose}
+      statusBarTranslucent
+      onRequestClose={handleDismiss}
     >
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <View
+        style={[
+          styles.overlay,
+          keyboardHeight > 0 ? { paddingBottom: keyboardHeight } : null,
+        ]}
       >
-        <Pressable style={styles.backdrop} onPress={onClose} />
+        <Pressable style={styles.backdrop} onPress={handleDismiss} />
 
-        <View style={[styles.sheetContainer, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+        <View
+          style={[
+            styles.sheetContainer,
+            keyboardHeight > 0
+              ? {
+                  maxHeight: Dimensions.get('window').height - keyboardHeight - (insets.top || 20),
+                }
+              : null,
+            { paddingBottom: keyboardHeight > 0 ? 8 : Math.max(insets.bottom, 24) },
+          ]}
+        >
           {/* ── Header ── */}
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Staff Role</Text>
             <TouchableOpacity
               activeOpacity={0.7}
               style={styles.closeButton}
-              onPress={onClose}
+              onPress={handleDismiss}
               accessible
               accessibilityRole="button"
               accessibilityLabel="Close staff role sheet"
@@ -150,6 +265,35 @@ export const StaffRoleSheet: React.FC<StaffRoleSheetProps> = ({
               <CloseIcon size={20} />
             </TouchableOpacity>
           </View>
+
+          {/* ── Edit Mode: Current Staff Role section (Frame E2) ── */}
+          {mode === 'edit' && (
+            <View style={styles.currentSection}>
+              <Text style={styles.sectionHeading}>Current Staff Role</Text>
+              <View style={styles.chipsRow}>
+                {workingRoles.map((roleName) => (
+                  <View key={roleName} style={styles.roleChip}>
+                    <Text style={styles.roleChipText} numberOfLines={1}>
+                      {roleName}
+                    </Text>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => handleRemoveRole(roleName)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove ${roleName}`}
+                    >
+                      <CircleXBadgeIcon size={24} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+
+              <Text style={styles.sectionHeading}>Select Staff Role</Text>
+              <Text style={styles.helperText}>
+                What is the role of this staff in your business
+              </Text>
+            </View>
+          )}
 
           {/* ── Search Bar ── */}
           <View style={styles.searchContainer}>
@@ -179,6 +323,7 @@ export const StaffRoleSheet: React.FC<StaffRoleSheetProps> = ({
               sections={sections}
               keyExtractor={(item) => item.id}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.listContent}
               renderSectionHeader={({ section: { title } }) => (
@@ -187,36 +332,69 @@ export const StaffRoleSheet: React.FC<StaffRoleSheetProps> = ({
                 </View>
               )}
               renderItem={({ item }) => {
-                const isSelected = selectedRoleName === item.name;
+                const isSelectedInAdd = mode === 'add' && selectedRoleName === item.name;
+                const isAlreadyAdded = activeDisabledRoles.includes(item.name);
+                const isRowDisabled = isAlreadyAdded;
 
                 return (
                   <TouchableOpacity
-                    activeOpacity={0.7}
-                    style={styles.roleRow}
-                    onPress={() => handleSelect(item)}
+                    activeOpacity={isRowDisabled ? 1 : 0.7}
+                    style={[styles.roleRow, isRowDisabled && styles.roleRowDisabled]}
+                    onPress={() => !isRowDisabled && handleSelect(item)}
+                    disabled={isRowDisabled}
                     accessible
                     accessibilityRole="radio"
-                    accessibilityState={{ selected: isSelected }}
+                    accessibilityState={{ selected: isSelectedInAdd || isAlreadyAdded }}
                     accessibilityLabel={item.name}
                   >
                     <Text
                       style={[
                         styles.roleName,
-                        isSelected && styles.roleNameSelected,
+                        (isSelectedInAdd || isAlreadyAdded) && styles.roleNameSelected,
+                        isRowDisabled && styles.roleNameDisabled,
                       ]}
                       numberOfLines={1}
                       ellipsizeMode="tail"
                     >
                       {item.name}
                     </Text>
-                    <RadioCheckIcon isSelected={isSelected} />
+                    <RadioCheckIcon
+                      isSelected={isSelectedInAdd || isAlreadyAdded}
+                      disabled={isRowDisabled}
+                    />
                   </TouchableOpacity>
                 );
               }}
             />
           )}
+
+          {/* ── Edit Mode: Confirm Button (Frame E2) ── */}
+          {mode === 'edit' && (
+            <View style={styles.confirmButtonContainer}>
+              <TouchableOpacity
+                activeOpacity={canConfirm ? 0.85 : 1}
+                style={[
+                  styles.confirmButton,
+                  canConfirm ? styles.confirmButtonActive : styles.confirmButtonDisabled,
+                ]}
+                onPress={handleConfirm}
+                accessibilityRole="button"
+                accessibilityLabel="Confirm"
+                accessibilityState={{ disabled: !canConfirm }}
+              >
+                <Text
+                  style={[
+                    styles.confirmButtonText,
+                    canConfirm ? styles.confirmTextActive : styles.confirmTextDisabled,
+                  ]}
+                >
+                  Confirm
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 };
@@ -240,7 +418,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '85%',
+    maxHeight: '88%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.1,
@@ -275,9 +453,57 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  currentSection: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  sectionHeading: {
+    fontFamily: FONT_MEDIUM,
+    fontWeight: '500',
+    fontSize: 20,
+    lineHeight: 28,
+    letterSpacing: 0.2,
+    color: '#000000',
+    marginBottom: 8,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 20,
+  },
+  roleChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(192, 192, 204, 0.96)',
+    minWidth: 140,
+    gap: 12,
+  },
+  roleChipText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.4,
+    color: 'rgba(0, 8, 20, 0.96)',
+  },
+  helperText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.4,
+    color: 'rgba(96, 96, 102, 0.96)',
+    marginBottom: 12,
+  },
   searchContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   searchBar: {
     height: 48,
@@ -299,11 +525,11 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 16,
-    paddingBottom: 24,
+    paddingBottom: 16,
   },
   sectionHeader: {
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingTop: 12,
+    paddingBottom: 6,
     backgroundColor: '#FFFFFF',
   },
   sectionHeaderText: {
@@ -320,6 +546,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 8,
   },
+  roleRowDisabled: {
+    opacity: 0.4,
+  },
   roleName: {
     flex: 1,
     fontFamily: FONT_REGULAR,
@@ -333,6 +562,9 @@ const styles = StyleSheet.create({
     fontFamily: FONT_MEDIUM,
     color: 'rgba(0, 8, 20, 0.96)',
   },
+  roleNameDisabled: {
+    color: 'rgba(96, 96, 102, 0.96)',
+  },
   emptyContainer: {
     padding: 32,
     alignItems: 'center',
@@ -344,5 +576,38 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: 'rgba(96, 96, 102, 0.96)',
     textAlign: 'center',
+  },
+  confirmButtonContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(235, 235, 245, 0.96)',
+    backgroundColor: '#FFFFFF',
+  },
+  confirmButton: {
+    width: '100%',
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmButtonActive: {
+    backgroundColor: 'rgba(0, 8, 20, 0.96)',
+  },
+  confirmButtonDisabled: {
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+  },
+  confirmButtonText: {
+    fontFamily: FONT_BUTTON,
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.15,
+  },
+  confirmTextActive: {
+    color: '#FFFFFF',
+  },
+  confirmTextDisabled: {
+    color: 'rgba(192, 192, 204, 0.96)',
   },
 });

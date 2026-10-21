@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,8 +8,9 @@ import {
   StyleSheet,
   Pressable,
   Platform,
-  KeyboardAvoidingView,
   ScrollView,
+  Keyboard,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -50,6 +51,7 @@ export const ALL_PRESET_YEARS: number[] = [5, 7, 6, 1, 3, 2];
 
 export interface ExperienceSheetProps {
   visible: boolean;
+  mode?: 'add' | 'edit';
   currentYears?: number | null;
   onConfirm: (years: number) => void;
   onClose: () => void;
@@ -108,6 +110,21 @@ function ChipCheckIcon({
   );
 }
 
+// ── Red Circle ✕ Badge Icon (24x24) ──
+function CircleXBadgeIcon({ size = 24 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" fill="rgba(204, 41, 41, 0.9)" />
+      <Path
+        d="M9 9l6 6M15 9l-6 6"
+        stroke="#FFFFFF"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
 // ── Inline Checkmark Icon for Custom Input Confirmation ──
 function InlineCheckIcon({ size = 24 }: { size?: number }) {
   return (
@@ -124,31 +141,46 @@ function InlineCheckIcon({ size = 24 }: { size?: number }) {
 }
 
 /**
- * 1:1 Figma Work Experience Bottom Sheet (CSS Spec: "work experience", height: 636px)
- *
- * Measurements from CSS:
- * - Sheet: width 390px, minHeight 636px, radius 24px 24px 0 0
- * - Header: height 64px, title "Work Experience" (16px SF Pro 400), close button 40x40 at right 16px
- * - Line 64 divider: borderBottom 1px solid rgba(235, 235, 245, 0.96)
- * - Question: "What level of experience does this staff have?" (16px SF Pro 400, line-height 24px, color rgba(96, 96, 102, 0.96))
- * - Dates grid: 360px wide, height 214.5px, 3 rows x 2 cols
- * - Chips: 168x48px, radius 24px, padding 8px 16px, colGap 24px, rowGap 31.5px
- * - Custom input field: height 57px, borderBottom 1px solid rgba(235, 235, 245, 0.96), placeholder "Enter custom work experience"
- * - Action button footer: height 80px, padding 16px, 358x48px Confirm button
+ * 1:1 Figma Work Experience Bottom Sheet (Add mode & Edit mode Frame E3)
  */
 export const ExperienceSheet: React.FC<ExperienceSheetProps> = ({
   visible,
+  mode = 'add',
   currentYears,
   onConfirm,
   onClose,
 }) => {
   const insets = useSafeAreaInsets();
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const [selectedPreset, setSelectedPreset] = useState<number | null>(null);
   const [customText, setCustomText] = useState<string>('');
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
-    if (!visible) return;
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      if (e?.endCoordinates?.height) {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!visible) {
+      setKeyboardHeight(0);
+      return;
+    }
 
     if (currentYears !== undefined && currentYears !== null && currentYears > 0) {
       if (ALL_PRESET_YEARS.includes(currentYears)) {
@@ -171,7 +203,6 @@ export const ExperienceSheet: React.FC<ExperienceSheetProps> = ({
   };
 
   const handleCustomChange = (text: string) => {
-    // Only allow digits and one decimal dot
     const cleaned = text.replace(/[^0-9.]/g, '');
     setCustomText(cleaned);
     if (cleaned.length > 0) {
@@ -179,17 +210,35 @@ export const ExperienceSheet: React.FC<ExperienceSheetProps> = ({
     }
   };
 
-  // Determine active value
+  // Active computed value
   const parsedCustom = parseFloat(customText);
   const isCustomValid = !isNaN(parsedCustom) && parsedCustom > 0;
-  const isComplete = selectedPreset !== null || isCustomValid;
+  const activeYears = selectedPreset !== null ? selectedPreset : (isCustomValid ? parsedCustom : null);
+
+  const isComplete = activeYears !== null && activeYears > 0;
+
+  const isChanged = useMemo(() => {
+    if (mode !== 'edit') return true;
+    return activeYears !== (currentYears ?? null);
+  }, [mode, activeYears, currentYears]);
+
+  const canConfirm = isComplete && isChanged;
 
   const handleConfirmPress = () => {
-    if (!isComplete) return;
-
+    if (!canConfirm) return;
     triggerLightHaptic();
-    const finalValue = selectedPreset !== null ? selectedPreset : parsedCustom;
-    onConfirm(finalValue);
+    onConfirm(activeYears!);
+    onClose();
+  };
+
+  const handleClearCurrent = () => {
+    triggerLightHaptic();
+    setSelectedPreset(null);
+    setCustomText('');
+  };
+
+  const handleDismiss = () => {
+    Keyboard.dismiss();
     onClose();
   };
 
@@ -198,43 +247,87 @@ export const ExperienceSheet: React.FC<ExperienceSheetProps> = ({
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={onClose}
+      statusBarTranslucent
+      onRequestClose={handleDismiss}
     >
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <View
+        style={[
+          styles.overlay,
+          keyboardHeight > 0 ? { paddingBottom: keyboardHeight } : null,
+        ]}
       >
-        <Pressable style={styles.backdrop} onPress={onClose} />
+        <Pressable style={styles.backdrop} onPress={handleDismiss} />
 
-        <View style={[styles.sheetContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <View
+          style={[
+            styles.sheetContainer,
+            keyboardHeight > 0
+              ? {
+                  minHeight: 0,
+                  maxHeight: Dimensions.get('window').height - keyboardHeight - (insets.top || 20),
+                }
+              : null,
+            { paddingBottom: keyboardHeight > 0 ? 8 : Math.max(insets.bottom, 16) },
+          ]}
+        >
           {/* ── 1. Header (64px, CSS Spec Line 65) ── */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Work Experience</Text>
+            <Text style={styles.headerTitle}>Experience</Text>
             <TouchableOpacity
               activeOpacity={0.7}
               style={styles.closeButton}
-              onPress={onClose}
+              onPress={handleDismiss}
               accessible
               accessibilityRole="button"
-              accessibilityLabel="Close work experience sheet"
+              accessibilityLabel="Close experience sheet"
             >
               <CloseIcon size={24} />
             </TouchableOpacity>
           </View>
 
           <ScrollView
+            ref={scrollViewRef}
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
             showsVerticalScrollIndicator={false}
           >
-            {/* ── 2. Body Container (width: 360, gap: 24, CSS Spec) ── */}
+            {/* ── 2. Edit Mode: Current Experience Section (Frame E3) ── */}
+            {mode === 'edit' && (
+              <View style={styles.currentSection}>
+                <Text style={styles.sectionHeading}>Current Experience</Text>
+                {activeYears !== null && activeYears > 0 ? (
+                  <View style={styles.currentChip}>
+                    <Text style={styles.currentChipText}>
+                      {activeYears === 1 ? '1 Year' : `${activeYears} Years`}
+                    </Text>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={handleClearCurrent}
+                      accessibilityRole="button"
+                      accessibilityLabel="Clear current experience"
+                    >
+                      <CircleXBadgeIcon size={24} />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <Text style={styles.noCurrentText}>No experience selected</Text>
+                )}
+              </View>
+            )}
+
+            {/* ── 3. Body Container (width: 360, gap: 24, CSS Spec) ── */}
             <View style={styles.bodyContainer}>
+              {mode === 'edit' && (
+                <Text style={styles.sectionHeading}>Select Experience</Text>
+              )}
+
               {/* Question: What level of experience does this staff have? */}
               <Text style={styles.questionText}>
                 What level of experience does this staff have?
               </Text>
 
-              {/* ── 3. Dates Grid (360x214.5px, colGap: 24, rowGap: 31.5) ── */}
+              {/* ── 4. Dates Grid (360x214.5px, colGap: 24, rowGap: 31.5) ── */}
               <View style={styles.datesGrid}>
                 {EXPERIENCE_PRESET_PAIRS.map(([leftItem, rightItem], rowIdx) => {
                   const isLeftSelected = selectedPreset === leftItem.years;
@@ -319,45 +412,43 @@ export const ExperienceSheet: React.FC<ExperienceSheetProps> = ({
                   );
                 })}
               </View>
-            </View>
 
-            {/* ── 4. Custom Input Field (height: 57px, CSS Spec) ── */}
-            <View style={styles.customInputField}>
-              <TextInput
-                style={styles.customTextInput}
-                placeholder="Enter custom work experience"
-                placeholderTextColor="rgba(96, 96, 102, 0.96)"
-                keyboardType="decimal-pad"
-                value={customText}
-                onChangeText={handleCustomChange}
-                accessible
-                accessibilityLabel="Enter custom work experience"
-              />
-
-              {isCustomValid && (
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  style={styles.inlineConfirmButton}
-                  onPress={handleConfirmPress}
+              {/* ── 5. Custom Work Experience Input ── */}
+              <View style={styles.customFieldContainer}>
+                <TextInput
+                  style={styles.customInput}
+                  placeholder="Enter custom work experience"
+                  placeholderTextColor="rgba(96, 96, 102, 0.96)"
+                  value={customText}
+                  onChangeText={handleCustomChange}
+                  onFocus={() => {
+                    setTimeout(() => {
+                      scrollViewRef.current?.scrollToEnd({ animated: true });
+                    }, 120);
+                  }}
+                  keyboardType="numeric"
                   accessible
-                  accessibilityRole="button"
-                  accessibilityLabel="Confirm custom experience input"
-                >
-                  <InlineCheckIcon size={20} />
-                </TouchableOpacity>
-              )}
+                  accessibilityLabel="Enter custom work experience in years"
+                />
+
+                {isCustomValid && (
+                  <View style={styles.confirmBadgeCircle}>
+                    <InlineCheckIcon size={20} />
+                  </View>
+                )}
+              </View>
             </View>
           </ScrollView>
 
-          {/* ── 5. Action Button (height: 80px, CSS Spec) ── */}
+          {/* ── 6. Action Button (height: 80px, CSS Spec) ── */}
           <View style={styles.actionButtonContainer}>
             <TouchableOpacity
-              activeOpacity={0.85}
+              activeOpacity={canConfirm ? 0.85 : 1}
               style={[
                 styles.confirmButton,
-                isComplete ? styles.confirmButtonActive : styles.confirmButtonDisabled,
+                canConfirm ? styles.confirmButtonActive : styles.confirmButtonDisabled,
               ]}
-              disabled={!isComplete}
+              disabled={!canConfirm}
               onPress={handleConfirmPress}
               accessible
               accessibilityRole="button"
@@ -366,7 +457,7 @@ export const ExperienceSheet: React.FC<ExperienceSheetProps> = ({
               <Text
                 style={[
                   styles.confirmButtonText,
-                  isComplete ? styles.confirmTextActive : styles.confirmTextDisabled,
+                  canConfirm ? styles.confirmTextActive : styles.confirmTextDisabled,
                 ]}
               >
                 Confirm
@@ -374,7 +465,7 @@ export const ExperienceSheet: React.FC<ExperienceSheetProps> = ({
             </TouchableOpacity>
           </View>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 };
@@ -436,13 +527,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scrollContent: {
-    paddingTop: 40,
+    paddingTop: 24,
     paddingBottom: 24,
     alignItems: 'center',
   },
+  currentSection: {
+    width: 360,
+    marginBottom: 24,
+  },
+  sectionHeading: {
+    fontFamily: FONT_MEDIUM,
+    fontWeight: '500',
+    fontSize: 20,
+    lineHeight: 28,
+    letterSpacing: 0.2,
+    color: '#000000',
+    marginBottom: 12,
+  },
+  currentChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(192, 192, 204, 0.96)',
+    width: 167,
+  },
+  currentChipText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.4,
+    color: 'rgba(0, 8, 20, 0.96)',
+  },
+  noCurrentText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 14,
+    color: 'rgba(96, 96, 102, 0.96)',
+  },
   bodyContainer: {
     width: 360,
-    gap: 24,
+    gap: 20,
   },
   questionText: {
     width: 360,
@@ -454,112 +583,106 @@ const styles = StyleSheet.create({
   },
   datesGrid: {
     width: 360,
-    gap: 31.5,
+    gap: 20,
   },
   gridRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: 360,
+    gap: 24,
   },
   chip: {
     width: 168,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
   },
   chipUnselected: {
-    borderWidth: 1,
-    borderColor: 'rgba(192, 192, 204, 0.96)',
-  },
-  chipFaint: {
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
     borderWidth: 1,
     borderColor: 'rgba(235, 235, 245, 0.96)',
   },
   chipSelected: {
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
     borderWidth: 1,
-    borderColor: 'rgba(0, 8, 20, 0.96)',
+    borderColor: 'rgba(192, 192, 204, 0.96)',
+  },
+  chipFaint: {
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(235, 235, 245, 0.96)',
+    opacity: 0.6,
   },
   chipText: {
     fontFamily: FONT_REGULAR,
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: 0.4,
-    flex: 1,
-    marginRight: 8,
   },
   chipTextUnselected: {
     color: 'rgba(0, 8, 20, 0.96)',
-  },
-  chipTextFaint: {
-    color: 'rgba(235, 235, 245, 0.96)',
   },
   chipTextSelected: {
     color: '#000000',
     fontFamily: FONT_MEDIUM,
   },
-  customInputField: {
-    width: '100%',
+  chipTextFaint: {
+    color: 'rgba(235, 235, 245, 0.96)',
+  },
+  customFieldContainer: {
+    width: 360,
     height: 57,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(235, 235, 245, 0.96)',
-    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    marginTop: 40,
+    paddingVertical: 8,
   },
-  customTextInput: {
+  customInput: {
     flex: 1,
     fontFamily: FONT_REGULAR,
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: 0.4,
-    color: '#000000',
+    color: 'rgba(0, 8, 20, 0.96)',
     paddingVertical: 0,
   },
-  inlineConfirmButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 24,
+  confirmBadgeCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: 'rgba(0, 8, 20, 0.96)',
-    justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 12,
+    justifyContent: 'center',
+    marginLeft: 8,
   },
   actionButtonContainer: {
-    width: '100%',
-    height: 80,
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: 16,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(235, 235, 245, 0.96)',
     backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   confirmButton: {
-    width: 358,
+    width: '100%',
     height: 48,
     borderRadius: 24,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   confirmButtonActive: {
     backgroundColor: 'rgba(0, 8, 20, 0.96)',
-    shadowColor: '#858B94',
-    shadowOffset: { width: 4, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 4,
   },
   confirmButtonDisabled: {
     backgroundColor: 'rgba(247, 247, 247, 0.96)',
   },
   confirmButtonText: {
     fontFamily: FONT_BUTTON,
+    fontWeight: '500',
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: 0.15,

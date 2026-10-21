@@ -227,11 +227,12 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
             styles.scrollContent,
             {
               paddingTop: Math.max(insets.top + 39, 83),
-              paddingBottom: Math.max(insets.bottom + 20, 34) + (isKeyboardVisible ? keyboardHeight * 0.4 : 0),
+              paddingBottom: Math.max(insets.bottom + 20, 34),
             },
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           {/* ── Header Frame (358px x 96px, gap: 16px) ── */}
           <View style={styles.header}>

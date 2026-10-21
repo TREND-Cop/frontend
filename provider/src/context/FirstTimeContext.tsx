@@ -106,47 +106,47 @@ export function calculateMinimumScroll(
   const currentTargetWindowY = targetContentTop - currentScrollY;
   const currentTargetWindowBottom = targetContentBottom - currentScrollY;
 
-  // Step 1 to 5 (Index 0 to 4): Upper cards -> Bubble sits BELOW
-  if (stepIdx < 5) {
-    const isTargetVisible =
-      currentTargetWindowY >= topLimit &&
-      currentTargetWindowBottom <= bottomLimit;
-    const spaceBelow = screenHeight - bottomInset - 8 - currentTargetWindowBottom;
+  // Check if target is already comfortably visible in the upper viewport with full clearance below for the bubble
+  const isTargetVisible =
+    currentTargetWindowY >= topLimit &&
+    currentTargetWindowBottom <= bottomLimit;
+  const currentSpaceBelow = bottomLimit - currentTargetWindowBottom;
 
-    if (isTargetVisible && spaceBelow >= bubbleHeight + gap) {
-      return {
-        newScrollY: currentScrollY,
-        needsScroll: false,
-        predictedSide: 'below',
-      };
-    }
-
-    // Scroll so card top is comfortably near top
-    const targetScroll = Math.max(0, Math.min(maxScroll, targetContentTop - (topLimit + 8)));
+  if (isTargetVisible && currentSpaceBelow >= bubbleHeight + gap) {
     return {
-      newScrollY: targetScroll,
-      needsScroll: Math.abs(targetScroll - currentScrollY) > 2,
+      newScrollY: currentScrollY,
+      needsScroll: false,
       predictedSide: 'below',
     };
   }
 
-  // Step 6 to 11 (Index >= 5): Lower Business Dashboard cards -> Bubble sits ABOVE
-  // Ensure the card is completely visible, 20px clear above the 36px white gradient fade
-  const desiredScrollY = Math.max(0, Math.min(maxScroll, targetContentBottom - (bottomLimit - 8)));
+  // Scroll so the target card is positioned comfortably near the top of the viewport (topLimit + 12)
+  // This leaves the maximum available space below for the tutorial bubble, never jamming cards against the bottom dock
+  const targetScroll = Math.max(0, Math.min(maxScroll, targetContentTop - (topLimit + 12)));
+
+  const predictedWindowBottom = targetContentBottom - targetScroll;
+  const predictedSpaceBelow = bottomLimit - predictedWindowBottom;
+  const predictedSpaceAbove = (targetContentTop - targetScroll) - topLimit;
+
+  let predictedSide: 'below' | 'above' = 'below';
+  if (predictedSpaceBelow < bubbleHeight + gap && predictedSpaceAbove >= bubbleHeight + gap) {
+    predictedSide = 'above';
+  }
 
   return {
-    newScrollY: desiredScrollY,
-    needsScroll: Math.abs(desiredScrollY - currentScrollY) > 2,
-    predictedSide: 'above',
+    newScrollY: targetScroll,
+    needsScroll: Math.abs(targetScroll - currentScrollY) > 2,
+    predictedSide,
   };
 }
 
 /**
  * Deterministic scroll settlement detector.
- * Waits until scroll offset remains unchanged for 2 consecutive animation frames.
+ * Waits until scroll animation has completed and offset remains stable.
  */
 function waitForScrollSettle(
   getScrollY: () => number,
+  targetY?: number,
   timeoutMs: number = 1500
 ): Promise<number> {
   return new Promise((resolve) => {
@@ -156,7 +156,12 @@ function waitForScrollSettle(
 
     function check() {
       const currentY = getScrollY();
-      if (Math.abs(currentY - lastY) < 0.5) {
+      const elapsed = Date.now() - startTime;
+
+      const isNearTarget = targetY !== undefined ? Math.abs(currentY - targetY) < 3 : true;
+      const pastGracePeriod = elapsed > 150;
+
+      if (Math.abs(currentY - lastY) < 0.5 && (isNearTarget || pastGracePeriod)) {
         stableCount++;
         if (stableCount >= 2) {
           resolve(currentY);
@@ -167,7 +172,7 @@ function waitForScrollSettle(
         lastY = currentY;
       }
 
-      if (Date.now() - startTime > timeoutMs) {
+      if (elapsed > timeoutMs) {
         resolve(currentY);
         return;
       }
@@ -179,11 +184,8 @@ function waitForScrollSettle(
       }
     }
 
-    if (typeof requestAnimationFrame === 'function') {
-      requestAnimationFrame(check);
-    } else {
-      setTimeout(check, 16);
-    }
+    // Allow native animation to begin dispatching scroll events
+    setTimeout(check, 32);
   });
 }
 
@@ -468,8 +470,8 @@ export const FirstTimeProvider: React.FC<{ children: React.ReactNode }> = ({
 
         scrollToTarget(decision.newScrollY);
 
-        // Wait until scroll has actually settled (2 consecutive unchanged frames)
-        await waitForScrollSettle(() => scrollOffsetYRef.current, 1500);
+        // Wait until scroll has actually settled
+        await waitForScrollSettle(() => scrollOffsetYRef.current, decision.newScrollY, 1500);
         if (activeStepIdRef.current !== targetId) return;
       }
 
