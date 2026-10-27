@@ -13,7 +13,6 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { OtpInput, OtpStatus } from '../../components/OtpInput';
-import { SimpleArrowLeftIcon } from '../../components/messages/MessageIcons';
 import { useStaffLoginStore } from '../../context/StaffLoginContext';
 import {
   DEV_STAFF_CODE_ALWAYS_FAIL,
@@ -26,16 +25,11 @@ const STAFF_WELCOME_ILLUSTRATION = require('../../../assets/images/staff/staff_w
 export function StaffLoginCodeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { setVerifiedCode, clearStaffLogin } = useStaffLoginStore();
+  const { setVerifiedCode } = useStaffLoginStore();
 
   const [code, setCode] = useState('');
   const [status, setStatus] = useState<OtpStatus>('default');
   const [isVerifying, setIsVerifying] = useState(false);
-
-  const handleBack = useCallback(() => {
-    clearStaffLogin();
-    router.back();
-  }, [clearStaffLogin, router]);
 
   const handleCodeChange = useCallback((text: string) => {
     setCode(text);
@@ -76,18 +70,6 @@ export function StaffLoginCodeScreen() {
     >
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <StatusBar style="dark" />
-
-        {/* ── Top Back Arrow (Header) ── */}
-        <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={styles.backButtonTouch}
-            onPress={handleBack}
-            activeOpacity={0.7}
-            accessibilityLabel="Go back to entry screen"
-          >
-            <SimpleArrowLeftIcon size={24} color="rgba(0, 8, 20, 0.96)" />
-          </TouchableOpacity>
-        </View>
 
         <ScrollView
           style={styles.scrollContainer}
@@ -162,25 +144,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
 
-  // ── Header Row ──
-  headerRow: {
-    height: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
-  },
-  backButtonTouch: {
-    width: 48,
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-  },
-
   scrollContainer: {
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 16,
     alignItems: 'center',
   },
@@ -190,7 +158,7 @@ const styles = StyleSheet.create({
     width: 214,
     alignItems: 'center',
     gap: 16,
-    marginTop: 12,
+    marginTop: 28,
     marginBottom: 36,
   },
   illustration: {
@@ -243,7 +211,7 @@ const styles = StyleSheet.create({
     width: 312,
     alignSelf: 'center',
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 32,
   },
   errorMessageWrapper: {
     width: 312,
@@ -265,6 +233,8 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 358,
     alignItems: 'center',
+    marginTop: 'auto',
+    paddingTop: 48,
   },
   submitButton: {
     width: '100%',
