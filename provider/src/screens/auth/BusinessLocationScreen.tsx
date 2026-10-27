@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Keyboard,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -137,6 +138,29 @@ export const BusinessLocationScreen: React.FC = () => {
   const [showGenderSheet, setShowGenderSheet] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Keyboard and scroll handling so inputs/buttons are never obscured
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      if (e?.endCoordinates?.height) {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   // ── Country Options (Nigeria +234 pinned first) ──
   const countryOptions: SelectionOption[] = useMemo(() => {
     try {
@@ -244,16 +268,21 @@ export const BusinessLocationScreen: React.FC = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
+          ref={scrollViewRef}
           style={styles.flexOne}
           contentContainerStyle={[
             styles.scrollContent,
             {
               paddingTop: Math.max(insets.top, 24),
-              paddingBottom: Math.max(insets.bottom, 24) + 16,
+              paddingBottom:
+                keyboardHeight > 0
+                  ? keyboardHeight + 80
+                  : Math.max(insets.bottom, 24) + 16,
             },
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           {/* ── Unified Step Progress Header (Step 3 of 4) ── */}
           <StepProgressHeader
@@ -340,6 +369,12 @@ export const BusinessLocationScreen: React.FC = () => {
                   onChangeText={(val) => {
                     setAddress(val);
                     if (errors.address) setErrors((prev) => ({ ...prev, address: undefined }));
+                  }}
+                  onFocus={() => {
+                    // Smoothly scroll address and fields into view above virtual keyboard
+                    setTimeout(() => {
+                      scrollViewRef.current?.scrollTo({ y: 280, animated: true });
+                    }, 120);
                   }}
                   autoCapitalize="words"
                 />

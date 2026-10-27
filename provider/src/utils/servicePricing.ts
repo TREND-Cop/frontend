@@ -41,17 +41,31 @@ export function getServicePricing(
   const basePrice = price && price > 0 ? price : 0;
   const baseDiscount = discount && discount > 0 ? discount : 0;
 
-  if (baseDiscount > 0 && baseDiscount < basePrice) {
-    const discounted = basePrice - baseDiscount;
-    const percent = Math.round((baseDiscount / basePrice) * 100);
+  if (baseDiscount > 0 && basePrice > 0) {
+    let percent = 0;
+    let discounted = basePrice;
 
-    return {
-      hasDiscount: true,
-      displayPrice: formatNaira(discounted),
-      originalPrice: formatNaira(basePrice),
-      percentOff: percent,
-      discountedPriceNumber: discounted,
-    };
+    // Smart detection:
+    // If discount <= 100 and basePrice > 100, treat as a percentage (e.g. 10 -> 10% OFF)
+    if (baseDiscount <= 100) {
+      percent = Math.round(baseDiscount);
+      const discountAmount = Math.round(basePrice * (percent / 100));
+      discounted = Math.max(0, basePrice - discountAmount);
+    } else if (baseDiscount < basePrice) {
+      // Treat as cash amount (e.g. 1000 off 14200 -> 7% OFF)
+      discounted = Math.max(0, basePrice - baseDiscount);
+      percent = Math.round((baseDiscount / basePrice) * 100);
+    }
+
+    if (percent > 0 && discounted < basePrice) {
+      return {
+        hasDiscount: true,
+        displayPrice: formatNaira(discounted),
+        originalPrice: formatNaira(basePrice),
+        percentOff: percent,
+        discountedPriceNumber: discounted,
+      };
+    }
   }
 
   return {

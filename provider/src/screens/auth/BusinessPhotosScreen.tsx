@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  Keyboard,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -170,6 +171,53 @@ export const BusinessPhotosScreen: React.FC = () => {
     closingHours?: string;
   }>({});
 
+  // Keyboard and ScrollView management
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const isHoursFocusedRef = useRef(false);
+  const formContainerY = useRef<number>(540);
+  const hoursLayoutY = useRef<number>(560);
+
+  const scrollToHours = useCallback(() => {
+    scrollViewRef.current?.scrollTo({
+      y: Math.max(0, hoursLayoutY.current - 16),
+      animated: true,
+    });
+  }, []);
+
+  const handleFocusHours = useCallback(() => {
+    isHoursFocusedRef.current = true;
+    scrollToHours();
+    setTimeout(scrollToHours, 100);
+    setTimeout(scrollToHours, 250);
+    setTimeout(scrollToHours, 450);
+  }, [scrollToHours]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      if (e?.endCoordinates?.height) {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+      if (isHoursFocusedRef.current) {
+        setTimeout(scrollToHours, 80);
+        setTimeout(scrollToHours, 250);
+      }
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+      isHoursFocusedRef.current = false;
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [scrollToHours]);
+
   // Sheets
   const [showPhotoUploadSheet, setShowPhotoUploadSheet] = useState(false);
   const [showOperatingDaysSheet, setShowOperatingDaysSheet] = useState(false);
@@ -192,7 +240,6 @@ export const BusinessPhotosScreen: React.FC = () => {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: [1, 1],
         quality: 0.85,
       });
 
@@ -224,7 +271,6 @@ export const BusinessPhotosScreen: React.FC = () => {
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: [1, 1],
         quality: 0.85,
       });
 
@@ -331,16 +377,21 @@ export const BusinessPhotosScreen: React.FC = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
+          ref={scrollViewRef}
           style={styles.flexOne}
           contentContainerStyle={[
             styles.scrollContent,
             {
               paddingTop: Math.max(insets.top + 8, 43),
-              paddingBottom: Math.max(insets.bottom + 24, 40),
+              paddingBottom:
+                keyboardHeight > 0
+                  ? keyboardHeight + 120
+                  : Math.max(insets.bottom + 24, 40),
             },
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           {/* ── Unified Step Progress Header (Step 4 of 4) ── */}
           <StepProgressHeader
@@ -395,7 +446,12 @@ export const BusinessPhotosScreen: React.FC = () => {
           {errors.photos && <Text style={styles.errorText}>{errors.photos}</Text>}
 
           {/* ── Frame 1000006621: Form Inputs Container (top: 566px, width: 358px, gap: 40px) ── */}
-          <View style={styles.formContainer}>
+          <View
+            style={styles.formContainer}
+            onLayout={(e) => {
+              formContainerY.current = e.nativeEvent.layout.y;
+            }}
+          >
             {/* 1. Business Operating Days (height: 139px, gap: 24px) */}
             <View style={styles.fieldBlock}>
               <View style={styles.fieldHeader}>
@@ -430,7 +486,12 @@ export const BusinessPhotosScreen: React.FC = () => {
             </View>
 
             {/* 2. Business Operating Hours (height: 153.25px, gap: 24px) */}
-            <View style={styles.fieldBlock}>
+            <View
+              style={styles.fieldBlock}
+              onLayout={(e) => {
+                hoursLayoutY.current = formContainerY.current + e.nativeEvent.layout.y;
+              }}
+            >
               <View style={styles.fieldHeader}>
                 <Text style={styles.fieldTitle}>Business Operating Hours</Text>
                 <Text style={styles.fieldSubtitle}>
@@ -451,6 +512,7 @@ export const BusinessPhotosScreen: React.FC = () => {
                         setErrors((prev) => ({ ...prev, openingHours: undefined }));
                       }
                     }}
+                    onFocus={handleFocusHours}
                     placeholder="0:00 am"
                     label="Opening Hours"
                     error={errors.openingHours}
@@ -471,6 +533,7 @@ export const BusinessPhotosScreen: React.FC = () => {
                         setErrors((prev) => ({ ...prev, closingHours: undefined }));
                       }
                     }}
+                    onFocus={handleFocusHours}
                     placeholder="0:00 pm"
                     label="Closing Hours"
                     error={errors.closingHours}

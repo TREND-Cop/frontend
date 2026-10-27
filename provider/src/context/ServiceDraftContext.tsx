@@ -130,7 +130,7 @@ const INITIAL_DRAFT: ServiceDraft = {
   packages: [],
   staffIds: [],
   providerIsOwner: false,
-  addOns: [createEmptyAddOn('initial')],
+  addOns: [],
 };
 
 interface ServiceDraftContextType {
@@ -322,10 +322,19 @@ export const ServiceDraftProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
 
   const updateAddOn = useCallback((id: string, updates: Partial<AddOnItem>) => {
-    setDraft((prev) => ({
-      ...prev,
-      addOns: prev.addOns.map((item) => (item.id === id ? { ...item, ...updates } : item)),
-    }));
+    setDraft((prev) => {
+      const exists = prev.addOns.some((item) => item.id === id);
+      if (exists) {
+        return {
+          ...prev,
+          addOns: prev.addOns.map((item) => (item.id === id ? { ...item, ...updates } : item)),
+        };
+      }
+      return {
+        ...prev,
+        addOns: [...prev.addOns, { ...createEmptyAddOn(), id, ...updates }],
+      };
+    });
   }, []);
 
   const addAddOnBlock = useCallback(() => {

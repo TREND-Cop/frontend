@@ -9,6 +9,7 @@ export interface LoadingOverlayProps {
   dotGap?: number;
   overlayOpacity?: number;
   dotColor?: string;
+  centered?: boolean;
 }
 
 /**
@@ -26,6 +27,7 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
   dotGap = 20,
   overlayOpacity = 0.1,
   dotColor = 'rgba(0, 8, 20, 0.96)',
+  centered = false,
 }) => {
   const dot1 = useRef(new Animated.Value(0.35)).current;
   const dot2 = useRef(new Animated.Value(0.35)).current;
@@ -70,7 +72,11 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
     <View
       style={[
         styles.overlay,
-        { paddingTop, backgroundColor: `rgba(0, 0, 0, ${overlayOpacity})` },
+        {
+          paddingTop: centered ? undefined : paddingTop,
+          justifyContent: centered ? 'center' : undefined,
+          backgroundColor: `rgba(0, 0, 0, ${overlayOpacity})`,
+        },
       ]}
       pointerEvents="auto"
     >

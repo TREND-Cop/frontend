@@ -11,6 +11,7 @@ import {
   Dimensions,
   AccessibilityInfo,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ConfettiBurst } from './ConfettiBurst';
 import { PartyPoppers } from './PartyPopper';
@@ -19,14 +20,44 @@ import { CELEBRATION_CONFIG } from '../../constants/celebration.config';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const BUNTING_IMAGE = require('../../../../provider/assets/images/dashboard/welcome_bunting.png');
 
-interface WelcomeCardProps {
+function CloseXIcon({ size = 24, color = '#141B34' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6 6L18 18M18 6L6 18"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export interface WelcomeCardProps {
   visible: boolean;
-  onGetStarted: () => void;
+  onGetStarted?: () => void;
+  title?: string;
+  subtitle?: string;
+  buttonText?: string;
+  showCloseButton?: boolean;
+  onClose?: () => void;
+  hideActionButton?: boolean;
+  cardHeight?: number;
+  transparentBackdrop?: boolean;
 }
 
 export const WelcomeCard: React.FC<WelcomeCardProps> = ({
   visible,
   onGetStarted,
+  title,
+  subtitle,
+  buttonText,
+  showCloseButton = false,
+  onClose,
+  hideActionButton = false,
+  cardHeight,
+  transparentBackdrop = false,
 }) => {
   const [isExiting, setIsExiting] = useState(false);
   const [isConfettiActive, setIsConfettiActive] = useState(true);
@@ -219,9 +250,30 @@ export const WelcomeCard: React.FC<WelcomeCardProps> = ({
       }),
     ]).start(() => {
       // Seamless hand-off: backdrop stays dimmed, spotlight cutout smoothly takes over
-      onGetStarted();
+      onGetStarted?.();
     });
   }, [isExiting, cardOpacity, cardScale, onGetStarted]);
+
+  const handleClose = useCallback(() => {
+    if (isExiting) return;
+    setIsExiting(true);
+    Animated.parallel([
+      Animated.timing(cardOpacity, {
+        toValue: 0,
+        duration: CELEBRATION_CONFIG.cardExitDuration,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(cardScale, {
+        toValue: 0.96,
+        duration: CELEBRATION_CONFIG.cardExitDuration,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      onClose?.();
+    });
+  }, [isExiting, cardOpacity, cardScale, onClose]);
 
   if (!visible) return null;
 
@@ -232,6 +284,7 @@ export const WelcomeCard: React.FC<WelcomeCardProps> = ({
         pointerEvents="none"
         style={[
           styles.backdropOverlay,
+          transparentBackdrop ? { backgroundColor: 'transparent' } : null,
           { opacity: backdropOpacity },
         ]}
       />
@@ -250,6 +303,7 @@ export const WelcomeCard: React.FC<WelcomeCardProps> = ({
         <Animated.View
           style={[
             styles.cardContainer,
+            cardHeight ? { height: cardHeight } : null,
             {
               opacity: cardOpacity,
               transform: [
@@ -259,6 +313,18 @@ export const WelcomeCard: React.FC<WelcomeCardProps> = ({
             },
           ]}
         >
+          {/* ── Close Button (Top Right for Completion Card) ── */}
+          {showCloseButton && (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.cardCloseButton}
+              onPress={handleClose}
+              accessibilityLabel="Close"
+            >
+              <CloseXIcon size={24} color="#141B34" />
+            </TouchableOpacity>
+          )}
+
           {/* ── Bunting Header (Clean Cover, Transparent Background, Soft Gradient Blend) ── */}
           <View style={styles.buntingContainer}>
             <Image
@@ -283,8 +349,10 @@ export const WelcomeCard: React.FC<WelcomeCardProps> = ({
                 transform: [{ translateY: titleTranslateY }],
               }}
             >
-              <Text style={styles.titleText}>
-                {CELEBRATION_CONFIG.titleCopy}
+              <Text
+                style={showCloseButton ? styles.completionTitleText : styles.titleText}
+              >
+                {title ?? CELEBRATION_CONFIG.titleCopy}
               </Text>
             </Animated.View>
 
@@ -295,28 +363,36 @@ export const WelcomeCard: React.FC<WelcomeCardProps> = ({
                 transform: [{ translateY: subtitleTranslateY }],
               }}
             >
-              <Text style={styles.subtitleText}>
-                {CELEBRATION_CONFIG.subtitleCopy}
+              <Text
+                style={
+                  showCloseButton
+                    ? styles.completionSubtitleText
+                    : styles.subtitleText
+                }
+              >
+                {subtitle ?? CELEBRATION_CONFIG.subtitleCopy}
               </Text>
             </Animated.View>
 
             {/* Action Button: 'Get started' */}
-            <Animated.View
-              style={{
-                opacity: buttonOpacity,
-                transform: [{ translateY: buttonTranslateY }],
-              }}
-            >
-              <TouchableOpacity
-                activeOpacity={0.85}
-                style={styles.getStartedButton}
-                onPress={handlePress}
+            {!hideActionButton && (
+              <Animated.View
+                style={{
+                  opacity: buttonOpacity,
+                  transform: [{ translateY: buttonTranslateY }],
+                }}
               >
-                <Text style={styles.getStartedText}>
-                  {CELEBRATION_CONFIG.buttonCopy}
-                </Text>
-              </TouchableOpacity>
-            </Animated.View>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={styles.getStartedButton}
+                  onPress={handlePress}
+                >
+                  <Text style={styles.getStartedText}>
+                    {buttonText ?? CELEBRATION_CONFIG.buttonCopy}
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
+            )}
           </View>
         </Animated.View>
       </View>
@@ -369,6 +445,18 @@ const styles = StyleSheet.create({
     position: 'relative',
     zIndex: 11,
   },
+  cardCloseButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(235, 235, 245, 0.96)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 20,
+  },
   buntingContainer: {
     width: 358,
     height: 149,
@@ -415,6 +503,30 @@ const styles = StyleSheet.create({
     color: '#606066',
     textAlign: 'center',
     marginBottom: 40,
+    includeFontPadding: false,
+  },
+  completionTitleText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 20,
+    lineHeight: 28,
+    letterSpacing: 0.2,
+    color: '#000000',
+    textAlign: 'center',
+    marginTop: 14,
+    marginBottom: 16,
+    includeFontPadding: false,
+  },
+  completionSubtitleText: {
+    width: 262,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.4,
+    color: 'rgba(96, 96, 102, 0.96)',
+    textAlign: 'center',
+    marginBottom: 0,
     includeFontPadding: false,
   },
   getStartedButton: {

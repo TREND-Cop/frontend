@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   LayoutChangeEvent,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -28,7 +29,6 @@ import { ProviderPhotoUploadSheet } from '../../components/ProviderPhotoUploadSh
 import { PackageBlockList } from '../../components/wizard/PackageBlockList';
 import { ServiceFormSkeleton } from '../../components/wizard/ServiceFormSkeleton';
 import { DashedPhotoSlot } from '../../components/wizard/DashedPhotoSlot';
-import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 import { triggerLightHaptic } from '../../utils/haptics';
 
 const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
@@ -77,10 +77,15 @@ function HelpCircleIcon({ size = 24, color = '#141B34' }: { size?: number; color
 
 function InfoCircleIcon({ size = 20, color = 'rgba(192, 192, 204, 0.96)' }: { size?: number; color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-      <Circle cx="10" cy="10" r="8.33" stroke={color} strokeWidth={1.2} />
-      <Path d="M10 9V14" stroke={color} strokeWidth={1.2} strokeLinecap="round" />
-      <Circle cx="10" cy="6.5" r="0.8" fill={color} />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth={1.5} />
+      <Path
+        d="M9.5 9.5C9.5 8.12 10.62 7 12 7C13.38 7 14.5 8.12 14.5 9.5C14.5 11 12.5 11.75 12.5 13.5"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+      <Circle cx="12.5" cy="16.5" r="0.75" fill={color} />
     </Svg>
   );
 }
@@ -195,9 +200,74 @@ export const BusinessServicesWizardScreen: React.FC = () => {
 
   // Field layout coordinates for measured auto-scroll
   const fieldOffsets = useRef<Record<string, number>>({});
+  const activeFocusedFieldRef = useRef<string | null>(null);
+
+  // Fallback anchor offsets (in px) in case onLayout is delayed or interrupted
+  const FIELD_FALLBACK_OFFSETS: Record<string, number> = {
+    category: 180,
+    name: 440,
+    description: 580,
+    discounts: 740,
+    gender: 860,
+    serviceType: 980,
+    priceDuration: 1100,
+    package: 1240,
+  };
+
   const setFieldLayout = (key: string) => (e: LayoutChangeEvent) => {
     fieldOffsets.current[key] = e.nativeEvent.layout.y;
   };
+
+  const scrollToActiveField = useCallback((key?: string | null) => {
+    const targetKey = key || activeFocusedFieldRef.current;
+    if (!targetKey) return;
+    const measured = fieldOffsets.current[targetKey];
+    const fallback = FIELD_FALLBACK_OFFSETS[targetKey];
+    const targetY = measured !== undefined ? measured : fallback;
+    if (targetY !== undefined && scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({
+        y: Math.max(0, targetY - 16),
+        animated: true,
+      });
+    }
+  }, []);
+
+  // Keyboard height tracking for responsive bottom padding & smooth input scrolling
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      if (e?.endCoordinates?.height) {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+      setTimeout(() => {
+        scrollToActiveField();
+      }, 80);
+      setTimeout(() => {
+        scrollToActiveField();
+      }, 250);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+      activeFocusedFieldRef.current = null;
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [scrollToActiveField]);
+
+  const handleFocusField = useCallback((key: string) => {
+    activeFocusedFieldRef.current = key;
+    scrollToActiveField(key);
+    setTimeout(() => scrollToActiveField(key), 100);
+    setTimeout(() => scrollToActiveField(key), 300);
+    setTimeout(() => scrollToActiveField(key), 500);
+  }, [scrollToActiveField]);
 
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 
@@ -448,7 +518,7 @@ export const BusinessServicesWizardScreen: React.FC = () => {
 
       if (firstKey && fieldOffsets.current[firstKey] !== undefined) {
         scrollViewRef.current?.scrollTo({
-          y: Math.max(0, fieldOffsets.current[firstKey] - 16),
+          y: Math.max(0, fieldOffsets.current[firstKey] - 32),
           animated: true,
         });
       }
@@ -472,7 +542,6 @@ export const BusinessServicesWizardScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <ServiceFormSkeleton />
-        <NativeDockSpacer backgroundColor="#FFFFFF" />
       </SafeAreaView>
     );
   }
@@ -513,7 +582,10 @@ export const BusinessServicesWizardScreen: React.FC = () => {
           contentContainerStyle={[
             styles.scrollContent,
             {
-              paddingBottom: Math.max(insets.bottom, 16) + 60,
+              paddingBottom:
+                keyboardHeight > 0
+                  ? keyboardHeight + 140
+                  : Math.max(insets.bottom, 16) + 120,
             },
           ]}
           showsVerticalScrollIndicator={false}
@@ -619,6 +691,7 @@ export const BusinessServicesWizardScreen: React.FC = () => {
                 placeholderTextColor="rgba(192, 192, 204, 0.96)"
                 value={draft.name}
                 onChangeText={(text) => setDraftField('name', text)}
+                onFocus={() => handleFocusField('name')}
                 autoCapitalize="words"
               />
             </View>
@@ -629,7 +702,7 @@ export const BusinessServicesWizardScreen: React.FC = () => {
           </View>
 
           {/* ── 7. Service Description ⓘ (Optional) ── */}
-          <View style={styles.fieldSection}>
+          <View style={styles.fieldSection} onLayout={setFieldLayout('description')}>
             <View style={styles.labelWithInfoRow}>
               <Text style={styles.fieldLabel}>Service Description</Text>
               <TouchableOpacity
@@ -649,6 +722,7 @@ export const BusinessServicesWizardScreen: React.FC = () => {
                 placeholderTextColor="rgba(192, 192, 204, 0.96)"
                 value={draft.description}
                 onChangeText={(text) => setDraftField('description', text)}
+                onFocus={() => handleFocusField('description')}
                 multiline
                 textAlignVertical="top"
               />
@@ -660,7 +734,7 @@ export const BusinessServicesWizardScreen: React.FC = () => {
           </View>
 
           {/* ── 8. Discounts ⓘ (Amount input per v2) ── */}
-          <View style={styles.fieldSection}>
+          <View style={styles.fieldSection} onLayout={setFieldLayout('discounts')}>
             <View style={styles.labelWithInfoRow}>
               <Text style={styles.fieldLabel}>Discounts</Text>
               <TouchableOpacity
@@ -681,7 +755,10 @@ export const BusinessServicesWizardScreen: React.FC = () => {
                 value={displayDiscount}
                 onChangeText={handleDiscountChange}
                 onBlur={handleDiscountBlur}
-                onFocus={handleDiscountFocus}
+                onFocus={() => {
+                  handleDiscountFocus();
+                  handleFocusField('discounts');
+                }}
                 keyboardType="numeric"
               />
             </View>
@@ -769,7 +846,10 @@ export const BusinessServicesWizardScreen: React.FC = () => {
                     value={displayPrice}
                     onChangeText={handlePriceChange}
                     onBlur={handlePriceBlur}
-                    onFocus={handlePriceFocus}
+                    onFocus={() => {
+                      handlePriceFocus();
+                      handleFocusField('priceDuration');
+                    }}
                     keyboardType="numeric"
                   />
                 </View>
@@ -804,7 +884,7 @@ export const BusinessServicesWizardScreen: React.FC = () => {
           </View>
 
           {/* ── 12. Service Package (Shared PackageBlockList in Create Mode) ── */}
-          <View style={styles.fieldSection}>
+          <View style={styles.fieldSection} onLayout={setFieldLayout('package')}>
             <PackageBlockList
               packages={draft.packages}
               mode="create"
@@ -819,11 +899,10 @@ export const BusinessServicesWizardScreen: React.FC = () => {
                 triggerLightHaptic();
                 setActiveDurationTarget(pkgId);
               }}
+              onFocusContents={() => handleFocusField('package')}
+              onFocusPrice={() => handleFocusField('package')}
             />
           </View>
-
-          {/* Buffer space before sticky footer */}
-          <View style={{ height: 100 }} />
         </ScrollView>
 
         {/* ── 13. Sticky Footer & Toast Indicator ── */}
@@ -865,8 +944,6 @@ export const BusinessServicesWizardScreen: React.FC = () => {
             </Text>
           </TouchableOpacity>
         </View>
-
-        <NativeDockSpacer backgroundColor="#FFFFFF" />
       </KeyboardAvoidingView>
 
       {/* ── Modals & Sheets ─────────────────────────────────────────────────── */}

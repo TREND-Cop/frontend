@@ -41,10 +41,15 @@ const FONT_REGULAR = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular';
 
 function InfoCircleIcon({ size = 20, color = 'rgba(192, 192, 204, 0.96)' }: { size?: number; color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-      <Circle cx="10" cy="10" r="8.33" stroke={color} strokeWidth={1.2} />
-      <Path d="M10 9V14" stroke={color} strokeWidth={1.2} strokeLinecap="round" />
-      <Circle cx="10" cy="6.5" r="0.8" fill={color} />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth={1.5} />
+      <Path
+        d="M9.5 9.5C9.5 8.12 10.62 7 12 7C13.38 7 14.5 8.12 14.5 9.5C14.5 11 12.5 11.75 12.5 13.5"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+      <Circle cx="12.5" cy="16.5" r="0.75" fill={color} />
     </Svg>
   );
 }

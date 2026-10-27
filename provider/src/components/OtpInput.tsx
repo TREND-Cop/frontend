@@ -18,6 +18,8 @@ export interface OtpInputProps {
   status?: OtpStatus;
   autoFocus?: boolean;
   disabled?: boolean;
+  keepTextColorOnStatus?: boolean;
+  boxBorderColor?: string;
 }
 
 export const OTP_LENGTH = 4;
@@ -28,6 +30,8 @@ export const OtpInput: React.FC<OtpInputProps> = ({
   status = 'default',
   autoFocus = true,
   disabled = false,
+  keepTextColorOnStatus = false,
+  boxBorderColor,
 }) => {
   const inputRef = useRef<TextInput>(null);
 
@@ -81,12 +85,21 @@ export const OtpInput: React.FC<OtpInputProps> = ({
               activeOpacity={0.9}
               style={[
                 styles.box,
+                boxBorderColor ? { borderColor: boxBorderColor } : null,
                 status === 'error' && styles.boxError,
                 status === 'success' && styles.boxSuccess,
               ]}
               onPress={handleBoxPress}
             >
-              <Text style={styles.digitText}>{char}</Text>
+              <Text
+                style={[
+                  styles.digitText,
+                  !keepTextColorOnStatus && status === 'error' && styles.digitTextError,
+                  !keepTextColorOnStatus && status === 'success' && styles.digitTextSuccess,
+                ]}
+              >
+                {char}
+              </Text>
             </TouchableOpacity>
           );
         })}
@@ -143,5 +156,11 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     color: 'rgba(0, 8, 20, 0.96)',
     textAlign: 'center',
+  },
+  digitTextError: {
+    color: '#CC2929',
+  },
+  digitTextSuccess: {
+    color: '#0C790C',
   },
 });

@@ -62,6 +62,12 @@ export interface ProviderOnboardingState {
   // Flag to trigger 4-dot dimmed overlay upon return to dashboard from Payouts success
   showDashboardOverlayAfterPayout: boolean;
   setShowDashboardOverlayAfterPayout: (val: boolean) => void;
+  // Flag to trigger 4-dot dimmed overlay upon return to dashboard from Report review success (Figma Note)
+  showDashboardOverlayAfterReport: boolean;
+  setShowDashboardOverlayAfterReport: (val: boolean) => void;
+  // Timestamp when business name was last changed (6-month lock rule, TODO: Backend ownership)
+  nameChangedAt: string | null;
+  setNameChangedAt: (val: string | null) => void;
   setOwnerProfile: (data: Partial<OwnerProfileData>) => void;
   setBusinessName: (name: string) => void;
   setLocation: (data: Partial<BusinessLocationData>) => void;
@@ -101,6 +107,10 @@ const defaultState: ProviderOnboardingState = {
   setPayoutMethod: () => {},
   showDashboardOverlayAfterPayout: false,
   setShowDashboardOverlayAfterPayout: () => {},
+  showDashboardOverlayAfterReport: false,
+  setShowDashboardOverlayAfterReport: () => {},
+  nameChangedAt: null,
+  setNameChangedAt: () => {},
   setOwnerProfile: () => {},
   setBusinessName: () => {},
   setLocation: () => {},
@@ -119,6 +129,8 @@ export const ProviderOnboardingProvider: React.FC<{ children: React.ReactNode }>
   const [trialStartedAt, setTrialStartedAt] = useState<number | null>(null);
   const [payoutMethod, setPayoutMethod] = useState<SavedPayoutMethod | null>(null);
   const [showDashboardOverlayAfterPayout, setShowDashboardOverlayAfterPayout] = useState<boolean>(false);
+  const [showDashboardOverlayAfterReport, setShowDashboardOverlayAfterReport] = useState<boolean>(false);
+  const [nameChangedAt, setNameChangedAt] = useState<string | null>(null);
 
   // Load persisted tutorial state from AsyncStorage on app startup
   useEffect(() => {
@@ -172,6 +184,10 @@ export const ProviderOnboardingProvider: React.FC<{ children: React.ReactNode }>
         setPayoutMethod,
         showDashboardOverlayAfterPayout,
         setShowDashboardOverlayAfterPayout,
+        showDashboardOverlayAfterReport,
+        setShowDashboardOverlayAfterReport,
+        nameChangedAt,
+        setNameChangedAt,
         setOwnerProfile,
         setBusinessName,
         setLocation,

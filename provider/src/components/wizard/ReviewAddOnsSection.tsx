@@ -44,7 +44,11 @@ export const ReviewAddOnsSection: React.FC<ReviewAddOnsSectionProps> = ({
   onEdit,
   testID,
 }) => {
-  if (!addOns || addOns.length === 0) {
+  const validAddOns = (addOns || []).filter(
+    (item) => item.name?.trim() || (item.price !== null && item.price > 0) || item.imageUri
+  );
+
+  if (validAddOns.length === 0) {
     return null;
   }
 
@@ -75,7 +79,7 @@ export const ReviewAddOnsSection: React.FC<ReviewAddOnsSectionProps> = ({
 
       {/* ── Add-ons Card List ── */}
       <View style={styles.addOnsListWrapper}>
-        {addOns.map((addon) => {
+        {validAddOns.map((addon) => {
           const displayPrice = formatNaira(addon.price || 0);
           const compactDuration = formatDurationCompact(addon.duration);
 

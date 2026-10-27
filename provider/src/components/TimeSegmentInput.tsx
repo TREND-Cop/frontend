@@ -42,6 +42,7 @@ export interface TimeSegmentInputProps {
   periodAccessibilityLabel?: string;
   clearable?: boolean;
   onClear?: () => void;
+  onFocus?: () => void;
 }
 
 type ActiveSection = 'hour' | 'minute' | 'period' | null;
@@ -62,6 +63,7 @@ export const TimeSegmentInput: React.FC<TimeSegmentInputProps> = ({
   periodAccessibilityLabel,
   clearable = false,
   onClear,
+  onFocus,
 }) => {
   const [activeSection, setActiveSection] = useState<ActiveSection>(null);
   const [hourBuffer, setHourBuffer] = useState<string>('');
@@ -111,10 +113,12 @@ export const TimeSegmentInput: React.FC<TimeSegmentInputProps> = ({
     (section: 'hour' | 'minute' | 'period') => {
       setActiveSection(section);
       if (section === 'hour') {
+        onFocus?.();
         setHourBuffer('');
         setHiddenText(' ');
         focusInput();
       } else if (section === 'minute') {
+        onFocus?.();
         setMinuteBuffer('');
         setHiddenText(' ');
         focusInput();
@@ -132,7 +136,7 @@ export const TimeSegmentInput: React.FC<TimeSegmentInputProps> = ({
         });
       }
     },
-    [value, defaultPeriod, onChange, focusInput]
+    [value, defaultPeriod, onChange, focusInput, onFocus]
   );
 
   // Pill tap handler: if empty, start at hour; if filled, activate hour
@@ -505,6 +509,7 @@ export const TimeSegmentInput: React.FC<TimeSegmentInputProps> = ({
           value={hiddenText}
           onChangeText={handleChangeText}
           onKeyPress={handleKeyPress}
+          onFocus={onFocus}
           onBlur={handleBlur}
           autoCapitalize="none"
           autoCorrect={false}

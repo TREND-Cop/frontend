@@ -76,6 +76,12 @@ import { FirstTimeProvider } from '../context/FirstTimeContext';
 import { ServiceDraftProvider } from '../context/ServiceDraftContext';
 import { WorkPhotosProvider } from '../context/WorkPhotosContext';
 import { StaffProvider } from '../context/StaffContext';
+import { ReviewsProvider } from '../context/ReviewsContext';
+import { ProviderProfileProvider } from '../context/ProviderProfileContext';
+import { NotificationsProvider } from '../context/NotificationsContext';
+import { MessagesProvider } from '../context/MessagesContext';
+import { StaffLoginProvider } from '../context/StaffLoginContext';
+import { StaffAppointmentsProvider } from '../context/StaffAppointmentsContext';
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -93,30 +99,42 @@ export default function RootLayout() {
 
   return (
     <ProviderOnboardingProvider>
-      <FirstTimeProvider>
-        <ServiceDraftProvider>
-          <WorkPhotosProvider>
-            <StaffProvider>
-              <SafeAreaProvider>
-                <GlobalSafeAreaInsetsAdapter>
-                  <StatusBar style="dark" />
-                <Stack
-                  screenOptions={{
-                    headerShown: false,
-                    contentStyle: { backgroundColor: '#FFFFFF' },
-                    animation: Platform.OS === 'ios' ? 'default' : 'fade_from_bottom',
-                    navigationBarColor: '#FFFFFF',
-                    navigationBarTranslucent: false,
-                  }}
-                >
-                  <Stack.Screen name="index" />
-                </Stack>
-              </GlobalSafeAreaInsetsAdapter>
-            </SafeAreaProvider>
-            </StaffProvider>
-          </WorkPhotosProvider>
-        </ServiceDraftProvider>
-      </FirstTimeProvider>
+      <ProviderProfileProvider>
+        <NotificationsProvider>
+          <FirstTimeProvider>
+            <ServiceDraftProvider>
+              <WorkPhotosProvider>
+                <StaffProvider>
+                  <StaffLoginProvider>
+                    <StaffAppointmentsProvider>
+                      <MessagesProvider>
+                        <ReviewsProvider>
+                          <SafeAreaProvider>
+                            <GlobalSafeAreaInsetsAdapter>
+                              <StatusBar style="dark" />
+                            <Stack
+                              screenOptions={{
+                                headerShown: false,
+                                contentStyle: { backgroundColor: '#FFFFFF' },
+                                animation: Platform.OS === 'ios' ? 'default' : 'fade_from_bottom',
+                                navigationBarColor: '#FFFFFF',
+                                navigationBarTranslucent: false,
+                              }}
+                            >
+                              <Stack.Screen name="index" />
+                            </Stack>
+                          </GlobalSafeAreaInsetsAdapter>
+                        </SafeAreaProvider>
+                        </ReviewsProvider>
+                      </MessagesProvider>
+                    </StaffAppointmentsProvider>
+                  </StaffLoginProvider>
+                </StaffProvider>
+              </WorkPhotosProvider>
+            </ServiceDraftProvider>
+          </FirstTimeProvider>
+        </NotificationsProvider>
+      </ProviderProfileProvider>
     </ProviderOnboardingProvider>
   );
 }

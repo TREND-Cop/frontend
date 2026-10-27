@@ -245,7 +245,7 @@ export const VideoGuideScreen: React.FC = () => {
             <VideoView
               style={styles.videoPlayer}
               player={player}
-              contentFit="contain"
+              contentFit="cover"
               nativeControls={false}
             />
 
@@ -266,7 +266,7 @@ export const VideoGuideScreen: React.FC = () => {
       </View>
 
       {/* ── Caption & Progress Bar Section ───────────────────────────────── */}
-      <View style={styles.bottomContent}>
+      <View style={[styles.bottomContent, { paddingBottom: Math.max(insets.bottom, 24) }]}>
         {/* Caption */}
         <Text style={styles.captionText}>{guideData.caption}</Text>
 
@@ -322,20 +322,20 @@ const styles = StyleSheet.create({
     width: 48,
   },
 
-  /* Video Area: Full width, centered aspect ratio */
+  /* Video Area: Full width, expanded */
   videoArea: {
     flex: 1,
     width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
     backgroundColor: '#000814',
+    overflow: 'hidden',
   },
   videoWrapper: {
     width: '100%',
     height: '100%',
-    maxHeight: 520,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+    overflow: 'hidden',
   },
   videoPlayer: {
     width: '100%',

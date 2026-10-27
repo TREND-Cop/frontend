@@ -23,6 +23,8 @@ export interface DeletePostDialogProps {
   description?: string;
   confirmText?: string;
   cancelText?: string;
+  confirmVariant?: 'default' | 'lightRed';
+  cancelVariant?: 'default' | 'dark';
 }
 
 /**
@@ -38,6 +40,8 @@ export const DeletePostDialog: React.FC<DeletePostDialogProps> = ({
   description = 'The post will be removed from your business dashboard and clients can no longer see it.',
   confirmText = 'Yes, Delete',
   cancelText = 'No,Cancel It.',
+  confirmVariant = 'default',
+  cancelVariant = 'default',
 }) => {
   return (
     <Modal
@@ -74,24 +78,44 @@ export const DeletePostDialog: React.FC<DeletePostDialogProps> = ({
 
           {/* Action buttons row */}
           <View style={styles.buttonsRow}>
-            {/* Confirm button (outlined red pill) */}
+            {/* Confirm button */}
             <TouchableOpacity
-              style={styles.yesButton}
+              style={[
+                styles.yesButton,
+                confirmVariant === 'lightRed' && styles.yesButtonLightRed,
+              ]}
               activeOpacity={0.8}
               onPress={onConfirm}
               accessibilityLabel={confirmText}
             >
-              <Text style={styles.yesButtonText}>{confirmText}</Text>
+              <Text
+                style={[
+                  styles.yesButtonText,
+                  confirmVariant === 'lightRed' && styles.yesButtonTextLightRed,
+                ]}
+              >
+                {confirmText}
+              </Text>
             </TouchableOpacity>
 
-            {/* Cancel button (outlined grey pill) */}
+            {/* Cancel button */}
             <TouchableOpacity
-              style={styles.noButton}
+              style={[
+                styles.noButton,
+                cancelVariant === 'dark' && styles.noButtonDark,
+              ]}
               activeOpacity={0.8}
               onPress={onCancel}
               accessibilityLabel={cancelText}
             >
-              <Text style={styles.noButtonText}>{cancelText}</Text>
+              <Text
+                style={[
+                  styles.noButtonText,
+                  cancelVariant === 'dark' && styles.noButtonTextDark,
+                ]}
+              >
+                {cancelText}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -204,5 +228,24 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: 'rgba(96, 96, 102, 0.96)',
     includeFontPadding: false,
+  },
+  yesButtonLightRed: {
+    backgroundColor: '#F7F7F7',
+    borderWidth: 1,
+    borderColor: '#C0C0CC',
+  },
+  yesButtonTextLightRed: {
+    color: '#CC2929',
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  noButtonDark: {
+    backgroundColor: '#000814',
+    borderWidth: 0,
+  },
+  noButtonTextDark: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    lineHeight: 24,
   },
 });

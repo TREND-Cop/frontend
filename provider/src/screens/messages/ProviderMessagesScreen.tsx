@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -6,16 +6,28 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
+  TextInput,
   Platform,
+  BackHandler,
+  Keyboard,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
-import Svg, { Rect, Path, Circle } from 'react-native-svg';
-import { BlurView } from 'expo-blur';
+import { useRouter } from 'expo-router';
+import Svg, { Rect, Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ProviderMessagesSkeleton } from '../../components/ProviderMessagesSkeleton';
-import { useProviderMessagesStore } from '../../store/providerMessagesStore';
+import { useStaffStore } from '../../context/StaffContext';
+import { useMessagesStore } from '../../context/MessagesContext';
+import { Conversation } from '../../constants/messages.config';
+import {
+  MessageCirclePlusIcon,
+  SearchIcon,
+  ArrowLeftCircleButton,
+} from '../../components/messages/MessageIcons';
+
+const EMPTY_MESSAGES_WAVING = require('../../../assets/images/messages/empty_messages_waving.png');
+const DEFAULT_AVATAR = require('../../../assets/images/messages/lara_olapade.jpg');
 
 // ── 1:1 Vector Icons for Navigation Bar ──────────────────────────────────────
 
@@ -68,21 +80,17 @@ function DashboardNavIcon({ size = 24, active = false }: { size?: number; active
 }
 
 function ChattingNavIcon({ size = 24, active = true }: { size?: number; active?: boolean }) {
+  const fillColor = active ? 'rgba(0, 8, 20, 0.96)' : 'none';
+  const strokeColor = active ? 'rgba(0, 8, 20, 0.96)' : 'rgba(192, 192, 204, 0.96)';
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M2 12C2 7.029 6.029 3 11 3h2c4.971 0 9 4.029 9 9 0 4.971-4.029 9-9 9H8l-4.5 1.5L5 18C3.12 16.32 2 14.28 2 12z"
-        fill={active ? 'rgba(0, 8, 20, 0.96)' : 'none'}
-        stroke="rgba(0, 8, 20, 0.96)"
+        d="M2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22C10.2977 22 8.70119 21.5739 7.30739 20.8249L3 22L4.17511 17.6926C3.42609 16.2988 3 14.7023 3 13"
+        fill={fillColor}
+        stroke={strokeColor}
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-      />
-      <Path
-        d="M8 10h8M8 14h5"
-        stroke={active ? '#FFFFFF' : 'rgba(0, 8, 20, 0.96)'}
-        strokeWidth="1.5"
-        strokeLinecap="round"
       />
     </Svg>
   );
@@ -92,268 +100,388 @@ function ProfileNavIcon({ size = 24, active = false }: { size?: number; active?:
   const strokeColor = active ? 'rgba(0, 8, 20, 0.96)' : 'rgba(192, 192, 204, 0.96)';
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={strokeColor} strokeWidth="1.5" />
-      <Circle cx="12" cy="9" r="3" stroke={strokeColor} strokeWidth="1.5" />
       <Path
-        d="M6.5 18c1.5-2.5 3.5-3.5 5.5-3.5s4 1 5.5 3.5"
+        d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z"
         stroke={strokeColor}
         strokeWidth="1.5"
         strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M20.59 22C20.59 18.13 16.74 15 12 15C7.26 15 3.41 18.13 3.41 22"
+        stroke={strokeColor}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </Svg>
   );
 }
 
-// ── 1:1 Figma Mock Data ──────────────────────────────────────────────────────
-
-export interface ProviderMessageItem {
-  id: string;
-  name: string;
-  lastMessage: string;
-  time: string;
-  unreadCount: number;
-  avatar: any;
-}
-
-const PROVIDER_CONVERSATIONS: ProviderMessageItem[] = [
-  {
-    id: '1',
-    name: 'Godwin Thomas',
-    lastMessage: 'Hello this is luminious looks and...',
-    time: '12:11',
-    unreadCount: 1,
-    avatar: require('../../../assets/images/messages/godwin_thomas.jpg'),
-  },
-  {
-    id: '2',
-    name: 'Lara Olapade',
-    lastMessage: 'Lorem ipsum dolor sit amet cons...',
-    time: '12:11',
-    unreadCount: 0,
-    avatar: require('../../../assets/images/messages/lara_olapade.jpg'),
-  },
-  {
-    id: '3',
-    name: 'Chisom Emanuella',
-    lastMessage: 'Lorem ipsum dolor sit amet cons...',
-    time: '12:11',
-    unreadCount: 0,
-    avatar: require('../../../assets/images/messages/chisom_emanuella.jpg'),
-  },
-];
-
-interface ProviderMessagesScreenProps {
-  onTabChange?: (tab: 'dashboard' | 'messages' | 'profile') => void;
-}
-
-export function ProviderMessagesScreen({ onTabChange }: ProviderMessagesScreenProps) {
+export function ProviderMessagesScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { staff } = useStaffStore();
+  const { conversations, markConversationRead } = useMessagesStore();
 
-  // Locked Bottom Navigation Bar offset:
-  // Strictly locked at its designated bottom coordinate so it never moves when scrolling.
-  // On iOS: safely above the Home Indicator (Math.max(insets.bottom, 20)).
-  // On Android: safely above the Android 3-button system dock / gesture pill (Math.max(insets.bottom, 56) + 16).
-  const lockedBottomOffset = Platform.OS === 'android'
-    ? Math.max(insets.bottom, 56) + 16
-    : Math.max(insets.bottom, 20);
+  const [isSearchMode, setIsSearchMode] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<TextInput>(null);
 
-  const [isMessagesLoading, setIsMessagesLoading] = useState(true);
+  // Map staff id to StaffMember object for quick lookup
+  const staffMap = useMemo(() => {
+    const map = new Map<string, (typeof staff)[0]>();
+    staff.forEach((member) => map.set(member.id, member));
+    return map;
+  }, [staff]);
 
-  useFocusEffect(
-    useCallback(() => {
-      setIsMessagesLoading(true);
-      const timer = setTimeout(() => {
-        setIsMessagesLoading(false);
-      }, 900);
-      return () => {
-        clearTimeout(timer);
-        setIsMessagesLoading(true);
-      };
-    }, [])
+  const handleOpenNewChat = useCallback(() => {
+    router.push('/new-chat' as any);
+  }, [router]);
+
+  const handleConversationPress = useCallback(
+    (conv: Conversation) => {
+      markConversationRead(conv.id);
+      // TODO (Messages prompt 2): navigate to chat
+    },
+    [markConversationRead]
   );
 
-  const handleDashboardPress = () => {
-    if (onTabChange) {
-      onTabChange('dashboard');
-    } else {
-      router.push('/dashboard' as any);
-    }
-  };
+  const handleEnterSearch = useCallback(() => {
+    setIsSearchMode(true);
+    setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 100);
+  }, []);
 
-  const handleProfilePress = () => {
-    if (onTabChange) {
-      onTabChange('profile');
-    }
-  };
+  const handleExitSearch = useCallback(() => {
+    setSearchQuery('');
+    setIsSearchMode(false);
+    Keyboard.dismiss();
+  }, []);
 
-  const { conversations, markAsRead } = useProviderMessagesStore();
-  const visibleConversations = conversations.filter(
-    (c) => c.messages.length > 0 || c.id === '1' || c.id === '2' || c.id === '3'
+  // Handle hardware back press on Android to exit search mode cleanly
+  useEffect(() => {
+    if (!isSearchMode) return;
+    const backAction = () => {
+      handleExitSearch();
+      return true;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => backHandler.remove();
+  }, [isSearchMode, handleExitSearch]);
+
+  // Tab navigation handlers
+  const handleDashboardPress = useCallback(() => {
+    router.replace('/dashboard' as any);
+  }, [router]);
+
+  const handleProfilePress = useCallback(() => {
+    router.replace('/profile' as any);
+  }, [router]);
+
+  // Filter conversations in search mode by staff member name (case-insensitive word prefix)
+  const filteredConversations = useMemo(() => {
+    const trimmed = searchQuery.trim().toLowerCase();
+    if (!trimmed) return conversations;
+
+    return conversations.filter((conv) => {
+      const staffMember = staffMap.get(conv.staffId);
+      const name = staffMember ? staffMember.name.toLowerCase() : '';
+      const words = name.split(/\s+/);
+      return words.some((word) => word.startsWith(trimmed)) || name.includes(trimmed);
+    });
+  }, [conversations, searchQuery, staffMap]);
+
+  // Helper to highlight matching word(s) in dark black and others in light grey
+  const renderHighlightedName = useCallback(
+    (name: string, query: string) => {
+      const trimmed = query.trim().toLowerCase();
+      if (!isSearchMode || !trimmed) {
+        return (
+          <Text style={styles.nameText} numberOfLines={1}>
+            {name}
+          </Text>
+        );
+      }
+
+      const words = name.split(/(\s+)/);
+      return (
+        <Text style={styles.nameText} numberOfLines={1}>
+          {words.map((word, idx) => {
+            const matches =
+              word.toLowerCase().startsWith(trimmed) || word.toLowerCase().includes(trimmed);
+            return (
+              <Text
+                key={idx}
+                style={matches ? styles.matchedWordText : styles.unmatchedWordText}
+              >
+                {word}
+              </Text>
+            );
+          })}
+        </Text>
+      );
+    },
+    [isSearchMode]
   );
 
-  const handleConversationPress = (conversation: any) => {
-    markAsRead(conversation.id);
-    router.push({
-      pathname: '/chat' as any,
-      params: {
-        id: conversation.id,
-        name: conversation.name,
-      },
-    } as any);
-  };
+  const isConversationsEmpty = conversations.length === 0;
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="dark" />
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <StatusBar style="dark" />
 
-      {isMessagesLoading ? (
-        <ProviderMessagesSkeleton />
-      ) : (
-        <>
-          {/* ── Page Header: Message (matches Dashboard paddingTop exactly) ── */}
-          <View style={[styles.headerContainer, { paddingTop: Math.max(insets.top + 16, 56) }]}>
+        {/* ── Top Header Area ── */}
+        {!isSearchMode ? (
+          /* Normal Mode: "Message" Title + Search Field */
+          <View style={styles.headerContainer}>
             <Text style={styles.headerTitle}>Message</Text>
+
+            <TouchableOpacity
+              style={styles.normalSearchBar}
+              onPress={handleEnterSearch}
+              activeOpacity={0.85}
+              accessibilityLabel="Search names"
+            >
+              <SearchIcon size={24} color="#000000" />
+              <Text style={styles.normalSearchPlaceholder}>Search names here</Text>
+            </TouchableOpacity>
           </View>
+        ) : (
+          /* Search Mode: Back Button Circle + Active Search Input */
+          <View style={styles.searchHeaderContainer}>
+            <TouchableOpacity
+              style={styles.backCircleTouch}
+              onPress={handleExitSearch}
+              activeOpacity={0.8}
+              accessibilityLabel="Exit search"
+            >
+              <ArrowLeftCircleButton size={48} />
+            </TouchableOpacity>
 
-          {/* ── Line 135: Top Divider (width: 390px, top: 126px, 1:1 Figma) ── */}
-          <View style={styles.topDivider} />
+            <View style={styles.activeSearchBar}>
+              <SearchIcon size={24} color="#000000" />
+              <TextInput
+                ref={searchInputRef}
+                style={styles.activeSearchInput}
+                placeholder="Search names here"
+                placeholderTextColor="rgba(96, 96, 102, 0.96)"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCorrect={false}
+                returnKeyType="search"
+              />
+            </View>
+          </View>
+        )}
 
-          {/* ── Scrollable Messages List (width: 358px, gap: 24px) ── */}
+        {/* ── Search Mode "Results" Label ── */}
+        {isSearchMode && searchQuery.trim().length > 0 && (
+          <View style={styles.resultsLabelContainer}>
+            <Text style={styles.resultsLabel}>Results</Text>
+          </View>
+        )}
+
+        {/* ── Main Content Area ── */}
+        {!isSearchMode && isConversationsEmpty ? (
+          /* Empty State: Waving Illustration + "No messages yet" + "Start new chat" pill */
+          <View style={styles.emptyStateContainer}>
+            <View style={styles.emptyStateCard}>
+              <Image
+                source={EMPTY_MESSAGES_WAVING}
+                style={styles.emptyIllustration}
+                resizeMode="contain"
+              />
+              <Text style={styles.emptyTitle}>No messages yet</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.startNewChatButton}
+              onPress={handleOpenNewChat}
+              activeOpacity={0.85}
+            >
+              <MessageCirclePlusIcon size={24} color="#FFFFFF" />
+              <Text style={styles.startNewChatText}>Start new chat</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          /* Conversation List / Search Results List */
           <ScrollView
             style={styles.scrollView}
             contentContainerStyle={[
               styles.scrollContent,
-              { paddingBottom: 130 + lockedBottomOffset },
+              {
+                paddingBottom: isSearchMode
+                  ? Math.max(insets.bottom, 24) + 16
+                  : 140 + Math.max(insets.bottom, 24),
+              },
             ]}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
-            {visibleConversations.map((item, index) => (
-              <View key={item.id} style={styles.messageRowWrapper}>
-                <TouchableOpacity
-                  style={styles.messageRow}
-                  activeOpacity={0.7}
-                  onPress={() => handleConversationPress(item)}
-                >
-                  {/* Ellipse 194: Avatar (48x48px, radius 24px) */}
-                  <Image source={item.avatar} style={styles.avatarImage} resizeMode="cover" />
+            {(isSearchMode ? filteredConversations : conversations).map((conv, index, arr) => {
+              const staffMember = staffMap.get(conv.staffId);
+              const displayName = staffMember?.name || 'Staff Member';
+              const avatarSource = staffMember?.photoUri
+                ? { uri: staffMember.photoUri }
+                : staffMember?.avatarUri
+                ? { uri: staffMember.avatarUri }
+                : DEFAULT_AVATAR;
 
-                  {/* Message and Indicators (gap: 55px, height: 48px) */}
-                  <View style={styles.messageContentBlock}>
-                    {/* Company Name and Message (width: 238px, gap: 4px) */}
-                    <View style={styles.textColumn}>
-                      <Text style={styles.nameText} numberOfLines={1}>
-                        {item.name}
-                      </Text>
-                      <Text style={styles.previewText} numberOfLines={1}>
-                        {item.lastMessage}
-                      </Text>
-                    </View>
+              return (
+                <View key={conv.id} style={styles.messageRowWrapper}>
+                  <TouchableOpacity
+                    style={styles.messageRow}
+                    activeOpacity={0.75}
+                    onPress={() => handleConversationPress(conv)}
+                  >
+                    {/* Ellipse 194: Avatar 48x48 */}
+                    <Image source={avatarSource} style={styles.avatarImage} />
 
-                    {/* Time of Message and New Message Indicator (width: 56px, gap: 8px) */}
-                    <View style={styles.metaColumn}>
-                      <Text style={styles.timeText}>{item.time}</Text>
+                    {/* Content and Meta */}
+                    <View style={styles.messageContentBlock}>
+                      {/* Left: Name, Staff Tag, Preview */}
+                      <View style={styles.textColumn}>
+                        <View style={styles.nameAndTagRow}>
+                          {renderHighlightedName(displayName, searchQuery)}
 
-                      {item.unreadCount > 0 ? (
-                        <View style={styles.unreadBadge}>
-                          <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
+                          {/* Line 143: Decorative separator */}
+                          <View style={styles.verticalSeparator} />
+
+                          {/* Green "Staff" Tag */}
+                          <View style={styles.staffTag}>
+                            <Text style={styles.staffTagText}>Staff</Text>
+                          </View>
                         </View>
-                      ) : (
-                        <View style={styles.unreadBadgeSpacer} />
-                      )}
+
+                        {/* Preview Text */}
+                        <Text style={styles.previewText} numberOfLines={1}>
+                          {conv.lastMessagePreview}
+                        </Text>
+                      </View>
+
+                      {/* Right: Time / Date & Unread Badge */}
+                      <View style={styles.metaColumn}>
+                        <Text
+                          style={[
+                            styles.timeText,
+                            isSearchMode && styles.searchTimeText,
+                          ]}
+                        >
+                          {conv.lastMessageTime}
+                        </Text>
+
+                        {conv.unreadCount > 0 ? (
+                          <View style={styles.unreadBadge}>
+                            <Text style={styles.unreadBadgeText}>
+                              {conv.unreadCount}
+                            </Text>
+                          </View>
+                        ) : (
+                          <View style={styles.unreadBadgeSpacer} />
+                        )}
+                      </View>
                     </View>
+                  </TouchableOpacity>
+
+                  {/* Line 136: Item Divider */}
+                  {index < arr.length - 1 && <View style={styles.itemDivider} />}
+                </View>
+              );
+            })}
+          </ScrollView>
+        )}
+
+        {/* ── Floating "New Chat" Button (Hidden in Search Mode) ── */}
+        {!isSearchMode && (
+          <TouchableOpacity
+            style={[
+              styles.floatingNewChatButton,
+              { bottom: 96 + Math.max(insets.bottom, 16) },
+            ]}
+            onPress={handleOpenNewChat}
+            activeOpacity={0.85}
+            accessibilityLabel="New chat"
+          >
+            <MessageCirclePlusIcon size={24} color="#FFFFFF" />
+          </TouchableOpacity>
+        )}
+
+        {/* ── Floating Island Tab Bar (Hidden in Search Mode) ── */}
+        {!isSearchMode && (
+          <View style={styles.bottomFixedContainer} pointerEvents="box-none">
+            {/* Soft Gradient Backdrop Shield */}
+            <View
+              style={[
+                styles.bottomBackdropShield,
+                { height: 146 + Math.max(insets.bottom, 0) },
+              ]}
+              pointerEvents="none"
+            >
+              <LinearGradient
+                colors={['rgba(255, 255, 255, 0)', '#FFFFFF']}
+                style={styles.backdropGradient}
+              />
+              <View style={styles.backdropSolidWhite} />
+            </View>
+
+            {/* Floating Navigation Pill */}
+            <View
+              style={[
+                styles.bottomNavContainer,
+                { bottom: 20 + Math.max(insets.bottom, 0) },
+              ]}
+              pointerEvents="box-none"
+            >
+              <View style={styles.bottomNavBar}>
+                {/* Tab 1: Dashboard */}
+                <TouchableOpacity
+                  style={styles.navTabItem}
+                  activeOpacity={0.8}
+                  onPress={handleDashboardPress}
+                >
+                  <View style={styles.navTabContent}>
+                    <DashboardNavIcon size={24} active={false} />
+                    <Text style={styles.navTabTextInactive}>Dashboard</Text>
                   </View>
                 </TouchableOpacity>
 
-                {/* Inset Divider: Line 136 / Line 137 (width: 302px, left: 72px) */}
-                {index < visibleConversations.length - 1 && (
-                  <View style={styles.itemDivider} />
-                )}
+                {/* Tab 2: Messages (Active) */}
+                <TouchableOpacity
+                  style={styles.navTabItem}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.navTabContent}>
+                    <ChattingNavIcon size={24} active={true} />
+                    <Text style={styles.navTabTextActive}>Messages</Text>
+                  </View>
+
+                  {/* Active indicator line */}
+                  <View style={styles.activeTabIndicator} />
+                </TouchableOpacity>
+
+                {/* Tab 3: Profile */}
+                <TouchableOpacity
+                  style={styles.navTabItem}
+                  activeOpacity={0.8}
+                  onPress={handleProfilePress}
+                >
+                  <View style={styles.navTabContent}>
+                    <ProfileNavIcon size={24} active={false} />
+                    <Text style={styles.navTabTextInactive}>Profile</Text>
+                  </View>
+                </TouchableOpacity>
               </View>
-            ))}
-          </ScrollView>
-        </>
-      )}
-
-      {/* ── Fixed Bottom Navigation Container (Locked at bottom, 100% stationary) ── */}
-      <View pointerEvents="box-none" style={styles.bottomFixedContainer}>
-        {/* Backdrop Fade & Solid White Shield to completely mask scrolling items */}
-        <View
-          style={[
-            styles.bottomBackdropShield,
-            {
-              height: lockedBottomOffset + 80 + 36,
-            },
-          ]}
-          pointerEvents="none"
-        >
-          {Platform.OS === 'ios' && (
-            <BlurView
-              intensity={25}
-              tint="light"
-              style={StyleSheet.absoluteFill}
-            />
-          )}
-          <LinearGradient
-            colors={['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0.85)', '#FFFFFF']}
-            locations={[0, 0.4, 1.0]}
-            style={styles.backdropGradient}
-          />
-          <View style={styles.backdropSolidWhite} />
-        </View>
-
-        {/* ── App Navigation Bar (width: 300px, height: 80px, radius: 40px, locked) ── */}
-        <View
-          pointerEvents="box-none"
-          style={[
-            styles.bottomNavContainer,
-            {
-              bottom: lockedBottomOffset,
-            },
-          ]}
-        >
-          <View style={styles.bottomNavBar}>
-            {/* Tab 1: Dashboard */}
-            <TouchableOpacity
-              style={styles.navTabItem}
-              activeOpacity={0.8}
-              onPress={handleDashboardPress}
-            >
-              <View style={styles.navTabContent}>
-                <DashboardNavIcon size={24} active={false} />
-                <Text style={styles.navTabTextInactive}>Dashboard</Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Tab 2: Messages (Active) */}
-            <TouchableOpacity
-              style={styles.navTabItem}
-              activeOpacity={0.8}
-            >
-              <View style={styles.navTabContent}>
-                <ChattingNavIcon size={24} active={true} />
-                <Text style={styles.navTabTextActive}>Messages</Text>
-              </View>
-
-              {/* Rectangle 299: Active indicator bar (width: 65px, height: 5px, radius: 8px) */}
-              <View style={styles.activeTabIndicator} />
-            </TouchableOpacity>
-
-            {/* Tab 3: Profile */}
-            <TouchableOpacity
-              style={styles.navTabItem}
-              activeOpacity={0.8}
-              onPress={handleProfilePress}
-            >
-              <View style={styles.navTabContent}>
-                <ProfileNavIcon size={24} active={false} />
-                <Text style={styles.navTabTextInactive}>Profile</Text>
-              </View>
-            </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        )}
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -365,11 +493,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
 
-  // ── Header (left: 16px, top: 74px, height: 32px) ──
+  // ── Header (Normal Mode) ──
   headerContainer: {
     paddingHorizontal: 16,
+    paddingTop: 12,
     paddingBottom: 16,
     backgroundColor: '#FFFFFF',
+    gap: 16,
   },
   headerTitle: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_600SemiBold',
@@ -380,30 +510,170 @@ const styles = StyleSheet.create({
     color: '#000000',
     includeFontPadding: false,
   },
-
-  // ── Line 135: Top Divider (width: 390px, top: 126px) ──
-  topDivider: {
+  normalSearchBar: {
     width: '100%',
-    height: 1,
-    backgroundColor: 'rgba(235, 235, 245, 0.96)',
+    maxWidth: 358,
+    alignSelf: 'center',
+    height: 48,
+    backgroundColor: 'rgba(248, 249, 250, 0.98)',
+    borderWidth: 1,
+    borderColor: 'rgba(192, 192, 204, 0.96)',
+    borderRadius: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  normalSearchPlaceholder: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.4,
+    color: 'rgba(96, 96, 102, 0.96)',
+    includeFontPadding: false,
   },
 
-  // ── Scrollable Body ──
+  // ── Search Mode Header ──
+  searchHeaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+    gap: 24,
+    width: '100%',
+    maxWidth: 390,
+    alignSelf: 'center',
+  },
+  backCircleTouch: {
+    width: 48,
+    height: 48,
+  },
+  activeSearchBar: {
+    flex: 1,
+    height: 48,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(192, 192, 204, 0.96)',
+    borderRadius: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  activeSearchInput: {
+    flex: 1,
+    height: '100%',
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.4,
+    color: '#000000',
+    padding: 0,
+    margin: 0,
+  },
+
+  // ── Results Label ──
+  resultsLabelContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  resultsLabel: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.4,
+    color: 'rgba(96, 96, 102, 0.96)',
+    includeFontPadding: false,
+  },
+
+  // ── Empty State ──
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    marginTop: -60,
+  },
+  emptyStateCard: {
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 20,
+  },
+  emptyIllustration: {
+    width: 118,
+    height: 118,
+  },
+  emptyTitle: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.4,
+    color: 'rgba(0, 8, 20, 0.96)',
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
+  startNewChatButton: {
+    width: 188,
+    height: 40,
+    borderRadius: 32,
+    backgroundColor: 'rgba(0, 8, 20, 0.96)',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  startNewChatText: {
+    fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.15,
+    color: '#FFFFFF',
+    includeFontPadding: false,
+  },
+
+  // ── Floating Action Button (48x48) ──
+  floatingNewChatButton: {
+    position: 'absolute',
+    right: 16,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0, 8, 20, 0.96)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 90,
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(0, 8, 20, 0.25)',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+
+  // ── Conversation Rows List ──
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 12,
+    paddingTop: 8,
     paddingHorizontal: 16,
   },
-
   messageRowWrapper: {
     width: '100%',
     maxWidth: 358,
     alignSelf: 'center',
   },
-
-  // ── message ui (Auto layout: 358x64px, padding: 8px 0px, gap: 16px) ──
   messageRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -413,8 +683,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 64,
   },
-
-  // ── Ellipse 194 (width: 48px, height: 48px, radius: 24px) ──
   avatarImage: {
     width: 48,
     height: 48,
@@ -422,21 +690,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     flexShrink: 0,
   },
-
-  // ── message and indicators (gap: 55px, height: 48px) ──
   messageContentBlock: {
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-
-  // ── company name and message (width: 238px, height: 48px, gap: 4px) ──
   textColumn: {
     flex: 1,
     flexDirection: 'column',
     alignItems: 'flex-start',
     gap: 4,
+    paddingRight: 8,
+  },
+  nameAndTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
   },
   nameText: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
@@ -445,6 +715,39 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: Platform.OS === 'ios' ? 0.5 : 0.2,
     color: '#000000',
+    includeFontPadding: false,
+    maxWidth: 160,
+  },
+  matchedWordText: {
+    color: '#000000',
+    fontWeight: '500',
+  },
+  unmatchedWordText: {
+    color: 'rgba(96, 96, 102, 0.96)',
+    fontWeight: '400',
+  },
+  verticalSeparator: {
+    width: 1,
+    height: 8,
+    backgroundColor: 'rgba(235, 235, 245, 0.96)',
+  },
+  staffTag: {
+    width: 45,
+    height: 20,
+    borderRadius: 24,
+    backgroundColor: 'rgba(238, 248, 238, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  staffTagText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0.4,
+    color: 'rgba(12, 121, 12, 0.96)',
     includeFontPadding: false,
   },
   previewText: {
@@ -456,10 +759,8 @@ const styles = StyleSheet.create({
     color: 'rgba(96, 96, 102, 0.96)',
     includeFontPadding: false,
   },
-
-  // ── time of message and new message indicator (width: 56px, height: 44px, gap: 8px) ──
   metaColumn: {
-    width: 56,
+    width: 60,
     height: 44,
     flexDirection: 'column',
     alignItems: 'flex-end',
@@ -477,8 +778,9 @@ const styles = StyleSheet.create({
     color: '#000000',
     includeFontPadding: false,
   },
-
-  // ── new message indicator (width: 20px, height: 20px, radius: 24px) ──
+  searchTimeText: {
+    color: 'rgba(96, 96, 102, 0.96)',
+  },
   unreadBadge: {
     width: 20,
     height: 20,
@@ -502,31 +804,27 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     includeFontPadding: false,
   },
-
-  // ── Line 136 / Line 137: Inset Divider (width: 302px, left: 72px) ──
   itemDivider: {
     width: 302,
     height: 1,
     backgroundColor: 'rgba(235, 235, 245, 0.96)',
     alignSelf: 'flex-end',
-    marginTop: 8,
-    marginBottom: 8,
+    marginVertical: 4,
   },
 
-  // ── Fixed Bottom Navigation Container & Backdrop Shield ──
+  // ── Bottom Navigation & Backdrop ──
   bottomFixedContainer: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 99,
+    zIndex: 80,
     ...Platform.select({
       android: {
-        elevation: 10,
+        elevation: 8,
       },
     }),
   },
-
   bottomBackdropShield: {
     position: 'absolute',
     left: 0,
@@ -534,25 +832,21 @@ const styles = StyleSheet.create({
     bottom: 0,
     overflow: 'hidden',
   },
-
   backdropGradient: {
     height: 36,
     width: '100%',
   },
-
   backdropSolidWhite: {
     flex: 1,
     backgroundColor: '#FFFFFF',
     width: '100%',
   },
-
-  // ── App Navigation Bar (Floating Island Locked at Bottom) ──
   bottomNavContainer: {
     position: 'absolute',
     left: 0,
     right: 0,
     alignItems: 'center',
-    zIndex: 100,
+    zIndex: 85,
   },
   bottomNavBar: {
     width: 300,
@@ -572,7 +866,7 @@ const styles = StyleSheet.create({
         shadowRadius: 24,
       },
       android: {
-        elevation: 12,
+        elevation: 10,
       },
       web: {
         shadowColor: 'rgba(133, 139, 148, 0.08)',
@@ -616,8 +910,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     includeFontPadding: false,
   },
-
-  // ── Rectangle 299: Active Indicator (width: 65px, height: 5px, radius: 8px) ──
   activeTabIndicator: {
     position: 'absolute',
     bottom: -10,

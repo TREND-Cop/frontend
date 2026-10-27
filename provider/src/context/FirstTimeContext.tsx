@@ -657,4 +657,6 @@ export const useFirstTime = () => {
   return ctx;
 };
 
+export const useOptionalFirstTime = () => useContext(FirstTimeContext);
+
 export default FirstTimeContext;

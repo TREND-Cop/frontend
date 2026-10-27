@@ -17,7 +17,7 @@ import Svg, {
   Rect,
   Circle,
 } from 'react-native-svg';
-import { useFirstTime, TargetRect } from '../../context/FirstTimeContext';
+import { useOptionalFirstTime, TargetRect } from '../../context/FirstTimeContext';
 import { useBusinessStore } from '../../store/businessStore';
 import { TutorialIconType } from '../../constants/tutorialSteps';
 import { typography } from '../../constants/theme';
@@ -58,11 +58,88 @@ function TriangleIcon({ size = 12, color = '#22C55E' }: { size?: number; color?:
   );
 }
 
+function StaffIdCardIcon({ size = 20 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="2" y="4" width="20" height="16" rx="3" stroke="#FFFFFF" strokeWidth="1.5" />
+      <Circle cx="8" cy="11" r="2.5" stroke="#FFFFFF" strokeWidth="1.5" />
+      <Path d="M5 17c0-1.657 1.343-3 3-3s3 1.343 3 3M14 9h5M14 13h5M14 17h3" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function StaffClockIcon({ size = 20 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke="#FFFFFF" strokeWidth="1.5" />
+      <Path d="M12 7v5l3 3" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function StaffCameraIcon({ size = 20 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 8a3 3 0 0 1 3-3h1.172a2 2 0 0 0 1.414-.586l.828-.828A2 2 0 0 1 10.828 3h2.344a2 2 0 0 1 1.414.586l.828.828A2 2 0 0 0 16.828 5H18a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V8z"
+        stroke="#FFFFFF"
+        strokeWidth="1.5"
+      />
+      <Circle cx="12" cy="13" r="4" stroke="#FFFFFF" strokeWidth="1.5" />
+    </Svg>
+  );
+}
+
+function StaffChartIcon({ size = 20 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="18" height="18" rx="3" stroke="#FFFFFF" strokeWidth="1.5" />
+      <Path d="M7 16l3.5-4.5 3 3 3.5-5" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function StaffChatFeedbackIcon({ size = 20 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"
+        stroke="#FFFFFF"
+        strokeWidth="1.5"
+      />
+      <Path d="M8 11.5h8M8 15h5" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function PlaySquareIcon({ size = 20, color = 'rgba(0, 8, 20, 0.96)' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="2.5" y="2.5" width="19" height="19" rx="4" stroke={color} strokeWidth="1.5" />
+      <Path d="M9.5 8.5L16 12L9.5 15.5V8.5Z" fill={color} />
+    </Svg>
+  );
+}
+
+function PreviousArrowIcon({ size = 20, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9.57 5.93L3.5 12L9.57 18.07M20.5 12H3.67"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 function TutorialBubbleIcon({
   icon,
   performanceStake = '12%',
 }: {
-  icon: TutorialIconType;
+  icon: TutorialIconType | string;
   performanceStake?: string;
 }) {
   if (!icon) return null;
@@ -147,20 +224,61 @@ function TutorialBubbleIcon({
           <Text style={styles.bubblePerformancePercentText}>{performanceStake}</Text>
         </View>
       );
+    case 'id-card':
+      return <StaffIdCardIcon size={20} />;
+    case 'clock':
+      return <StaffClockIcon size={20} />;
+    case 'camera-01':
+      return <StaffCameraIcon size={20} />;
+    case 'chart-03':
+      return <StaffChartIcon size={20} />;
+    case 'chat-feedback-01':
+      return <StaffChatFeedbackIcon size={20} />;
     default:
       return null;
   }
 }
 
-export const SpotlightOverlay: React.FC = () => {
-  const {
-    phase,
-    currentStep,
-    activeTargetRect,
-    handleNextStep,
-    scrollOffsetY,
-    isStepTransitioning,
-  } = useFirstTime();
+export interface SpotlightOverlayProps {
+  variant?: 'owner' | 'staff';
+  staffPhase?: string;
+  staffStep?: {
+    stepNumber: number;
+    title: string;
+    body: string;
+    icon?: any;
+    targetId: string;
+    buttonLabel?: 'Next' | 'Finally';
+  } | null;
+  staffTargetRect?: TargetRect | null;
+  staffIsStepTransitioning?: boolean;
+  totalSteps?: number;
+  onPrevStep?: () => void;
+  onOpenVideo?: () => void;
+  onNextStep?: () => void;
+}
+
+export const SpotlightOverlay: React.FC<SpotlightOverlayProps> = ({
+  variant = 'owner',
+  staffPhase,
+  staffStep,
+  staffTargetRect,
+  staffIsStepTransitioning,
+  totalSteps = 9,
+  onPrevStep,
+  onOpenVideo,
+  onNextStep,
+}) => {
+  const ownerContext = useOptionalFirstTime();
+  const isStaff = variant === 'staff';
+
+  const phase = isStaff ? (staffPhase ?? 'tour') : (ownerContext?.phase ?? 'idle');
+  const currentStep = isStaff ? staffStep : ownerContext?.currentStep;
+  const activeTargetRect = isStaff ? staffTargetRect : ownerContext?.activeTargetRect;
+  const isStepTransitioning = isStaff ? (staffIsStepTransitioning ?? false) : (ownerContext?.isStepTransitioning ?? false);
+  const handleNextStep = isStaff ? onNextStep : ownerContext?.handleNextStep;
+  const numSteps = isStaff ? totalSteps : 11;
+  const scrollOffsetY = isStaff ? 0 : (ownerContext?.scrollOffsetY ?? 0);
   const { business } = useBusinessStore();
 
   const insets = useSafeAreaInsets();
@@ -466,34 +584,70 @@ export const SpotlightOverlay: React.FC = () => {
           </View>
         )}
 
-        {/* ── Header: Icon + Title ── */}
+        {/* ── Header: Icon + Title (+ Step counter pill for staff) ── */}
         <View style={styles.headerRow}>
-          {currentStep.icon && (
-            <View style={styles.iconContainer}>
-              <TutorialBubbleIcon
-                icon={currentStep.icon}
-                performanceStake={business.performanceStake}
-              />
+          <View style={styles.headerLeftGroup}>
+            {currentStep.icon && (
+              <View style={styles.iconContainer}>
+                <TutorialBubbleIcon
+                  icon={currentStep.icon}
+                  performanceStake={business?.performanceStake}
+                />
+              </View>
+            )}
+            <Text style={styles.titleText}>{currentStep.title}</Text>
+          </View>
+
+          {isStaff && (
+            <View style={styles.tagPill}>
+              <Text style={styles.tagPillText}>
+                {stepNumber} / {numSteps}
+              </Text>
             </View>
           )}
-          <Text style={styles.titleText}>{currentStep.title}</Text>
         </View>
 
         {/* ── Body Text ── */}
         <Text style={styles.bodyText}>{currentStep.body}</Text>
 
-        {/* ── Action Button ("Next" or "Finally") ── */}
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={styles.actionButton}
-            onPress={handleNextStep}
-          >
-            <Text style={styles.actionButtonText}>
-              {currentStep.buttonLabel}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        {/* ── Action Buttons ── */}
+        {isStaff ? (
+          <View style={styles.staffButtonRow}>
+            {stepNumber > 1 ? (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                style={styles.previousButton}
+                onPress={onPrevStep}
+              >
+                <PreviousArrowIcon size={20} />
+                <Text style={styles.previousButtonText}>Previous</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={{ flex: 1 }} />
+            )}
+
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.howItWorksButton}
+              onPress={onOpenVideo}
+            >
+              <PlaySquareIcon size={20} color="rgba(0, 8, 20, 0.96)" />
+              <Text style={styles.howItWorksButtonText}>How it works</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.actionButton}
+              onPress={handleNextStep}
+            >
+              <Text style={styles.actionButtonText}>
+                {currentStep.buttonLabel}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </Animated.View>
     </View>
   );
@@ -582,6 +736,72 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: '#FFFFFF',
     marginBottom: 20,
+    includeFontPadding: false,
+  },
+  headerLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexShrink: 1,
+  },
+  tagPill: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tagPillText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.4,
+    color: 'rgba(0, 8, 20, 0.96)',
+    includeFontPadding: false,
+  },
+  staffButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 4,
+  },
+  previousButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 48,
+    paddingHorizontal: 4,
+  },
+  previousButtonText: {
+    fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.15,
+    color: '#FFFFFF',
+    includeFontPadding: false,
+  },
+  howItWorksButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 48,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+  },
+  howItWorksButtonText: {
+    fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.15,
+    color: 'rgba(0, 8, 20, 0.96)',
     includeFontPadding: false,
   },
   buttonRow: {

@@ -366,6 +366,8 @@ export const ProviderDashboardScreen: React.FC = () => {
     payoutMethod,
     showDashboardOverlayAfterPayout,
     setShowDashboardOverlayAfterPayout,
+    showDashboardOverlayAfterReport,
+    setShowDashboardOverlayAfterReport,
     justSignedUp,
     setJustSignedUp,
   } = useProviderOnboarding();
@@ -380,9 +382,25 @@ export const ProviderDashboardScreen: React.FC = () => {
     }
   }, [showDashboardOverlayAfterPayout, setShowDashboardOverlayAfterPayout]);
 
+  useEffect(() => {
+    if (showDashboardOverlayAfterReport) {
+      const timer = setTimeout(() => {
+        setShowDashboardOverlayAfterReport(false);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [showDashboardOverlayAfterReport, setShowDashboardOverlayAfterReport]);
+
+  const hasOverlayReturn = showDashboardOverlayAfterPayout || showDashboardOverlayAfterReport;
+
   // Figma Annotation: "All screens returning back to the dashboard should go through a skeleton loader beforing seeing the dashboard"
+  // Note: Return from Report Review Success or Payouts Success specifically requests normal 4-dot loader instead of skeleton.
   useFocusEffect(
     useCallback(() => {
+      if (hasOverlayReturn) {
+        setIsDashboardLoading(false);
+        return;
+      }
       setIsDashboardLoading(true);
       const timer = setTimeout(() => {
         setIsDashboardLoading(false);
@@ -391,7 +409,7 @@ export const ProviderDashboardScreen: React.FC = () => {
         clearTimeout(timer);
         setIsDashboardLoading(true);
       };
-    }, [])
+    }, [hasOverlayReturn])
   );
 
   const isFromSignup = params.fromSignup === 'true' || justSignedUp;
@@ -648,7 +666,7 @@ export const ProviderDashboardScreen: React.FC = () => {
                   <Text style={styles.performancePercentText}>{business.performanceStake}</Text>
                 </View>
               }
-              onPress={() => router.push('/category' as any)}
+              onPress={() => router.push('/business-statistics' as any)}
               disabled={phase === 'tour'}
             />
 
@@ -666,7 +684,7 @@ export const ProviderDashboardScreen: React.FC = () => {
                   resizeMode="contain"
                 />
               }
-              onPress={() => router.push('/category' as any)}
+              onPress={() => router.push('/clients-review' as any)}
               disabled={phase === 'tour'}
             />
 
@@ -683,7 +701,7 @@ export const ProviderDashboardScreen: React.FC = () => {
                   resizeMode="contain"
                 />
               }
-              onPress={() => router.push('/category' as any)}
+              onPress={() => router.push('/edit-business-profile' as any)}
               disabled={phase === 'tour'}
             />
           </View>
@@ -794,7 +812,7 @@ export const ProviderDashboardScreen: React.FC = () => {
               disabled={phase === 'tour'}
               onPress={() => {
                 triggerLightHaptic();
-                setActiveTab('profile');
+                router.push('/profile' as any);
               }}
             >
               <View style={styles.navTabContent}>
@@ -914,9 +932,9 @@ export const ProviderDashboardScreen: React.FC = () => {
         }}
       />
 
-      {/* ── 4-Dot Dimmed Loading Overlay after Returning from Payouts Success ── */}
+      {/* ── 4-Dot Dimmed Loading Overlay after Returning from Payouts or Report Success ── */}
       <LoadingOverlay
-        visible={showDashboardOverlayAfterPayout}
+        visible={showDashboardOverlayAfterPayout || showDashboardOverlayAfterReport}
         dotsCount={4}
         paddingTop={429}
         dotSize={16}

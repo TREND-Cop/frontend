@@ -120,7 +120,16 @@ export const ReviewServiceCard: React.FC<ReviewServiceCardProps> = ({
 
       {/* ── Service Card Container ── */}
       <View style={styles.serviceCardContainer}>
-        {/* Main Service Row (80x80 photo + Name + Price + Duration + Ribbon) */}
+        {/* Discount Ribbon Badge (Review only, top-right corner, rotated 45deg) */}
+        {renderRibbon && pricing.hasDiscount && (
+          <View style={styles.ribbonWrapper} pointerEvents="none">
+            <View style={styles.ribbonBadge}>
+              <Text style={styles.ribbonText}>{pricing.percentOff}% OFF</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Main Service Row (80x80 photo + Name + Price + Duration) */}
         <View
           style={styles.serviceItemRow}
           accessible={true}
@@ -164,15 +173,6 @@ export const ReviewServiceCard: React.FC<ReviewServiceCardProps> = ({
               <Text style={styles.durationText}>{compactDuration}</Text>
             </View>
           </View>
-
-          {/* Discount Ribbon Badge (Review only, top-right corner, rotated 37deg) */}
-          {renderRibbon && pricing.hasDiscount && (
-            <View style={styles.ribbonWrapper}>
-              <View style={styles.ribbonBadge}>
-                <Text style={styles.ribbonText}>{pricing.percentOff}% OFF</Text>
-              </View>
-            </View>
-          )}
         </View>
 
         {/* ── Staff Sub-Section ── */}
@@ -421,23 +421,24 @@ const styles = StyleSheet.create({
   },
   ribbonWrapper: {
     position: 'absolute',
-    top: -8,
-    right: -16,
+    top: 14,
+    right: -24,
     zIndex: 10,
   },
   ribbonBadge: {
-    backgroundColor: 'rgba(246, 240, 230, 0.96)',
-    borderRadius: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    transform: [{ rotate: '37deg' }],
+    backgroundColor: '#FDF3E7',
+    paddingHorizontal: 28,
+    paddingVertical: 3,
+    transform: [{ rotate: '45deg' }],
   },
   ribbonText: {
     fontFamily: FONT_MEDIUM,
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 0.4,
-    color: 'rgba(248, 155, 24, 0.96)',
+    fontSize: 11,
+    lineHeight: 14,
+    letterSpacing: 0.2,
+    color: '#F89B18',
+    textAlign: 'center',
+    fontWeight: '500',
   },
   staffHeaderRow: {
     flexDirection: 'row',

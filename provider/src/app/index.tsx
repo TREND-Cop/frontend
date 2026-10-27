@@ -21,6 +21,8 @@ export default function Index() {
           } else {
             router.push('/login-business-owner');
           }
+        } else if (role === 'staff') {
+          router.push('/staff-login-code' as any);
         }
       }}
     />

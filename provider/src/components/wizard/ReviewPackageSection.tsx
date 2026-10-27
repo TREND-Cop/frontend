@@ -44,7 +44,14 @@ export const ReviewPackageSection: React.FC<ReviewPackageSectionProps> = ({
   onEdit,
   testID,
 }) => {
-  if (!packages || packages.length === 0) {
+  const validPackages = (packages || []).filter(
+    (pkg) =>
+      pkg.contents?.trim() ||
+      (pkg.price !== null && pkg.price > 0) ||
+      (pkg.images && pkg.images.length > 0)
+  );
+
+  if (validPackages.length === 0) {
     return null;
   }
 
@@ -75,7 +82,7 @@ export const ReviewPackageSection: React.FC<ReviewPackageSectionProps> = ({
 
       {/* ── Packages Container ── */}
       <View style={styles.packagesContainer}>
-        {packages.map((pkg) => {
+        {validPackages.map((pkg) => {
           const checklistLines = pkg.contents
             .split('\n')
             .map((l) => l.trim())

@@ -72,6 +72,15 @@ export interface DateFilterSheetProps {
   onApplyFilter: (filter: FilterValue) => void;
   currentFilter?: FilterValue | null;
   /**
+   * Optional custom confirm button labels per tab.
+   * Defaults to { month: 'Search', year: 'Search' }.
+   * Business Statistics uses { month: 'Select', year: 'Search date' }.
+   */
+  confirmLabels?: {
+    month?: string;
+    year?: string;
+  };
+  /**
    * TODO (Backend): Predicate to determine if a calendar date is disabled.
    * Default disables nothing.
    */
@@ -83,6 +92,7 @@ export const DateFilterSheet: React.FC<DateFilterSheetProps> = ({
   onClose,
   onApplyFilter,
   currentFilter,
+  confirmLabels,
   isDateDisabled = () => false,
 }) => {
   const insets = useSafeAreaInsets();
@@ -451,7 +461,7 @@ export const DateFilterSheet: React.FC<DateFilterSheetProps> = ({
                       isSearchDisabled ? styles.searchButtonTextDisabled : styles.searchButtonTextEnabled,
                     ]}
                   >
-                    Search
+                    {confirmLabels?.month ?? 'Search'}
                   </Text>
                 </TactilePressable>
               </View>
@@ -548,7 +558,7 @@ export const DateFilterSheet: React.FC<DateFilterSheetProps> = ({
                   onPress={handleSearch}
                 >
                   <Text style={[styles.searchButtonText, styles.searchButtonTextEnabled]}>
-                    Search
+                    {confirmLabels?.year ?? 'Search'}
                   </Text>
                 </TactilePressable>
               </View>

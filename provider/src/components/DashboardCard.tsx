@@ -22,6 +22,7 @@ export interface DashboardCardProps {
   onPress?: () => void;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
+  variant?: 'white' | 'grey';
 }
 
 /**
@@ -45,6 +46,7 @@ export const DashboardCard: React.FC<DashboardCardProps> = ({
   onPress,
   disabled = false,
   style,
+  variant = 'white',
 }) => {
   const is120 = cardHeight === 120;
 
@@ -52,6 +54,7 @@ export const DashboardCard: React.FC<DashboardCardProps> = ({
     <TactilePressable
       style={[
         is120 ? styles.card120 : styles.card136,
+        variant === 'grey' && styles.cardGrey,
         style,
       ]}
       onPress={onPress}
@@ -164,6 +167,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 3,
+  },
+  cardGrey: {
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderColor: 'rgba(192, 192, 204, 0.96)',
   },
   cardHeaderRow: {
     width: 135,

@@ -13,11 +13,15 @@ export interface BusinessProfile {
   operatingDays?: string;
   operatingHours?: string;
   gender?: string;
+  country?: string;
+  countryCode?: string;
+  state?: string;
+  nameChangedAt?: string | null;
 }
 
 const DEFAULT_BUSINESS_PROFILE: BusinessProfile = {
   name: 'Luminous Lux',
-  address: 'Street 11, off okiki road abuja.',
+  address: 'Street 11 adamu cresent, off nnpc tower, maitama abuja.',
   isOpen: true, // Starts as open by default
   servicesCount: 8,
   photosCount: 24,
@@ -25,9 +29,13 @@ const DEFAULT_BUSINESS_PROFILE: BusinessProfile = {
   performanceStake: '12%',
   notificationBadgeCount: 102,
   photos: [],
-  operatingDays: 'Monday - Sunday',
-  operatingHours: '8:00am - 11:00pm',
+  operatingDays: 'Monday, Thursday, Sunday',
+  operatingHours: '9:00am - 9:00pm',
   gender: 'Unisex',
+  country: 'Nigeria',
+  countryCode: '+234',
+  state: 'F.C.T Abuja',
+  nameChangedAt: null,
 };
 
 let businessState: BusinessProfile = { ...DEFAULT_BUSINESS_PROFILE };
