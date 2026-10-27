@@ -211,8 +211,8 @@ export function StaffLoginFormScreen() {
         <LoadingOverlay
           visible={isLoading}
           dotsCount={4}
-          dotSize={10}
-          dotGap={12}
+          dotSize={15}
+          dotGap={16}
           overlayOpacity={0.1}
           centered={true}
         />
@@ -248,6 +248,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 16,
     paddingTop: 16,
   },
@@ -285,7 +286,7 @@ const styles = StyleSheet.create({
     maxWidth: 358,
     alignSelf: 'center',
     gap: 24,
-    marginBottom: 48,
+    marginBottom: 32,
   },
   fieldGroup: {
     gap: 8,
@@ -346,7 +347,9 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 358,
     alignSelf: 'center',
-    marginTop: 24,
+    marginTop: 'auto',
+    paddingTop: 32,
+    marginBottom: 8,
   },
   loginButton: {
     width: '100%',
