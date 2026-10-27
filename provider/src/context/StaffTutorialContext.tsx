@@ -338,17 +338,24 @@ export const StaffTutorialProvider: React.FC<{ children: React.ReactNode }> = ({
     setStepIndex(0);
   }, []);
 
+  const finishTour = useCallback(() => {
+    setActiveTargetRect(null);
+    setPhase('completion');
+  }, []);
+
   const handleNextStep = useCallback(() => {
     if (stepIndex < STAFF_TUTORIAL_STEPS.length - 1) {
       setStepIndex((prev) => prev + 1);
+      setPhase('tour');
     } else {
       finishTour();
     }
-  }, [stepIndex]);
+  }, [stepIndex, finishTour]);
 
   const handlePrevStep = useCallback(() => {
     if (stepIndex > 0) {
       setStepIndex((prev) => prev - 1);
+      setPhase('tour');
     }
   }, [stepIndex]);
 
@@ -358,11 +365,6 @@ export const StaffTutorialProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const closeVideo = useCallback(() => {
     setPhase('tour');
-  }, []);
-
-  const finishTour = useCallback(() => {
-    setActiveTargetRect(null);
-    setPhase('completion');
   }, []);
 
   const handleCloseCompletion = useCallback(() => {
