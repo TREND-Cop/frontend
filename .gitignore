@@ -65,3 +65,8 @@ clean_styles.js
 *.txt
 .easignore
 eas.json
+
+dist
+.expo
+expo_tunnel.log
+npm_install.log
