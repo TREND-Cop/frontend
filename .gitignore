@@ -63,5 +63,10 @@ AGENTS.md
 clean_styles.js
 *.log
 *.txt
+.easignore
+eas.json
 
-
+dist
+.expo
+expo_tunnel.log
+npm_install.log
