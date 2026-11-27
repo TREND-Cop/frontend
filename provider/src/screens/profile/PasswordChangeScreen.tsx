@@ -171,9 +171,8 @@ export const PasswordChangeScreen: React.FC = () => {
       setCurrentError('');
     }
 
-    // 2. Check new password rules: min 8 chars and must differ from current password
-    if (newPassword.length < 8) {
-      setNewError('Password must be at least 8 characters');
+    // 2. Check new password (any non-empty password allowed; must differ from current)
+    if (newPassword.length === 0) {
       hasError = true;
     } else if (newPassword === currentPassword) {
       setNewError('New password must differ from current password');

@@ -40,10 +40,16 @@ function mapRemoteStatus(status?: string): AppointmentStatus {
 function mapRemoteBooking(row: any): Appointment {
   const rawId = String(row.id || `apt_${Date.now()}`);
   const serviceName = row.service_name || row.service?.name || 'Service';
+  const mappedStatus = mapRemoteStatus(row.status);
+  const parsedCompletedAt = row.completed_at
+    ? Date.parse(row.completed_at)
+    : row.updated_at
+    ? Date.parse(row.updated_at)
+    : NaN;
   return {
     id: rawId,
     ticketNumber: row.ticket_number || row.reference || `TR-${rawId.slice(-5).toUpperCase()}`,
-    status: mapRemoteStatus(row.status),
+    status: mappedStatus,
     salonName: row.business_name || row.business?.name || 'TREND Salon',
     salonAddress: row.business_address || row.business?.address || '',
     salonImage: row.business_image || row.business?.image,
@@ -73,6 +79,12 @@ function mapRemoteBooking(row: any): Appointment {
     totalPrice: Number(row.total_price ?? row.total ?? row.price ?? 0),
     note: row.notes || '',
     createdAt: row.created_at ? Date.parse(row.created_at) || Date.now() : Date.now(),
+    completedAt:
+      mappedStatus === 'completed'
+        ? !Number.isNaN(parsedCompletedAt)
+          ? parsedCompletedAt
+          : Date.now()
+        : undefined,
   };
 }
 

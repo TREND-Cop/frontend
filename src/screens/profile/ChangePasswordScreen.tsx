@@ -117,9 +117,9 @@ export const ChangePasswordScreen: React.FC = () => {
     newPassword.trim().length > 0 ||
     confirmPassword.trim().length > 0;
 
-  // Validation logic
-  const isCurrentPasswordValid = currentPassword.length >= 6;
-  const isNewPasswordValid = newPassword.length >= 6;
+  // Validation logic: any non-empty password of the user's choice is accepted
+  const isCurrentPasswordValid = currentPassword.length > 0;
+  const isNewPasswordValid = newPassword.length > 0;
   const isConfirmPasswordMatching =
     confirmPassword.length > 0 && confirmPassword === newPassword;
 
@@ -163,7 +163,7 @@ export const ChangePasswordScreen: React.FC = () => {
     let hasError = false;
 
     // Validate current password
-    if (currentPassword.length < 6) {
+    if (currentPassword.length === 0) {
       setCurrentPasswordError('Incorrect password input');
       hasError = true;
     } else {

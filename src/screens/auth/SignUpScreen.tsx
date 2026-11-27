@@ -123,7 +123,7 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
 
   const handlePhoneBlur = useCallback(() => {
     setPhoneTouched(true);
-    if (!isPhoneValid(phone)) {
+    if (phone.length > 0 && !isPhoneValid(phone)) {
       setPhoneError('Enter a valid phone number');
     } else {
       setPhoneError(null);
@@ -132,12 +132,8 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
 
   const handlePasswordBlur = useCallback(() => {
     setPasswordTouched(true);
-    if (!isPasswordValid(password)) {
-      setPasswordError('Min 8 chars, 1 number');
-    } else {
-      setPasswordError(null);
-    }
-  }, [password]);
+    setPasswordError(null);
+  }, []);
 
   const { updateProfile } = useUserContext();
 

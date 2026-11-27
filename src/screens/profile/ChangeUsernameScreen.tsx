@@ -64,7 +64,7 @@ export const ChangeUsernameScreen = () => {
   const isDuplicate =
     newUsername.trim().length > 0 &&
     newUsername.trim().toLowerCase() === currentUsername.trim().toLowerCase();
-  const isValid = newUsername.trim().length >= 3 && !isDuplicate;
+  const isValid = newUsername.trim().length > 0 && !isDuplicate;
   const hasInput = newUsername.trim().length > 0;
 
   // Star spinner animation

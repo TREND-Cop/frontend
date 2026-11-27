@@ -120,9 +120,9 @@ export const BusinessOwnerLoginScreen: React.FC<BusinessOwnerLoginScreenProps> =
     );
   }, [countries, countrySearch]);
 
-  // Validation rules
-  const isIdentifierValid = identifier.trim().length >= 3;
-  const isPasswordValid = password.length >= 4;
+  // Validation rules: allow any non-empty identifier and password
+  const isIdentifierValid = identifier.trim().length > 0;
+  const isPasswordValid = password.length > 0;
 
   const handleIdentifierBlur = () => {
     setIdentifierTouched(true);

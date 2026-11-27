@@ -7,13 +7,12 @@
  */
 
 export const PASSWORD_RULES = {
-  minLength: 8,
+  minLength: 1,
   requiresNumber: false,
 };
 
 /**
- * Validates password: must meet minimum length of 8 characters.
- * Short passwords like '1112' (4 chars) will fail and trigger "Incorrect password input".
+ * Validates password: any non-empty password of the user's choice is accepted.
  */
 export const isPasswordValid = (password: string): boolean => {
   if (!password || password.length < PASSWORD_RULES.minLength) return false;

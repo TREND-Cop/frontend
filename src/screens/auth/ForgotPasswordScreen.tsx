@@ -165,24 +165,15 @@ export const ForgotPasswordScreen = ({ navigation }: { navigation?: any }) => {
     };
   }, []);
 
-  // Password validity: minimum 4 characters (not less than 4)
-  const isNewPasswordValid = newPassword.length >= 4;
-  const passwordsMatch = newPassword === confirmPassword && confirmPassword.length >= 4;
+  // Any non-empty password of the user's choice is valid
+  const isNewPasswordValid = newPassword.length > 0;
+  const passwordsMatch = newPassword === confirmPassword && confirmPassword.length > 0;
   const formValid = isNewPasswordValid && passwordsMatch;
 
   // ── Validation Handlers ──
   const handleNewPasswordChange = (text: string) => {
     setNewPassword(text);
-    if (text.length >= 4) {
-      // Valid — always clear error immediately so green badge shows cleanly
-      setNewPasswordError(null);
-    } else if (newPasswordTouched) {
-      if (text.length > 0) {
-        setNewPasswordError('Incorrect password input');
-      } else {
-        setNewPasswordError(null);
-      }
-    }
+    setNewPasswordError(null);
     // Cross-validate confirm password if already touched
     if (confirmPasswordTouched && confirmPassword.length > 0) {
       if (confirmPassword !== text) {
@@ -195,11 +186,7 @@ export const ForgotPasswordScreen = ({ navigation }: { navigation?: any }) => {
 
   const handleNewPasswordBlur = () => {
     setNewPasswordTouched(true);
-    if (newPassword.length > 0 && newPassword.length < 4) {
-      setNewPasswordError('Incorrect password input');
-    } else {
-      setNewPasswordError(null);
-    }
+    setNewPasswordError(null);
   };
 
   const handleConfirmPasswordChange = (text: string) => {

@@ -89,7 +89,7 @@ export function ProviderChangeUsernameScreen() {
   const isDuplicate = trimmed.toLowerCase() === ownerName.toLowerCase();
   const isReserved = ['johndoe', 'admin', 'trend', 'kalba'].includes(trimmed.toLowerCase());
   const hasError = isDuplicate || isReserved || !!errorMessage;
-  const isValid = isInputFilled && !hasError && trimmed.length >= 3;
+  const isValid = isInputFilled && !hasError;
 
   const handleNameChange = (val: string) => {
     setNewName(val);

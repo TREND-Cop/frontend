@@ -7,7 +7,8 @@ import Svg, { Path, Rect } from 'react-native-svg';
 import { theme } from '../../constants/theme';
 import {
   RateFeedbackBottomSheet,
-  shouldShowRandomRatePrompt,
+  getNextFeedbackPromptSchedule,
+  markCompletedBookingPrompted,
 } from '../../components/RateFeedbackBottomSheet';
 import { tabSkeletonStore } from '../../utils/tabSkeletonStore';
 const CategoryGridIcon = ({ color, size = 24, strokeWidth = 1.8, fill = 'none', ...props }: any) => (
@@ -133,11 +134,13 @@ const LiquidGlassTabBarBackground = () => {
 
 import { useMessagesContext } from '../../store/MessagesContext';
 import { useUserContext } from '../../store/UserContext';
+import { useBookingContext } from '../../store/BookingContext';
 import { useNativeDock } from '../../utils/useNativeDock';
 
 export default function TabsLayout() {
   const { hasDock, dockHeight } = useNativeDock();
   const { profileData } = useUserContext();
+  const { appointments } = useBookingContext();
   const [showRateModal, setShowRateModal] = React.useState(false);
   const { totalUnreadCount } = useMessagesContext();
 
@@ -148,17 +151,36 @@ export default function TabsLayout() {
     : (Platform.OS === 'ios' ? 32 : 8);
   const tabBarHeight = 58 + bottomPadding;
 
-  // Check for random 8-9 hour interval rate prompt on mount
+  // Show feedback prompt strictly 5 minutes after the user books a service and it is completed
   React.useEffect(() => {
-    const checkRandomPrompt = async () => {
-      const shouldShow = await shouldShowRandomRatePrompt();
-      if (shouldShow) {
-        // Delay 5 seconds to let user settle into the app
-        setTimeout(() => setShowRateModal(true), 5000);
-      }
+    if (!profileData.isLoggedIn) return;
+
+    const completedBookings = appointments.filter(
+      (apt) => apt.status === 'completed' && typeof apt.completedAt === 'number'
+    );
+    if (completedBookings.length === 0) return;
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const schedulePostCompletionPrompt = async () => {
+      const schedule = await getNextFeedbackPromptSchedule(completedBookings);
+      if (cancelled || !schedule) return;
+
+      timer = setTimeout(async () => {
+        if (cancelled) return;
+        await markCompletedBookingPrompted(schedule.bookingId);
+        setShowRateModal(true);
+      }, schedule.delayMs);
     };
-    checkRandomPrompt();
-  }, []);
+
+    schedulePostCompletionPrompt();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [profileData.isLoggedIn, appointments]);
 
   return (
     <>
@@ -303,12 +325,12 @@ export default function TabsLayout() {
       />
     </Tabs>
 
-    {/* ─── Rate / Feedback Bottom Sheet (random 8-9hr interval trigger) ─── */}
+    {/* ─── Rate / Feedback Bottom Sheet (5 min after a completed booking) ─── */}
     <RateFeedbackBottomSheet
       visible={showRateModal}
       onClose={() => setShowRateModal(false)}
       onSubmit={(rating, feedback) => {
-        console.log('Random interval rating submitted:', { rating, feedback });
+        console.log('Post-completion feedback submitted:', { rating, feedback });
       }}
     />
     </>

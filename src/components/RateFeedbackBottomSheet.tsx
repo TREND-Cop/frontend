@@ -19,7 +19,10 @@ import { typography } from '../constants/theme';
 
 // ── Storage Keys ──
 const STORAGE_KEY_HAS_RATED = '@trend_has_rated_app';
-const STORAGE_KEY_LAST_PROMPT_TIME = '@trend_last_rate_prompt_time';
+const STORAGE_KEY_PROMPTED_BOOKINGS = '@trend_prompted_completed_booking_ids';
+
+// ── Delay after a booked service is completed before prompting for feedback (5 minutes) ──
+export const POST_COMPLETION_FEEDBACK_DELAY_MS = 5 * 60 * 1000;
 
 // ── Rating Levels (Figma: 5 options) ──
 interface RatingOption {
@@ -71,38 +74,73 @@ const markUserAsRated = async () => {
   } catch {}
 };
 
-// ── Helper: Check if enough time has passed for random prompt (8-9 hours) ──
-export const shouldShowRandomRatePrompt = async (): Promise<boolean> => {
+// ── Helper: Read completed booking IDs already prompted for feedback ──
+export const getPromptedCompletedBookingIds = async (): Promise<string[]> => {
   try {
-    const rated = await AsyncStorage.getItem(STORAGE_KEY_HAS_RATED);
-    if (rated === 'true') return false;
-
-    const lastPromptStr = await AsyncStorage.getItem(STORAGE_KEY_LAST_PROMPT_TIME);
-    if (!lastPromptStr) {
-      // First time — set the time and allow showing
-      await AsyncStorage.setItem(STORAGE_KEY_LAST_PROMPT_TIME, Date.now().toString());
-      return true;
-    }
-
-    const lastPromptTime = parseInt(lastPromptStr, 10);
-    const now = Date.now();
-    const hoursSinceLastPrompt = (now - lastPromptTime) / (1000 * 60 * 60);
-
-    // Random interval between 8-9 hours
-    const randomInterval = 8 + Math.random(); // 8.0 to 9.0 hours
-
-    if (hoursSinceLastPrompt >= randomInterval) {
-      await AsyncStorage.setItem(STORAGE_KEY_LAST_PROMPT_TIME, now.toString());
-      return true;
-    }
-
-    return false;
+    const raw = await AsyncStorage.getItem(STORAGE_KEY_PROMPTED_BOOKINGS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
   } catch {
-    return false;
+    return [];
   }
 };
 
-// ── Helper: Trigger after booking ──
+// ── Helper: Mark a completed booking ID as already prompted ──
+export const markCompletedBookingPrompted = async (bookingId: string): Promise<void> => {
+  try {
+    const existing = await getPromptedCompletedBookingIds();
+    if (!existing.includes(bookingId)) {
+      await AsyncStorage.setItem(
+        STORAGE_KEY_PROMPTED_BOOKINGS,
+        JSON.stringify([...existing, bookingId])
+      );
+    }
+  } catch {}
+};
+
+// ── Helper: Schedule feedback prompt strictly 5 min after a completed booking ──
+export const getNextFeedbackPromptSchedule = async (
+  completedBookings: { id: string; completedAt?: number }[]
+): Promise<{ bookingId: string; delayMs: number } | null> => {
+  try {
+    if (!completedBookings.length) return null;
+
+    const rated = await AsyncStorage.getItem(STORAGE_KEY_HAS_RATED);
+    if (rated === 'true') return null;
+
+    const promptedIds = new Set(await getPromptedCompletedBookingIds());
+    const eligible = completedBookings
+      .filter(
+        (b) =>
+          b.id &&
+          !promptedIds.has(b.id) &&
+          typeof b.completedAt === 'number' &&
+          !Number.isNaN(b.completedAt)
+      )
+      .sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0));
+
+    if (!eligible.length) return null;
+
+    const latest = eligible[0];
+    const elapsedMs = Date.now() - (latest.completedAt as number);
+    const remainingMs = POST_COMPLETION_FEEDBACK_DELAY_MS - elapsedMs;
+
+    return {
+      bookingId: latest.id,
+      delayMs: remainingMs > 0 ? remainingMs : 1500,
+    };
+  } catch {
+    return null;
+  }
+};
+
+// ── Deprecated: Random unprompted rating popup disabled (must complete a booking first) ──
+export const shouldShowRandomRatePrompt = async (): Promise<boolean> => {
+  return false;
+};
+
+// ── Helper: Trigger after booking completion ──
 export const shouldShowPostBookingRatePrompt = async (): Promise<boolean> => {
   try {
     const rated = await AsyncStorage.getItem(STORAGE_KEY_HAS_RATED);
