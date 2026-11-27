@@ -213,10 +213,10 @@ const styles = StyleSheet.create({
     fontFamily: Platform.select({
       ios: 'SF Pro',
       android: 'DMSans_500Medium',
-      web: "'DM Sans', sans-serif",
+      web: 'DMSans_500Medium, sans-serif',
       default: 'DMSans_500Medium',
     }),
-    fontWeight: '500',
+    ...(Platform.OS === 'web' ? { fontWeight: '400' as const } : { fontWeight: '500' as const }),
     fontSize: 14,
     lineHeight: 20,
     letterSpacing: 0.2,
@@ -264,10 +264,10 @@ const styles = StyleSheet.create({
     fontFamily: Platform.select({
       ios: 'DMSans_700Bold',
       android: 'DMSans_700Bold',
-      web: "'DM Sans', DMSans_700Bold, sans-serif",
+      web: 'DMSans_700Bold, sans-serif',
       default: 'DMSans_700Bold',
     }),
-    ...(Platform.OS === 'ios' || Platform.OS === 'web' ? { fontWeight: '700' as const } : {}),
+    ...(Platform.OS === 'ios' ? { fontWeight: '700' as const } : {}),
     fontSize: 24,
     lineHeight: 28,
     letterSpacing: 0.3,
@@ -276,8 +276,8 @@ const styles = StyleSheet.create({
   // Figma CSS Screen 1: font-weight 590 -> 600, 32px, line-height 32px, letter-spacing 0.6px
   brandTitleWeb: {
     color: 'rgba(0, 8, 20, 0.96)',
-    fontFamily: "'DM Sans', DMSans_700Bold, sans-serif",
-    fontWeight: '600',
+    fontFamily: 'DMSans_600SemiBold, sans-serif',
+    fontWeight: '400',
     fontSize: 32,
     lineHeight: 32,
     letterSpacing: 0.6,
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
     fontFamily: Platform.select({
       ios: 'SF Pro',
       android: 'DMSans_400Regular',
-      web: "'DM Sans', sans-serif",
+      web: 'DMSans_400Regular, sans-serif',
       default: 'DMSans_400Regular',
     }),
     fontWeight: '400',
@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
   },
   // Figma CSS Screen 1: Body text Regular, 16px, line-height 24px, letter-spacing 0.4px
   brandDescriptionWeb: {
-    fontFamily: "'DM Sans', sans-serif",
+    fontFamily: 'DMSans_400Regular, sans-serif',
     fontWeight: '400',
     fontSize: 16,
     lineHeight: 24,
