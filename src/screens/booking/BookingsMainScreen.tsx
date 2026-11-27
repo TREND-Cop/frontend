@@ -8,7 +8,8 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import {
   ChevronRight,
   ArrowRight,
@@ -87,7 +88,7 @@ export type BookingOverviewState = 'pending' | 'accepted' | 'cancelled' | 'empty
 export const BookingsMainScreen: React.FC<{ initialState?: BookingOverviewState }> = ({
   initialState,
 }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const isLoading = useTabSkeleton('bookings', 1100);
   const params = useLocalSearchParams();
@@ -103,50 +104,50 @@ export const BookingsMainScreen: React.FC<{ initialState?: BookingOverviewState 
 
   const handleNavigateAppointments = () => {
     if (pendingCount === 0) {
-      router.push('/empty-booked-item' as any);
+      safeRouter.push('/empty-booked-item' as any);
     } else {
-      router.push('/appointment' as any);
+      safeRouter.push('/appointment' as any);
     }
   };
 
   const handleNavigateCompleted = () => {
     if (completedCount === 0) {
-      router.push('/completed-appointment-empty' as any);
+      safeRouter.push('/completed-appointment-empty' as any);
     } else {
-      router.push('/completed-appointments' as any);
+      safeRouter.push('/completed-appointments' as any);
     }
   };
 
   const handleNavigateCancelled = () => {
     if (cancelledCount === 0) {
-      router.push('/cancelled-appointment-empty' as any);
+      safeRouter.push('/cancelled-appointment-empty' as any);
     } else {
-      router.push('/cancelled-appointments' as any);
+      safeRouter.push('/cancelled-appointments' as any);
     }
   };
 
   const handleNavigateOngoing = () => {
     if (ongoingCount === 0) {
-      router.push('/empty-booked-item' as any);
+      safeRouter.push('/empty-booked-item' as any);
     } else {
-      router.push('/ongoing-appointment' as any);
+      safeRouter.push('/ongoing-appointment' as any);
     }
   };
 
   const handleNavigateWishlist = () => {
     if (favoritesCount === 0) {
-      router.push('/wishlist-empty' as any);
+      safeRouter.push('/wishlist-empty' as any);
     } else {
-      router.push('/wishlist' as any);
+      safeRouter.push('/wishlist' as any);
     }
   };
 
   const handleSeeAllPopular = () => {
-    router.push('/popular-men' as any);
+    safeRouter.push('/popular-men' as any);
   };
 
   const handleCardPress = (item: (typeof POPULAR_RIGHT_NOW)[0]) => {
-    router.push({
+    safeRouter.push({
       pathname: '/professional/style-details',
       params: {
         id: item.id,
@@ -209,7 +210,7 @@ export const BookingsMainScreen: React.FC<{ initialState?: BookingOverviewState 
           <TouchableOpacity
             style={styles.emptySecondaryButton}
             activeOpacity={0.7}
-            onPress={() => router.push('/home/explore' as any)}
+            onPress={() => safeRouter.push('/home/explore' as any)}
           >
             <Text style={styles.emptySecondaryButtonText}>Explore Services</Text>
           </TouchableOpacity>

@@ -18,7 +18,8 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 import { SafeImage } from '../../components/ui/SafeImage';
 import { useUserContext } from '../../store/UserContext';
@@ -61,7 +62,7 @@ const MiniLoaderSpinner = () => {
 };
 
 export const SignUpSuccessScreen = ({ navigation }: { navigation?: any }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { name, username, mode } = useLocalSearchParams<{
     name?: string;
@@ -396,17 +397,17 @@ export const SignUpSuccessScreen = ({ navigation }: { navigation?: any }) => {
       });
     }, 1200);
 
-    // After 5.2s, transition to /home
+    // After 5.2s, transition to /home and reset root navigation so onboarding stack is cleared
     const navTimeout = setTimeout(() => {
       updateProfile({ isLoggedIn: true });
-      router.replace('/home');
+      safeRouter.resetRoot('/home');
     }, 5200);
 
     return () => {
       clearInterval(messageInterval);
       clearTimeout(navTimeout);
     };
-  }, [router, loadingMessages]);
+  }, [safeRouter, loadingMessages]);
 
   const confettiRotation = confettiSway.interpolate({
     inputRange: [-1, 0, 1],

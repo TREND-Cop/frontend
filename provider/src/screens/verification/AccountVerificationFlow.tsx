@@ -487,7 +487,7 @@ export const AccountVerificationFlow: React.FC<AccountVerificationProps> = ({
         </ScrollView>
 
         {/* Bottom Sticky Action Button: Confirm */}
-        <View style={[styles.bottomButtonContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <View style={[styles.bottomButtonContainer, { paddingBottom: insets.bottom + 16 }]}>
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={handleConfirmMethod}
@@ -496,8 +496,6 @@ export const AccountVerificationFlow: React.FC<AccountVerificationProps> = ({
             <Text style={styles.confirmButtonText}>Confirm</Text>
           </TouchableOpacity>
         </View>
-
-        <NativeDockSpacer />
       </View>
     );
   }

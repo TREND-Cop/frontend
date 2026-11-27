@@ -11,7 +11,7 @@ import {
   KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 import { useServiceDraft } from '../../context/ServiceDraftContext';
@@ -19,6 +19,7 @@ import { useStaff, StaffMember } from '../../hooks/useStaff';
 import { WizardStepper } from '../../components/wizard/WizardStepper';
 import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
+import { useNativeDock } from '../../utils/useNativeDock';
 import { triggerLightHaptic } from '../../utils/haptics';
 
 const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
@@ -135,24 +136,16 @@ function CheckmarkCircleIcon({ isSelected }: { isSelected: boolean }) {
   );
 }
 
+const NO_STAFF_IMAGE = require('../../../assets/images/staff/no_staff_illustration.png');
+
 // ── 1:1 Empty State Illustration (150x150) ───────────────────────────────────
-// TODO (Asset): Client will export exact empty-state illustration asset (150x150px)
 function NoStaffIllustration() {
   return (
-    <Svg width={150} height={150} viewBox="0 0 150 150" fill="none">
-      {/* Background soft shadow card */}
-      <Rect x="20" y="10" width="110" height="110" rx="24" fill="#F2F4F7" />
-      {/* Middle card */}
-      <Rect x="25" y="15" width="100" height="100" rx="22" fill="#E4E7EC" />
-      {/* Front primary card */}
-      <Rect x="30" y="20" width="90" height="90" rx="20" fill="#EAECF0" />
-      {/* User Avatar Silhouette */}
-      <Circle cx="75" cy="54" r="16" fill="#98A2B3" />
-      <Path
-        d="M50 92c0-13.8 11.2-24 25-24s25 10.2 25 24v2H50v-2z"
-        fill="#98A2B3"
-      />
-    </Svg>
+    <Image
+      source={NO_STAFF_IMAGE}
+      style={{ width: 150, height: 150 }}
+      resizeMode="contain"
+    />
   );
 }
 
@@ -168,8 +161,9 @@ function NoStaffIllustration() {
  * - Multi-select persistence in shared ServiceDraftContext
  */
 export const AddStaffScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
+  const { hasDock } = useNativeDock();
 
   const {
     draft,
@@ -196,13 +190,13 @@ export const AddStaffScreen: React.FC = () => {
   // Back action returns to Step 1 with draft intact
   const handleBack = () => {
     triggerLightHaptic();
-    router.back();
+    safeRouter.back();
   };
 
   // Header "?" tutorial guide
   const handleHeaderHelp = () => {
     triggerLightHaptic();
-    router.push('/guide/general' as any);
+    safeRouter.push('/guide/general' as any);
   };
 
   // Toggle selection on staff member card
@@ -225,7 +219,7 @@ export const AddStaffScreen: React.FC = () => {
     // TODO (Backend): Replace with real API submission when connected
     setTimeout(() => {
       setIsLoading(false);
-      router.push('/business-services-addons' as any);
+      safeRouter.push('/business-services-addons' as any);
     }, 1000);
   };
 
@@ -239,7 +233,7 @@ export const AddStaffScreen: React.FC = () => {
     setTimeout(() => {
       setIsLoading(false);
       // Replace route so AddStaffScreen is not left in back-stack
-      router.replace('/staffs' as any);
+      safeRouter.replace('/staffs' as any);
     }, 800);
   };
 
@@ -249,7 +243,7 @@ export const AddStaffScreen: React.FC = () => {
     // Set providerIsOwner = true and clear staffIds per Figma note
     setProviderIsOwner(true);
     // Direct navigation to Step 3 (Add-ons) without loading overlay per Figma connection
-    router.push('/business-services-addons' as any);
+    safeRouter.push('/business-services-addons' as any);
   };
 
   const hasStaffData = staffList.length > 0;
@@ -336,6 +330,7 @@ export const AddStaffScreen: React.FC = () => {
                 {filteredStaff.length > 0 ? (
                   filteredStaff.map((staff) => {
                     const isSelected = draft.staffIds.includes(staff.id);
+                    const avatarSource = staff.avatarUri || staff.photoUri;
                     return (
                       <TouchableOpacity
                         key={staff.id}
@@ -353,9 +348,13 @@ export const AddStaffScreen: React.FC = () => {
                       >
                         {/* Avatar (80x80px, radius 24px) */}
                         <View style={styles.avatarContainer}>
-                          {staff.avatarUri ? (
+                          {avatarSource ? (
                             <Image
-                              source={{ uri: staff.avatarUri }}
+                              source={
+                                typeof avatarSource === 'string'
+                                  ? { uri: avatarSource }
+                                  : avatarSource
+                              }
                               style={styles.avatarImage}
                               resizeMode="cover"
                             />
@@ -419,7 +418,12 @@ export const AddStaffScreen: React.FC = () => {
             </ScrollView>
 
             {/* Sticky Footer & Next Button (height: 76px, soft shadow) */}
-            <View style={[styles.stickyFooter, { paddingBottom: Math.max(insets.bottom, 14) }]}>
+            <View
+              style={[
+                styles.stickyFooter,
+                { paddingBottom: hasDock ? 14 : Math.max(insets.bottom, 14) },
+              ]}
+            >
               <TouchableOpacity
                 activeOpacity={hasSelection ? 0.85 : 1}
                 style={[
@@ -498,7 +502,7 @@ export const AddStaffScreen: React.FC = () => {
           </ScrollView>
         )}
 
-        {staffList.length === 0 && <NativeDockSpacer backgroundColor="#FFFFFF" />}
+        <NativeDockSpacer backgroundColor="#FFFFFF" />
       </KeyboardAvoidingView>
 
       {/* ── 4. Dimmed Loading Overlay (F4: 4 dots, blocks touches) ── */}

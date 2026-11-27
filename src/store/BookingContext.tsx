@@ -4,6 +4,77 @@ import { bookingStore, BookingPaymentDetails } from '../utils/bookingStore';
 import { pendingTimerStore } from '../utils/pendingTimerStore';
 import { getServiceByIdOrName } from '../constants/serviceCatalog';
 import { useUserContext } from './UserContext';
+import { trendApi, getAuthToken, extractArray } from '../api/trendApi';
+
+function toBackendBookingDate(displayDate: string): string {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(displayDate)) return displayDate;
+  const parsed = Date.parse(displayDate);
+  if (!Number.isNaN(parsed)) {
+    return new Date(parsed).toISOString().slice(0, 10);
+  }
+  return new Date().toISOString().slice(0, 10);
+}
+
+function toBackendBookingTime(displayTime: string): string {
+  const m = displayTime.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (!m) return '10:00';
+  let hour = parseInt(m[1], 10);
+  const mins = m[2];
+  const meridiem = m[3]?.toUpperCase();
+  if (meridiem === 'PM' && hour < 12) hour += 12;
+  if (meridiem === 'AM' && hour === 12) hour = 0;
+  return `${String(hour).padStart(2, '0')}:${mins}`;
+}
+
+function mapRemoteStatus(status?: string): AppointmentStatus {
+  const s = (status || '').toLowerCase();
+  if (s === 'upcoming' || s === 'accepted' || s === 'approved' || s === 'awaiting_arrival') {
+    return 'approved';
+  }
+  if (s === 'in_progress' || s === 'ongoing') return 'ongoing';
+  if (s === 'completed' || s === 'done') return 'completed';
+  if (s === 'cancelled' || s === 'canceled' || s === 'declined') return 'cancelled';
+  return 'pending';
+}
+
+function mapRemoteBooking(row: any): Appointment {
+  const rawId = String(row.id || `apt_${Date.now()}`);
+  const serviceName = row.service_name || row.service?.name || 'Service';
+  return {
+    id: rawId,
+    ticketNumber: row.ticket_number || row.reference || `TR-${rawId.slice(-5).toUpperCase()}`,
+    status: mapRemoteStatus(row.status),
+    salonName: row.business_name || row.business?.name || 'TREND Salon',
+    salonAddress: row.business_address || row.business?.address || '',
+    salonImage: row.business_image || row.business?.image,
+    serviceName,
+    serviceImage: row.service_image || row.service?.images?.[0],
+    duration: row.duration ? `${row.duration}min` : '30min',
+    rating: row.rating ? String(row.rating) : '5.0',
+    styleName: row.style_name || serviceName,
+    specialist: {
+      id: String(row.staff_id || row.staff?.id || 'sp-1'),
+      name: row.staff_name || row.staff?.name || 'Specialist',
+      role: row.staff_title || row.staff?.title || 'Specialist',
+      rating: '5.0',
+      avatarUri: row.staff_image || row.staff?.image,
+    },
+    date: row.date || new Date().toISOString().slice(0, 10),
+    time: row.start || row.time || '10:00',
+    basePrice: Number(row.price ?? row.base_price ?? row.total_price ?? 0),
+    addOns: Array.isArray(row.addons)
+      ? row.addons.map((a: any, idx: number) => ({
+          id: String(a.id || idx),
+          name: a.name || 'Add-on',
+          price: Number(a.price || 0),
+        }))
+      : [],
+    servicePackage: null,
+    totalPrice: Number(row.total_price ?? row.total ?? row.price ?? 0),
+    note: row.notes || '',
+    createdAt: row.created_at ? Date.parse(row.created_at) || Date.now() : Date.now(),
+  };
+}
 
 const APPOINTMENTS_STORAGE_KEY = '@trend_appointments_v3';
 
@@ -126,7 +197,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [draft, setDraft] = useState<BookingDraft>(DEFAULT_DRAFT);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
 
-  // Load saved appointments from AsyncStorage on app startup
+  // Load saved appointments from AsyncStorage on app startup and hydrate from live backend
   useEffect(() => {
     const loadAppointments = async () => {
       try {
@@ -135,17 +206,39 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         await AsyncStorage.removeItem('@trend_appointments_v2');
 
         const stored = await AsyncStorage.getItem(APPOINTMENTS_STORAGE_KEY);
+        let localList: Appointment[] = [];
         if (stored) {
-          setAppointments(JSON.parse(stored));
+          localList = JSON.parse(stored);
+          setAppointments(localList);
         } else {
           setAppointments([]);
+        }
+
+        const token = await getAuthToken();
+        if (token) {
+          const res = await trendApi.bookings.list();
+          if (res.ok && res.data) {
+            const remoteRows = extractArray<any>(res.data, ['bookings', 'appointments']);
+            if (remoteRows.length > 0) {
+              const mapped = remoteRows.map(mapRemoteBooking);
+              const existingIds = new Set(mapped.map((m) => m.id));
+              const merged = [
+                ...mapped,
+                ...localList.filter((l) => !existingIds.has(l.id)),
+              ];
+              setAppointments(merged);
+              AsyncStorage.setItem(APPOINTMENTS_STORAGE_KEY, JSON.stringify(merged)).catch(
+                () => {}
+              );
+            }
+          }
         }
       } catch (err) {
         console.warn('Failed to load appointments from storage:', err);
       }
     };
     loadAppointments();
-  }, []);
+  }, [profileData?.isLoggedIn]);
 
   // Save appointments to AsyncStorage
   const persistAppointments = useCallback(async (newList: Appointment[]) => {
@@ -328,8 +421,34 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
       : undefined;
 
+    let remoteBookingId: string | null = null;
+    try {
+      const token = await getAuthToken();
+      if (token) {
+        const res = await trendApi.bookings.create({
+          service_id: sId || sName,
+          date: toBackendBookingDate(
+            bookingStore.getAppointmentDate() || draft.date || 'Wednesday, Oct 24'
+          ),
+          start: toBackendBookingTime(
+            bookingStore.getAppointmentTime() || draft.time || '10:00 AM'
+          ),
+          staff_id: specialist.id || '',
+          addons: finalAddOns.map((a) => a.id),
+          appointment_type: 'in_shop',
+          notes: bookingStore.getSpecialistNote() || draft.note || '',
+        });
+        const createdId = res.data?.id || res.data?.booking?.id;
+        if (res.ok && createdId) {
+          remoteBookingId = String(createdId);
+        }
+      }
+    } catch {
+      // Keep local booking flow resilient if offline
+    }
+
     const newAppointment: Appointment = {
-      id: `apt_${Date.now()}`,
+      id: remoteBookingId || `apt_${Date.now()}`,
       ticketNumber: `TR-${randomTicketNum}`,
       status: 'pending',
       salonName: bookingStore.getSalonName() || draft.salonName || 'Luminous Lux',
@@ -374,6 +493,11 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return apt;
       });
       await persistAppointments(updated);
+      if (status === 'completed') {
+        getAuthToken()
+          .then((token) => (token ? trendApi.bookings.approve(id) : null))
+          .catch(() => {});
+      }
     },
     [appointments, persistAppointments]
   );
@@ -392,6 +516,11 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return apt;
       });
       await persistAppointments(updated);
+      getAuthToken()
+        .then((token) =>
+          token ? trendApi.bookings.cancel(id, reason || 'User requested cancellation') : null
+        )
+        .catch(() => {});
     },
     [appointments, persistAppointments]
   );

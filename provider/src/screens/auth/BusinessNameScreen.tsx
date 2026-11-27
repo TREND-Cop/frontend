@@ -12,13 +12,13 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { StepProgressHeader } from '../../components/StepProgressHeader';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 import { useProviderOnboarding } from '../../context/ProviderOnboardingContext';
 
 export const BusinessNameScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { businessName, setBusinessName } = useProviderOnboarding();
 
@@ -52,11 +52,11 @@ export const BusinessNameScreen: React.FC = () => {
 
     setError(null);
     setBusinessName(trimmed);
-    router.push('/business-location' as any);
+    safeRouter.push('/business-location' as any);
   };
 
   const handleBackPress = () => {
-    router.back();
+    safeRouter.back();
   };
 
   return (

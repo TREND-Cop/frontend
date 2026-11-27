@@ -10,7 +10,7 @@ import {
   Animated,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 
 const CONFETTI_IMAGE = require('../../../assets/images/custom/booking_success_confetti.png');
@@ -46,7 +46,7 @@ const FONT_BUTTON = Platform.select({
  * - Tapping "Go back home" replaces route to /dashboard with skeleton loading.
  */
 export const ProfileSavedScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
 
   // Animation values
@@ -110,7 +110,7 @@ export const ProfileSavedScreen: React.FC = () => {
   }, [characterBounce, characterOpacity, characterFloat, confettiSway]);
 
   const handleGoBackHome = () => {
-    router.replace('/dashboard' as any);
+    safeRouter.replace('/dashboard' as any);
   };
 
   return (
@@ -154,7 +154,7 @@ export const ProfileSavedScreen: React.FC = () => {
         </View>
 
         {/* ── Bottom Action Button: Go back home ── */}
-        <View style={[styles.bottomButtonContainer, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+        <View style={[styles.bottomButtonContainer, { paddingBottom: insets.bottom + 24 }]}>
           <TouchableOpacity
             activeOpacity={0.85}
             style={styles.goBackHomeButton}

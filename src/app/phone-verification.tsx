@@ -2,11 +2,12 @@
  * Route: /phone-verification
  */
 
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../utils/safeNavigation';
 import { PhoneVerificationScreen } from '@/screens/auth/PhoneVerificationScreen';
 
 export default function PhoneVerificationRoute() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams<{ phone: string; flow?: string }>();
 
   return (
@@ -15,12 +16,12 @@ export default function PhoneVerificationRoute() {
       navigation={{
         navigate: (screen: string) => {
           if (params.flow === 'forgot-password' || screen === 'PasswordResetSuccess') {
-            router.replace('/password-reset-success' as any);
+            safeRouter.replace('/password-reset-success' as any);
           } else if (screen === 'SignUpSuccess' || screen === 'UserLocation') {
-            router.replace('/sign-up-success' as any);
+            safeRouter.replace('/sign-up-success' as any);
           }
         },
-        goBack: () => router.back(),
+        goBack: () => safeRouter.back(),
       }}
     />
   );

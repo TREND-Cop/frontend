@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,13 +12,16 @@ import {
   LayoutAnimation,
   UIManager,
   KeyboardAvoidingView,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter, useSingleFlight } from '../../utils/safeNavigation';
 import * as ImagePicker from 'expo-image-picker';
+import Svg, { Path, Circle } from 'react-native-svg';
 
 import { useStaffStore, StaffMember } from '../../context/StaffContext';
 import { triggerLightHaptic } from '../../utils/haptics';
+
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 import { TimeSegmentInput, TimeSegmentValue } from '../../components/TimeSegmentInput';
 import { LoadingOverlay } from '../../components/LoadingOverlay';
@@ -57,6 +60,20 @@ function formatTimeSegment(val: TimeSegmentValue | null): string {
   return `${val.hour}:${m} ${p}`;
 }
 
+function RemoveRoleXIcon({ size = 24 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" fill="rgba(204, 41, 41, 0.9)" />
+      <Path
+        d="M9 9l6 6M15 9l-6 6"
+        stroke="#FFFFFF"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
 /**
  * 1:1 Figma AddStaffFormScreen (Frames A1, A2, A3)
  *
@@ -73,7 +90,7 @@ function formatTimeSegment(val: TimeSegmentValue | null): string {
  * - Saves into shared StaffContext store and routes to Successful screen
  */
 export const AddStaffFormScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { addStaff } = useStaffStore();
 
@@ -90,6 +107,41 @@ export const AddStaffFormScreen: React.FC = () => {
 
   // ── Submission & Overlay State ──
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [showPhotoWarning, setShowPhotoWarning] = useState<boolean>(false);
+  const [keyboardHeight, setKeyboardHeight] = useState<number>(0);
+
+  // ── Scroll & Section Position Refs ──
+  const scrollViewRef = useRef<ScrollView>(null);
+  const workHoursYRef = useRef<number>(0);
+  const breakTimeYRef = useRef<number>(0);
+
+  // Track keyboard height so inputs are never covered and ScrollView remains scrollable
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(e.endCoordinates?.height || 300);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const scrollToSectionY = useCallback((sectionY: number) => {
+    const targetY = Math.max(0, sectionY - 72);
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y: targetY, animated: true });
+    }, 100);
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({ y: targetY, animated: true });
+    }, 280);
+  }, []);
 
   // ── Sheets State ──
   const [showPhotoSheet, setShowPhotoSheet] = useState<boolean>(false);
@@ -102,8 +154,8 @@ export const AddStaffFormScreen: React.FC = () => {
   const handleBack = useCallback(() => {
     if (isSubmitting) return; // Ignore back while submitting
     triggerLightHaptic();
-    router.back();
-  }, [isSubmitting, router]);
+    safeRouter.back();
+  }, [isSubmitting, safeRouter]);
 
   // Android hardware back listener
   React.useEffect(() => {
@@ -133,6 +185,7 @@ export const AddStaffFormScreen: React.FC = () => {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setPhotoUri(result.assets[0].uri);
+        setShowPhotoWarning(false);
       }
     } catch (e) {
       // Safe fallback
@@ -154,6 +207,7 @@ export const AddStaffFormScreen: React.FC = () => {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         setPhotoUri(result.assets[0].uri);
+        setShowPhotoWarning(false);
       }
     } catch (e) {
       // Safe fallback
@@ -189,9 +243,26 @@ export const AddStaffFormScreen: React.FC = () => {
     });
   };
 
+  const handleRemoveRoleSlot = (indexToRemove: number) => {
+    triggerLightHaptic();
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setRoles((prev) => {
+      const remainingFilled = prev
+        .filter((_, idx) => idx !== indexToRemove)
+        .filter((r) => r.trim().length > 0);
+
+      if (remainingFilled.length === 0) {
+        return [''];
+      }
+      if (remainingFilled.length < 3) {
+        return [...remainingFilled, ''];
+      }
+      return remainingFilled;
+    });
+  };
+
   // ── Form Completeness Validation ──
-  const isFormComplete = useMemo(() => {
-    const hasPhoto = Boolean(photoUri);
+  const isAllExceptPhotoComplete = useMemo(() => {
     const hasName = name.trim().length > 0;
     const validRoles = roles.filter((r) => r.trim().length > 0);
     const hasRoles = validRoles.length > 0;
@@ -206,7 +277,6 @@ export const AddStaffFormScreen: React.FC = () => {
     const isBreakValid = (!hasBreakStart && !hasBreakEnd) || (hasBreakStart && hasBreakEnd);
 
     return (
-      hasPhoto &&
       hasName &&
       hasRoles &&
       hasExperience &&
@@ -216,7 +286,6 @@ export const AddStaffFormScreen: React.FC = () => {
       isBreakValid
     );
   }, [
-    photoUri,
     name,
     roles,
     experienceYears,
@@ -227,9 +296,23 @@ export const AddStaffFormScreen: React.FC = () => {
     breakEndTime,
   ]);
 
-  // ── Submit Action ──
-  const handleSubmit = () => {
-    if (!isFormComplete || isSubmitting) return;
+  const isMissingOnlyPhoto = isAllExceptPhotoComplete && !photoUri;
+  const shouldDisplayPhotoWarning = (showPhotoWarning && !photoUri) || isMissingOnlyPhoto;
+
+  const isFormComplete = Boolean(photoUri) && isAllExceptPhotoComplete;
+
+  // ── Submit Action (Synchronous single-flight ref lock) ──
+  const handleSubmit = useSingleFlight(() => {
+    if (isSubmitting) return;
+
+    if (!isFormComplete) {
+      if (!photoUri) {
+        triggerLightHaptic();
+        setShowPhotoWarning(true);
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      }
+      return;
+    }
 
     triggerLightHaptic();
     setIsSubmitting(true);
@@ -238,7 +321,7 @@ export const AddStaffFormScreen: React.FC = () => {
     // TODO (Backend): Connect to backend API when available
     setTimeout(() => {
       const validRoles = roles.filter((r) => r.trim().length > 0);
-      const generatedLoginCode = String(Math.floor(1000 + Math.random() * 9000)); // MOCK 4-digit code
+      const generatedLoginCode = '1234';
 
       const newStaffMember: StaffMember = {
         id: `staff_${Date.now()}`,
@@ -269,12 +352,12 @@ export const AddStaffFormScreen: React.FC = () => {
       setIsSubmitting(false);
 
       // Navigate to Successful screen, replacing current route
-      router.replace({
+      safeRouter.replace({
         pathname: '/staff/success',
         params: { id: newStaffMember.id },
       } as any);
     }, 1200);
-  };
+  }, 1500);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -304,10 +387,16 @@ export const AddStaffFormScreen: React.FC = () => {
 
         {/* ── 2. Scrollable Form Content ── */}
         <ScrollView
+          ref={scrollViewRef}
           style={styles.scrollArea}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: Math.max(insets.bottom, 24) + 80 },
+            {
+              paddingBottom:
+                Math.max(insets.bottom, 24) +
+                110 +
+                (keyboardHeight > 0 ? keyboardHeight + 60 : 0),
+            },
           ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -324,7 +413,11 @@ export const AddStaffFormScreen: React.FC = () => {
               activeOpacity={0.8}
               style={[
                 styles.photoBox,
-                photoUri ? styles.photoBoxFilled : styles.photoBoxEmpty,
+                photoUri
+                  ? styles.photoBoxFilled
+                  : shouldDisplayPhotoWarning
+                    ? styles.photoBoxWarning
+                    : styles.photoBoxEmpty,
               ]}
               onPress={handleOpenPhotoSheet}
               accessible
@@ -341,12 +434,25 @@ export const AddStaffFormScreen: React.FC = () => {
                 </>
               ) : (
                 <View style={styles.emptyCameraIconWrapper}>
-                  <Camera01Icon size={24} color="#141B34" />
+                  <Camera01Icon
+                    size={24}
+                    color={shouldDisplayPhotoWarning ? '#CC2929' : '#141B34'}
+                  />
                 </View>
               )}
             </TouchableOpacity>
 
-            <Text style={styles.photoCaption}>Tap the camera to upload image</Text>
+            <TouchableOpacity activeOpacity={0.7} onPress={handleOpenPhotoSheet}>
+              <Text style={styles.photoCaption}>
+                Click here to upload staff profile picture
+              </Text>
+            </TouchableOpacity>
+
+            {shouldDisplayPhotoWarning && (
+              <Text style={styles.photoWarningText}>
+                You haven't added a staff profile picture
+              </Text>
+            )}
           </View>
 
           {/* ── Field 2: Staff Full Name ── */}
@@ -384,29 +490,46 @@ export const AddStaffFormScreen: React.FC = () => {
                 const placeholder = isFirst ? 'Barber' : 'Add another';
 
                 return (
-                  <TouchableOpacity
-                    key={`role_slot_${idx}`}
-                    activeOpacity={0.8}
-                    style={styles.dropdownField}
-                    onPress={() => handleOpenRoleSlot(idx)}
-                    accessible
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      hasValue ? `Role slot ${idx + 1}: ${roleValue}` : `Select role slot ${idx + 1}`
-                    }
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownValueText,
-                        !hasValue && styles.dropdownPlaceholderText,
-                      ]}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
+                  <View key={`role_slot_${idx}`} style={styles.dropdownField}>
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      style={styles.dropdownMainTouch}
+                      onPress={() => handleOpenRoleSlot(idx)}
+                      accessible
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        hasValue ? `Role slot ${idx + 1}: ${roleValue}` : `Select role slot ${idx + 1}`
+                      }
                     >
-                      {hasValue ? roleValue : placeholder}
-                    </Text>
-                    <ArrowDown01Icon size={24} color="rgba(0, 8, 20, 0.96)" />
-                  </TouchableOpacity>
+                      <Text
+                        style={[
+                          styles.dropdownValueText,
+                          !hasValue && styles.dropdownPlaceholderText,
+                        ]}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {hasValue ? roleValue : placeholder}
+                      </Text>
+                      {!hasValue && (
+                        <ArrowDown01Icon size={24} color="rgba(0, 8, 20, 0.96)" />
+                      )}
+                    </TouchableOpacity>
+
+                    {hasValue && (
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        style={styles.removeRoleButton}
+                        onPress={() => handleRemoveRoleSlot(idx)}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        accessible
+                        accessibilityRole="button"
+                        accessibilityLabel={`Remove ${roleValue}`}
+                      >
+                        <RemoveRoleXIcon size={24} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 );
               })}
 
@@ -459,7 +582,12 @@ export const AddStaffFormScreen: React.FC = () => {
           </View>
 
           {/* ── Field 5: Work Hours (Side-by-side TimeSegmentInputs) ── */}
-          <View style={styles.fieldBlock}>
+          <View
+            style={styles.fieldBlock}
+            onLayout={(e) => {
+              workHoursYRef.current = e.nativeEvent.layout.y;
+            }}
+          >
             <View style={styles.labelRow}>
               <WorkHistoryIcon size={20} />
               <Text style={styles.fieldLabel}>Work Hours</Text>
@@ -474,6 +602,7 @@ export const AddStaffFormScreen: React.FC = () => {
                     placeholder="8:00 am"
                     value={resumptionTime}
                     onChange={setResumptionTime}
+                    onFocus={() => scrollToSectionY(workHoursYRef.current)}
                   />
                 </View>
 
@@ -484,6 +613,7 @@ export const AddStaffFormScreen: React.FC = () => {
                     placeholder="8:00 pm"
                     value={closingTime}
                     onChange={setClosingTime}
+                    onFocus={() => scrollToSectionY(workHoursYRef.current)}
                   />
                 </View>
               </View>
@@ -495,7 +625,12 @@ export const AddStaffFormScreen: React.FC = () => {
           </View>
 
           {/* ── Field 6: Break Time (Side-by-side TimeSegmentInputs, Optional) ── */}
-          <View style={styles.fieldBlock}>
+          <View
+            style={styles.fieldBlock}
+            onLayout={(e) => {
+              breakTimeYRef.current = e.nativeEvent.layout.y;
+            }}
+          >
             <View style={styles.labelRow}>
               <Dish01Icon size={20} />
               <Text style={styles.fieldLabel}>Break Time</Text>
@@ -510,6 +645,7 @@ export const AddStaffFormScreen: React.FC = () => {
                     placeholder="8:00 am"
                     value={breakStartTime}
                     onChange={setBreakStartTime}
+                    onFocus={() => scrollToSectionY(breakTimeYRef.current)}
                   />
                 </View>
 
@@ -520,6 +656,7 @@ export const AddStaffFormScreen: React.FC = () => {
                     placeholder="8:00 pm"
                     value={breakEndTime}
                     onChange={setBreakEndTime}
+                    onFocus={() => scrollToSectionY(breakTimeYRef.current)}
                   />
                 </View>
               </View>
@@ -572,30 +709,45 @@ export const AddStaffFormScreen: React.FC = () => {
         </ScrollView>
 
         {/* ── Sticky Footer Button: "Add staff" ── */}
-        <View style={[styles.footerContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={[
-              styles.submitButton,
-              isFormComplete ? styles.submitButtonActive : styles.submitButtonDisabled,
-            ]}
-            disabled={!isFormComplete || isSubmitting}
-            onPress={handleSubmit}
-            accessible
-            accessibilityRole="button"
-            accessibilityLabel="Add staff"
-            accessibilityState={{ disabled: !isFormComplete }}
-          >
-            <Text
+        {keyboardHeight === 0 && (
+          <View style={[styles.footerContainer, { paddingBottom: insets.bottom + 16 }]}>
+            {shouldDisplayPhotoWarning && (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => {
+                  scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+                  handleOpenPhotoSheet();
+                }}
+              >
+                <Text style={styles.footerWarningText}>
+                  You haven't added a staff profile picture. Tap here to upload one.
+                </Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              activeOpacity={0.85}
               style={[
-                styles.submitButtonText,
-                isFormComplete ? styles.submitTextActive : styles.submitTextDisabled,
+                styles.submitButton,
+                isFormComplete ? styles.submitButtonActive : styles.submitButtonDisabled,
               ]}
+              disabled={isSubmitting}
+              onPress={handleSubmit}
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Add staff"
+              accessibilityState={{ disabled: !isFormComplete }}
             >
-              Add staff
-            </Text>
-          </TouchableOpacity>
-        </View>
+              <Text
+                style={[
+                  styles.submitButtonText,
+                  isFormComplete ? styles.submitTextActive : styles.submitTextDisabled,
+                ]}
+              >
+                Add staff
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* ── 3. Bottom Sheets ── */}
         {/* Photo Upload Sheet */}
@@ -712,6 +864,12 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     borderColor: 'rgba(192, 192, 204, 0.96)',
   },
+  photoBoxWarning: {
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#CC2929',
+    backgroundColor: 'rgba(204, 41, 41, 0.04)',
+  },
   photoBoxFilled: {
     borderWidth: 0,
   },
@@ -748,6 +906,14 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 0.4,
     color: 'rgba(0, 8, 20, 0.96)',
+  },
+  photoWarningText: {
+    fontFamily: FONT_MEDIUM,
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.2,
+    color: '#CC2929',
+    textAlign: 'center',
   },
   // ── Field Block ──
   fieldBlock: {
@@ -801,6 +967,20 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
   },
+  dropdownMainTouch: {
+    flex: 1,
+    height: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  removeRoleButton: {
+    width: 28,
+    height: 28,
+    marginLeft: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   dropdownValueText: {
     fontFamily: FONT_REGULAR,
     fontSize: 16,
@@ -848,6 +1028,15 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(235, 235, 245, 0.96)',
     paddingHorizontal: 16,
     paddingTop: 12,
+    gap: 8,
+  },
+  footerWarningText: {
+    fontFamily: FONT_MEDIUM,
+    fontSize: 13,
+    lineHeight: 18,
+    letterSpacing: 0.2,
+    color: '#CC2929',
+    textAlign: 'center',
   },
   submitButton: {
     width: '100%',

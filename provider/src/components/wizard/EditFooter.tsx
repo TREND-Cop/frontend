@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { triggerLightHaptic } from '../../utils/haptics';
+import { useSingleFlight } from '../../utils/safeNavigation';
+import { NativeDockSpacer } from '../NativeDockSpacer';
 
 const FONT_REGULAR = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular';
 const FONT_BUTTON = Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium';
@@ -51,57 +53,60 @@ export const EditFooter: React.FC<EditFooterProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
 
-  const handlePress = () => {
+  const handlePress = useSingleFlight(() => {
     if (!isDirty) {
       // Disabled when nothing was edited
       return;
     }
     triggerLightHaptic();
     onSave();
-  };
+  });
 
   return (
-    <View
-      style={[
-        styles.stickyFooter,
-        { paddingBottom: Math.max(insets.bottom, 16) },
-      ]}
-      testID={testID}
-    >
-      {/* Red Validation Toast Pill */}
-      {showErrorToast && !!errorText && (
-        <View style={styles.toastContainer}>
-          <View style={styles.toastPill}>
-            <CircleXToastIcon size={24} />
-            <Text style={styles.toastText} numberOfLines={1}>
-              {errorText}
-            </Text>
-          </View>
-        </View>
-      )}
-
-      {/* Save Changes Button */}
-      <TouchableOpacity
-        activeOpacity={isDirty ? 0.85 : 1}
+    <>
+      <View
         style={[
-          styles.saveButton,
-          isDirty ? styles.saveButtonEnabled : styles.saveButtonDisabled,
+          styles.stickyFooter,
+          { paddingBottom: Math.max(insets.bottom + 10, 16) },
         ]}
-        onPress={handlePress}
-        accessibilityRole="button"
-        accessibilityLabel={saveLabel}
-        accessibilityState={{ disabled: !isDirty }}
+        testID={testID}
       >
-        <Text
+        {/* Red Validation Toast Pill */}
+        {showErrorToast && !!errorText && (
+          <View style={styles.toastContainer}>
+            <View style={styles.toastPill}>
+              <CircleXToastIcon size={24} />
+              <Text style={styles.toastText} numberOfLines={1}>
+                {errorText}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Save Changes Button */}
+        <TouchableOpacity
+          activeOpacity={isDirty ? 0.85 : 1}
           style={[
-            styles.saveButtonText,
-            isDirty ? styles.saveTextEnabled : styles.saveTextDisabled,
+            styles.saveButton,
+            isDirty ? styles.saveButtonEnabled : styles.saveButtonDisabled,
           ]}
+          onPress={handlePress}
+          accessibilityRole="button"
+          accessibilityLabel={saveLabel}
+          accessibilityState={{ disabled: !isDirty }}
         >
-          {saveLabel}
-        </Text>
-      </TouchableOpacity>
-    </View>
+          <Text
+            style={[
+              styles.saveButtonText,
+              isDirty ? styles.saveTextEnabled : styles.saveTextDisabled,
+            ]}
+          >
+            {saveLabel}
+          </Text>
+        </TouchableOpacity>
+      </View>
+      <NativeDockSpacer backgroundColor="#FFFFFF" />
+    </>
   );
 };
 

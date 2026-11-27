@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { TactilePressable } from './ui/TactilePressable';
+import { useSingleFlight } from '../utils/safeNavigation';
 import { triggerLightHaptic } from '../utils/haptics';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -261,7 +262,8 @@ export const DateFilterSheet: React.FC<DateFilterSheetProps> = ({
   }, [monthYear, month, isDateDisabled]);
 
   // Search button press
-  const handleSearch = () => {
+  const handleSearch = useSingleFlight(() => {
+    if (!visible) return;
     triggerLightHaptic();
     if (tab === 'month') {
       if (selectedDay !== null) {
@@ -280,7 +282,7 @@ export const DateFilterSheet: React.FC<DateFilterSheetProps> = ({
       });
       onClose();
     }
-  };
+  });
 
   const isSearchDisabled = tab === 'month' && selectedDay === null;
 
@@ -302,10 +304,7 @@ export const DateFilterSheet: React.FC<DateFilterSheetProps> = ({
           style={[
             styles.sheetContainer,
             {
-              paddingBottom:
-                Platform.OS === 'android'
-                  ? Math.max(insets.bottom, 56)
-                  : Math.max(insets.bottom, 16),
+              paddingBottom: insets.bottom + 16,
             },
           ]}
         >

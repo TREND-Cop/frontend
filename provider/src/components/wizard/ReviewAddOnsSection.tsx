@@ -93,7 +93,15 @@ export const ReviewAddOnsSection: React.FC<ReviewAddOnsSectionProps> = ({
               {/* Photo */}
               <View style={styles.addOnPhotoContainer}>
                 {addon.imageUri ? (
-                  <Image source={{ uri: addon.imageUri }} style={styles.addOnPhotoImage} />
+                  <Image
+                    source={
+                      typeof addon.imageUri === 'number'
+                        ? addon.imageUri
+                        : { uri: addon.imageUri }
+                    }
+                    style={styles.addOnPhotoImage}
+                    resizeMode="cover"
+                  />
                 ) : (
                   <View style={styles.addOnPhotoPlaceholder}>
                     <Text style={styles.photoPlaceholderText}>Photo</Text>

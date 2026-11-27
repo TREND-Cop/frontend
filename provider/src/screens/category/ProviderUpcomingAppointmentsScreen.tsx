@@ -12,7 +12,8 @@ import {
   Share,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
@@ -271,7 +272,7 @@ const UPCOMING_APPOINTMENTS_DATA: UpcomingAppointmentItem[] = [
 ];
 
 export default function ProviderUpcomingAppointmentsScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ title?: string }>();
   const screenTitle = params.title || 'Upfront Appointments';
@@ -375,7 +376,7 @@ export default function ProviderUpcomingAppointmentsScreen() {
             onPress={() => {
               if (isNavigatingBack) return;
               setIsNavigatingBack(true);
-              router.back();
+              safeRouter.back();
             }}
           >
             <ArrowLeft02Icon size={24} color="rgba(0, 8, 20, 0.96)" />
@@ -453,7 +454,7 @@ export default function ProviderUpcomingAppointmentsScreen() {
           style={styles.scrollView}
           contentContainerStyle={[
             styles.emptyScrollContent,
-            { paddingBottom: Platform.OS === 'android' ? Math.max(insets.bottom, 56) + 24 : Math.max(insets.bottom, 16) + 24 },
+            { paddingBottom: insets.bottom + 24 },
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -477,7 +478,7 @@ export default function ProviderUpcomingAppointmentsScreen() {
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: Platform.OS === 'android' ? Math.max(insets.bottom, 56) + 24 : Math.max(insets.bottom, 16) + 24 },
+            { paddingBottom: insets.bottom + 24 },
           ]}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -505,7 +506,7 @@ export default function ProviderUpcomingAppointmentsScreen() {
                 style={styles.topCard}
                 activeOpacity={0.85}
                 onPress={() => {
-                  router.push({
+                  safeRouter.push({
                     pathname: '/appointment/[id]',
                     params: {
                       id: item.id,

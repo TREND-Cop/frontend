@@ -1,25 +1,26 @@
-import React, { useState, useMemo } from 'react';
+import { useSafeRouter } from '../../utils/safeNavigation';
+import { StatusBar } from 'expo-status-bar';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  TextInput,
+  BackHandler,
   Image,
   Platform,
   RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import Svg, { Path, Circle } from 'react-native-svg';
-import { NativeDockSpacer } from '../../components/NativeDockSpacer';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { DommyLoader } from '../../components/DommyLoader';
+import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 import {
+  PRICE_STEPS,
   ProviderAppointmentFilterModal,
   ProviderFilterState,
-  PRICE_STEPS,
   matchAppointment,
 } from '../../components/ProviderAppointmentFilterModal';
 import { useAppointments } from '../../store/appointmentStore';
@@ -118,7 +119,7 @@ interface AppointmentItem {
 
 export const ProviderAppointmentsScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { appointments, resetAppointments } = useAppointments();
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
@@ -179,6 +180,19 @@ export const ProviderAppointmentsScreen: React.FC = () => {
     return result;
   }, [appointments, searchQuery, appliedFilters]);
 
+  const handleBackToDashboard = () => {
+    safeRouter.replace('/dashboard');
+  };
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBackToDashboard();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, []);
+
   return (
     <View style={styles.screenContainer}>
       <StatusBar style="dark" />
@@ -190,7 +204,7 @@ export const ProviderAppointmentsScreen: React.FC = () => {
           <TouchableOpacity
             style={styles.headerIconButton}
             activeOpacity={0.7}
-            onPress={() => router.back()}
+            onPress={handleBackToDashboard}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <ArrowLeft02Icon size={24} color="rgba(0, 8, 20, 0.96)" />
@@ -210,10 +224,7 @@ export const ProviderAppointmentsScreen: React.FC = () => {
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingBottom:
-              (Platform.OS === 'android'
-                ? Math.max(insets.bottom, 56)
-                : Math.max(insets.bottom, 24)) + 24,
+            paddingBottom: insets.bottom + 24,
           },
         ]}
         showsVerticalScrollIndicator={false}
@@ -284,14 +295,14 @@ export const ProviderAppointmentsScreen: React.FC = () => {
                 style={styles.cardContainer}
                 activeOpacity={0.92}
                 onPress={() => {
-                  router.push({
+                  safeRouter.push({
                     pathname: '/appointment/[id]',
                     params: {
                       id: item.id,
                       title: 'Ayobami Isaac',
                       clientName: item.id === '1' ? 'Jude Fabulous' : (item.clientName || 'Jude Fabulous'),
                       serviceTitle: item.id === '1' ? 'All Back Dreadlock' : item.title,
-                      clientStatus: item.clientStatus || 'Non Client',
+                      clientStatus: item.clientStatus || 'New Client',
                       gender: item.gender || 'Male',
                       membership: item.membership || '5 Days ago',
                       price: item.id === '1' ? '₦14,200' : item.price,

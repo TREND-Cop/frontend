@@ -11,7 +11,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 import {
@@ -166,8 +166,7 @@ const COMPLETED_APPOINTMENTS_DATA = [
     specialistRole: 'Nail Artist',
     type: 'Home Service',
     paymentType: 'Inter - Bank Transfer',
-    appointmentCost: '₦52,700',
-    trendPoints: '-₦2,700',
+    appointmentCost: '₦50,000',
     ticketNumber: '#3654376',
     packagePrice: '₦4,500',
     total: '₦50,000',
@@ -190,8 +189,7 @@ const COMPLETED_APPOINTMENTS_DATA = [
     specialistRole: 'Nail Artist',
     type: 'In-Person',
     paymentType: 'Cash Payment',
-    appointmentCost: '₦52,700',
-    trendPoints: '-₦2,700',
+    appointmentCost: '₦50,000',
     ticketNumber: '#3654376',
     packagePrice: '₦4,500',
     total: '₦50,000',
@@ -214,8 +212,7 @@ const COMPLETED_APPOINTMENTS_DATA = [
     specialistRole: 'Nail Artist',
     type: 'In-Person',
     paymentType: 'Inter - Bank Transfer',
-    appointmentCost: '₦52,700',
-    trendPoints: '-₦2,700',
+    appointmentCost: '₦60,000',
     ticketNumber: '#3654376',
     packagePrice: '₦10,500',
     total: '₦60,000',
@@ -238,8 +235,7 @@ const COMPLETED_APPOINTMENTS_DATA = [
     specialistRole: 'Nail Artist',
     type: 'Home Service',
     paymentType: 'Card Payment',
-    appointmentCost: '₦52,700',
-    trendPoints: '-₦2,700',
+    appointmentCost: '₦50,000',
     ticketNumber: '#3654376',
     packagePrice: '₦4,500',
     total: '₦50,000',
@@ -262,8 +258,7 @@ const COMPLETED_APPOINTMENTS_DATA = [
     specialistRole: 'Nail Artist',
     type: 'Home Service',
     paymentType: 'Inter - Bank Transfer',
-    appointmentCost: '₦52,700',
-    trendPoints: '-₦2,700',
+    appointmentCost: '₦50,000',
     ticketNumber: '#3654376',
     packagePrice: '₦4,500',
     total: '₦50,000',
@@ -286,8 +281,7 @@ const COMPLETED_APPOINTMENTS_DATA = [
     specialistRole: 'Nail Artist',
     type: 'In-Person',
     paymentType: 'Cash Payment',
-    appointmentCost: '₦52,700',
-    trendPoints: '-₦2,700',
+    appointmentCost: '₦50,000',
     ticketNumber: '#3654376',
     packagePrice: '₦4,500',
     total: '₦50,000',
@@ -295,7 +289,7 @@ const COMPLETED_APPOINTMENTS_DATA = [
 ];
 
 export default function ProviderCompletedAppointmentsScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -399,7 +393,7 @@ export default function ProviderCompletedAppointmentsScreen() {
   const handleBackPress = () => {
     setIsNavigatingBack(true);
     setTimeout(() => {
-      router.back();
+      safeRouter.back();
       setTimeout(() => {
         setIsNavigatingBack(false);
       }, 350);
@@ -492,10 +486,7 @@ export default function ProviderCompletedAppointmentsScreen() {
           contentContainerStyle={[
             styles.emptyScrollContent,
             {
-              paddingBottom:
-                (Platform.OS === 'android'
-                  ? Math.max(insets.bottom, 56)
-                  : Math.max(insets.bottom, 24)) + 40,
+              paddingBottom: insets.bottom + 40,
             },
           ]}
           showsVerticalScrollIndicator={false}
@@ -510,10 +501,7 @@ export default function ProviderCompletedAppointmentsScreen() {
           contentContainerStyle={[
             styles.scrollContent,
             {
-              paddingBottom:
-                (Platform.OS === 'android'
-                  ? Math.max(insets.bottom, 56)
-                  : Math.max(insets.bottom, 24)) + 40,
+              paddingBottom: insets.bottom + 40,
             },
           ]}
           showsVerticalScrollIndicator={false}
@@ -536,7 +524,7 @@ export default function ProviderCompletedAppointmentsScreen() {
                 style={styles.topCard}
                 activeOpacity={0.85}
                 onPress={() => {
-                  router.push({
+                  safeRouter.push({
                     pathname: '/appointment/[id]',
                     params: {
                       id: item.id,
@@ -557,7 +545,6 @@ export default function ProviderCompletedAppointmentsScreen() {
                       status: 'completed',
                       paymentType: item.paymentType,
                       appointmentCost: item.appointmentCost,
-                      trendPoints: item.trendPoints,
                       ticketNumber: item.ticketNumber,
                       packagePrice: item.packagePrice,
                       total: item.total,

@@ -1,4 +1,5 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import {
   ArrowLeft,
   ArrowRight,
@@ -167,7 +168,7 @@ const getFullAddressWithCountry = (rawAddress?: string): string => {
 
 export const SalonAboutScreen = () => {
   const params = useLocalSearchParams();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
 
   const salonId = (params.salonId || params.id || 'salon2') as string;
@@ -202,7 +203,7 @@ export const SalonAboutScreen = () => {
   }, [params.address, params.location, salon.location]);
 
   const handleNavigateToLocation = () => {
-    router.push({
+    safeRouter.push({
       pathname: '/salon/location',
       params: {
         salonId: salon.id,
@@ -317,7 +318,7 @@ export const SalonAboutScreen = () => {
       <View style={styles.headerRow}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => (router.canGoBack() ? router.back() : router.replace(`/salon/${salon.id}` as any))}
+          onPress={() => (safeRouter.canGoBack() ? safeRouter.back() : safeRouter.replace(`/salon/${salon.id}` as any))}
           activeOpacity={0.7}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
@@ -440,7 +441,7 @@ export const SalonAboutScreen = () => {
               style={styles.seeAllIconButton}
               activeOpacity={0.7}
               onPress={() =>
-                router.push({
+                safeRouter.push({
                   pathname: '/salon/gallery',
                   params: { salonId: salon.id, name: salon.name },
                 } as any)
@@ -467,7 +468,7 @@ export const SalonAboutScreen = () => {
                           PORTFOLIO_ITEMS,
                           idx
                         );
-                        router.push({
+                        safeRouter.push({
                           pathname: '/professional/gallery-preview',
                           params: { index: idx, initialIndex: idx, source: 'salon', title: `${salon.name} Portfolio` },
                         } as any);
@@ -500,7 +501,7 @@ export const SalonAboutScreen = () => {
                 style={styles.servicePillChip}
                 activeOpacity={0.8}
                 onPress={() =>
-                  router.push({
+                  safeRouter.push({
                     pathname: '/salon/services',
                     params: {
                       salonId: salon.id,
@@ -524,7 +525,7 @@ export const SalonAboutScreen = () => {
               style={styles.seeAllIconButton}
               activeOpacity={0.7}
               onPress={() =>
-                router.push({
+                safeRouter.push({
                   pathname: '/salon/staffs',
                   params: { salonId: salon.id, name: salon.name },
                 } as any)
@@ -541,7 +542,7 @@ export const SalonAboutScreen = () => {
                 style={styles.staffCard}
                 activeOpacity={0.88}
                 onPress={() =>
-                  router.push({
+                  safeRouter.push({
                     pathname: `/professional/${st.id}`,
                     params: {
                       id: st.id,
@@ -626,7 +627,7 @@ export const SalonAboutScreen = () => {
               style={styles.seeAllIconButton}
               activeOpacity={0.7}
               onPress={() =>
-                router.push({
+                safeRouter.push({
                   pathname: '/salon/reviews',
                   params: { salonId: salon.id, salonName: salon.name },
                 } as any)

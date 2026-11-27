@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -12,13 +12,19 @@ import {
   KeyboardAvoidingView,
   LayoutChangeEvent,
   Keyboard,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import * as ImagePicker from 'expo-image-picker';
 import Svg, { Path, Circle } from 'react-native-svg';
 
-import { useServiceDraft, ServicePackageItem } from '../../context/ServiceDraftContext';
+import {
+  useServiceDraft,
+  ServicePackageItem,
+  MIN_SERVICE_IMAGES,
+} from '../../context/ServiceDraftContext';
 import { WizardStepper } from '../../components/wizard/WizardStepper';
 import { InfoBanner } from '../../components/wizard/InfoBanner';
 import { ServiceCategorySheet } from '../../components/wizard/ServiceCategorySheet';
@@ -27,9 +33,13 @@ import { ServiceTypeSelectionSheet } from '../../components/wizard/ServiceTypeSe
 import { ServiceDurationSheet } from '../../components/wizard/ServiceDurationSheet';
 import { ProviderPhotoUploadSheet } from '../../components/ProviderPhotoUploadSheet';
 import { PackageBlockList } from '../../components/wizard/PackageBlockList';
+import { NativeDockSpacer } from '../../components/NativeDockSpacer';
+import { useNativeDock } from '../../utils/useNativeDock';
 import { ServiceFormSkeleton } from '../../components/wizard/ServiceFormSkeleton';
 import { DashedPhotoSlot } from '../../components/wizard/DashedPhotoSlot';
+import { ImageUploadGrid } from '../../components/ImageUploadGrid';
 import { triggerLightHaptic } from '../../utils/haptics';
+import { getServicePricing, formatNaira } from '../../utils/servicePricing';
 
 const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
 const FONT_REGULAR = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular';
@@ -86,6 +96,27 @@ function InfoCircleIcon({ size = 20, color = 'rgba(192, 192, 204, 0.96)' }: { si
         strokeLinecap="round"
       />
       <Circle cx="12.5" cy="16.5" r="0.75" fill={color} />
+    </Svg>
+  );
+}
+
+function AlertTriangleIcon({ size = 18, color = '#D97706' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 2L1 21h22L12 2z"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M12 9v4"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+      <Circle cx="12" cy="17" r="1.2" fill={color} />
     </Svg>
   );
 }
@@ -167,9 +198,12 @@ function formatWithCommas(value: string): string {
 }
 
 export const BusinessServicesWizardScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ skeleton?: string }>();
+  const { hasDock } = useNativeDock();
+  const params = useLocalSearchParams<{ skeleton?: string; returnTo?: string }>();
+  const shouldReturnToDashboard =
+    params.returnTo === 'dashboard' || params.skeleton === 'true';
   const scrollViewRef = useRef<ScrollView>(null);
 
   // One-time skeleton display when opened via "Add another service" from Congratulations screen
@@ -189,10 +223,12 @@ export const BusinessServicesWizardScreen: React.FC = () => {
     setDraftField,
     addImage,
     replaceImage,
+    removeImage,
     addPackage,
     updatePackage,
     addPackageImage,
     replacePackageImage,
+    removePackageImage,
     resetDraft,
     isStep1Valid,
     firstMissingField,
@@ -200,36 +236,64 @@ export const BusinessServicesWizardScreen: React.FC = () => {
 
   // Field layout coordinates for measured auto-scroll
   const fieldOffsets = useRef<Record<string, number>>({});
+  const fieldHeights = useRef<Record<string, number>>({});
   const activeFocusedFieldRef = useRef<string | null>(null);
+  const currentScrollYRef = useRef<number>(0);
+  const [scrollViewVisibleHeight, setScrollViewVisibleHeight] = useState(0);
 
-  // Fallback anchor offsets (in px) in case onLayout is delayed or interrupted
+  // Fallback anchor offsets (in px) calibrated to actual rendered vertical rhythm
   const FIELD_FALLBACK_OFFSETS: Record<string, number> = {
-    category: 180,
-    name: 440,
-    description: 580,
-    discounts: 740,
-    gender: 860,
-    serviceType: 980,
-    priceDuration: 1100,
-    package: 1240,
+    image: 180,
+    category: 480,
+    name: 620,
+    description: 760,
+    discounts: 1020,
+    gender: 1180,
+    serviceType: 1300,
+    priceDuration: 1420,
+    package: 1580,
   };
 
   const setFieldLayout = (key: string) => (e: LayoutChangeEvent) => {
     fieldOffsets.current[key] = e.nativeEvent.layout.y;
+    fieldHeights.current[key] = e.nativeEvent.layout.height;
   };
 
-  const scrollToActiveField = useCallback((key?: string | null) => {
+  const activeFieldOffsetRef = useRef<number | undefined>(undefined);
+
+  const scrollToActiveField = useCallback((key?: string | null, customOffset?: number) => {
     const targetKey = key || activeFocusedFieldRef.current;
-    if (!targetKey) return;
-    const measured = fieldOffsets.current[targetKey];
-    const fallback = FIELD_FALLBACK_OFFSETS[targetKey];
-    const targetY = measured !== undefined ? measured : fallback;
-    if (targetY !== undefined && scrollViewRef.current) {
-      scrollViewRef.current.scrollTo({
-        y: Math.max(0, targetY - 16),
-        animated: true,
-      });
+    if (!targetKey || !scrollViewRef.current) return;
+
+    let targetY: number | undefined;
+
+    if (targetKey === 'packagePrice') {
+      const basePackageY = fieldOffsets.current['package'] !== undefined
+        ? fieldOffsets.current['package']
+        : FIELD_FALLBACK_OFFSETS['package'];
+      targetY = (basePackageY || 1580) + (customOffset !== undefined ? customOffset : 440);
+    } else if (targetKey === 'packageContents') {
+      const basePackageY = fieldOffsets.current['package'] !== undefined
+        ? fieldOffsets.current['package']
+        : FIELD_FALLBACK_OFFSETS['package'];
+      targetY = (basePackageY || 1580) + (customOffset !== undefined ? customOffset : 240);
+    } else {
+      const measuredY = fieldOffsets.current[targetKey];
+      const fallbackY = FIELD_FALLBACK_OFFSETS[targetKey];
+      targetY = measuredY !== undefined ? measuredY : fallbackY;
     }
+
+    if (targetY === undefined) return;
+
+    // Scroll so the focused field sits comfortably in the upper third of the viewport
+    // (~20px below header), so the user sees the input and blinking cursor directly in front
+    // of them without needing to scroll up or down.
+    const desiredScrollY = Math.max(0, targetY - 20);
+
+    scrollViewRef.current.scrollTo({
+      y: desiredScrollY,
+      animated: true,
+    });
   }, []);
 
   // Keyboard height tracking for responsive bottom padding & smooth input scrolling
@@ -240,19 +304,25 @@ export const BusinessServicesWizardScreen: React.FC = () => {
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
     const showSub = Keyboard.addListener(showEvent, (e) => {
-      if (e?.endCoordinates?.height) {
-        setKeyboardHeight(e.endCoordinates.height);
+      const kbH = e?.endCoordinates?.height || 320;
+      setKeyboardHeight(kbH);
+      if (activeFocusedFieldRef.current) {
+        scrollToActiveField(activeFocusedFieldRef.current, activeFieldOffsetRef.current);
+        setTimeout(() => {
+          scrollToActiveField(activeFocusedFieldRef.current, activeFieldOffsetRef.current);
+        }, 50);
+        setTimeout(() => {
+          scrollToActiveField(activeFocusedFieldRef.current, activeFieldOffsetRef.current);
+        }, 150);
+        setTimeout(() => {
+          scrollToActiveField(activeFocusedFieldRef.current, activeFieldOffsetRef.current);
+        }, 300);
       }
-      setTimeout(() => {
-        scrollToActiveField();
-      }, 80);
-      setTimeout(() => {
-        scrollToActiveField();
-      }, 250);
     });
     const hideSub = Keyboard.addListener(hideEvent, () => {
       setKeyboardHeight(0);
       activeFocusedFieldRef.current = null;
+      activeFieldOffsetRef.current = undefined;
     });
 
     return () => {
@@ -261,12 +331,15 @@ export const BusinessServicesWizardScreen: React.FC = () => {
     };
   }, [scrollToActiveField]);
 
-  const handleFocusField = useCallback((key: string) => {
+  const handleFocusField = useCallback((key: string, innerOffset?: number) => {
     activeFocusedFieldRef.current = key;
-    scrollToActiveField(key);
-    setTimeout(() => scrollToActiveField(key), 100);
-    setTimeout(() => scrollToActiveField(key), 300);
-    setTimeout(() => scrollToActiveField(key), 500);
+    activeFieldOffsetRef.current = innerOffset;
+    // The very moment the user clicks on an input field, scroll immediately to place
+    // the cursor and input in plain sight in front of the user
+    scrollToActiveField(key, innerOffset);
+    setTimeout(() => scrollToActiveField(key, innerOffset), 60);
+    setTimeout(() => scrollToActiveField(key, innerOffset), 180);
+    setTimeout(() => scrollToActiveField(key, innerOffset), 320);
   }, [scrollToActiveField]);
 
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
@@ -305,23 +378,41 @@ export const BusinessServicesWizardScreen: React.FC = () => {
     }
   }, [draft.discountRaw]);
 
-  // Back action: clears draft and returns
-  const handleBack = () => {
+  // Back action: clears draft and returns to dashboard when coming from "Add another service"
+  // (or when no prior non-wizard screen exists), otherwise pops back normally.
+  const handleBack = useCallback(() => {
     triggerLightHaptic();
     resetDraft();
-    router.back();
-  };
+    if (shouldReturnToDashboard || !safeRouter.canGoBack()) {
+      safeRouter.resetRoot('/dashboard' as any);
+    } else {
+      safeRouter.back();
+    }
+  }, [resetDraft, safeRouter, shouldReturnToDashboard]);
+
+  // Intercept Android hardware back only while Step 1 is focused so Step 2/3/Guide back navigation works normally
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android' || !shouldReturnToDashboard) return undefined;
+      const onBackPress = () => {
+        handleBack();
+        return true;
+      };
+      const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => sub.remove();
+    }, [handleBack, shouldReturnToDashboard])
+  );
 
   // Header '?' tutorial guide
   const handleHeaderHelp = () => {
     triggerLightHaptic();
-    router.push('/guide/general' as any);
+    safeRouter.push('/guide/general' as any);
   };
 
   // ⓘ Info buttons
   const handleOpenGuide = (topic: string) => {
     triggerLightHaptic();
-    router.push(`/guide/${topic}` as any);
+    safeRouter.push(`/guide/${topic}` as any);
   };
 
   // ── Photo Upload Handlers ───────────────────────────────────────────────────
@@ -441,15 +532,11 @@ export const BusinessServicesWizardScreen: React.FC = () => {
   };
 
   const handlePriceBlur = () => {
-    if (draft.priceRaw) {
-      setDisplayPrice(formatWithCommas(draft.priceRaw));
-    }
+    setDisplayPrice((current) => (current ? formatWithCommas(current) : ''));
   };
 
   const handlePriceFocus = () => {
-    if (draft.priceRaw) {
-      setDisplayPrice(draft.priceRaw);
-    }
+    setDisplayPrice((current) => (current ? current.replace(/,/g, '') : ''));
   };
 
   // ── Discount Amount Input Handlers ──────────────────────────────────────────
@@ -473,16 +560,35 @@ export const BusinessServicesWizardScreen: React.FC = () => {
   };
 
   const handleDiscountBlur = () => {
-    if (draft.discountRaw) {
-      setDisplayDiscount(formatWithCommas(draft.discountRaw));
-    }
+    setDisplayDiscount((current) => (current ? formatWithCommas(current) : ''));
   };
 
   const handleDiscountFocus = () => {
-    if (draft.discountRaw) {
-      setDisplayDiscount(draft.discountRaw);
-    }
+    setDisplayDiscount((current) => (current ? current.replace(/,/g, '') : ''));
   };
+
+  // Live discount preview calculation
+  const discountPricing = useMemo(() => {
+    if (!draft.discount || draft.discount <= 0) return null;
+    return getServicePricing(draft.price, draft.discount);
+  }, [draft.price, draft.discount]);
+
+  const isDiscountExceeding = Boolean(
+    draft.price && draft.price > 0 && draft.discount && draft.discount >= draft.price
+  );
+
+  const discountPreviewText = useMemo(() => {
+    if (!draft.discount || draft.discount <= 0) return null;
+    if (draft.price && draft.price > 0) {
+      if (draft.discount >= draft.price) {
+        return `⚠️ Discount (${formatNaira(draft.discount)}) cannot exceed service price (${formatNaira(draft.price)})`;
+      }
+      if (discountPricing?.hasDiscount) {
+        return `🎉 ${formatNaira(draft.discount)} discount applied (${discountPricing.percentOff}% OFF) • Client pays ${discountPricing.displayPrice}`;
+      }
+    }
+    return `🏷️ ${formatNaira(draft.discount)} discount will be applied to the service price`;
+  }, [draft.discount, draft.price, discountPricing]);
 
   // ── Package Block Field Handlers ────────────────────────────────────────────
   const handlePackagePriceChange = (packageId: string, text: string) => {
@@ -500,6 +606,8 @@ export const BusinessServicesWizardScreen: React.FC = () => {
   };
 
   // ── Next Button & Measured Auto-Scroll ──────────────────────────────────────
+  const filledServiceImagesCount = draft.images.filter(Boolean).length;
+
   const handlePressNext = () => {
     triggerLightHaptic();
 
@@ -508,7 +616,7 @@ export const BusinessServicesWizardScreen: React.FC = () => {
 
       // Identify first invalid field in strict form order
       let firstKey = '';
-      if (draft.images.length === 0) firstKey = 'image';
+      if (filledServiceImagesCount < MIN_SERVICE_IMAGES) firstKey = 'image';
       else if (!draft.category || !draft.category.itemName) firstKey = 'category';
       else if (!draft.name.trim()) firstKey = 'name';
       else if (!draft.gender.trim()) firstKey = 'gender';
@@ -526,11 +634,11 @@ export const BusinessServicesWizardScreen: React.FC = () => {
     }
 
     // Step 1 completed successfully -> Step 2
-    router.push('/business-services-staff' as any);
+    safeRouter.push('/business-services-staff' as any);
   };
 
   // Error highlighting state flags
-  const showImageError = hasAttemptedSubmit && draft.images.length === 0;
+  const showImageError = hasAttemptedSubmit && filledServiceImagesCount < MIN_SERVICE_IMAGES;
   const showCategoryError = hasAttemptedSubmit && (!draft.category || !draft.category.itemName);
   const showNameError = hasAttemptedSubmit && !draft.name.trim();
   const showGenderError = hasAttemptedSubmit && !draft.gender.trim();
@@ -579,18 +687,26 @@ export const BusinessServicesWizardScreen: React.FC = () => {
         <ScrollView
           ref={scrollViewRef}
           style={styles.scrollView}
+          onLayout={(e) => {
+            const h = e.nativeEvent.layout.height;
+            setScrollViewVisibleHeight(h);
+            if (activeFocusedFieldRef.current) {
+              setTimeout(() => scrollToActiveField(), 60);
+            }
+          }}
+          onScroll={(e) => {
+            currentScrollYRef.current = e.nativeEvent.contentOffset.y;
+          }}
+          scrollEventThrottle={16}
           contentContainerStyle={[
             styles.scrollContent,
             {
-              paddingBottom:
-                keyboardHeight > 0
-                  ? keyboardHeight + 140
-                  : Math.max(insets.bottom, 16) + 120,
+              paddingBottom: (keyboardHeight > 0 ? keyboardHeight : 340) + 160,
             },
           ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'on-drag' : 'none'}
         >
           {/* ── 2. Stepper ── */}
           <View style={styles.stepperWrapper}>
@@ -602,32 +718,76 @@ export const BusinessServicesWizardScreen: React.FC = () => {
             <InfoBanner text="For clients to book an appointment in your salon, you must first upload a service." />
           </View>
 
-          {/* ── 4. Service Image (6 slots, tap to upload/replace, NO red remove badge) ── */}
+          {/* ── 4. Service Images Warning Tag + 6 Slots ── */}
           <View style={styles.fieldSection} onLayout={setFieldLayout('image')}>
-            <Text style={styles.fieldLabel}>Service image</Text>
-            <Text style={styles.fieldSubtitle}>
-              The uploaded image represents the service you want clients to book
-            </Text>
-
-            <View style={styles.imageGrid}>
-              {[0, 1, 2, 3, 4, 5].map((index) => {
-                const imageUri = draft.images[index];
-
-                return (
-                  <DashedPhotoSlot
-                    key={index}
-                    imageUri={imageUri}
-                    isError={showImageError}
-                    onPress={() => handleSlotPress('service', index)}
-                    accessibilityLabel={
-                      imageUri
-                        ? `Replace photo slot ${index + 1}`
-                        : `Upload photo slot ${index + 1}`
-                    }
+            <View
+              style={[
+                styles.warningBanner,
+                showImageError ? styles.warningBannerError : null,
+              ]}
+            >
+              <View style={styles.warningHeader}>
+                <View style={styles.warningTitleRow}>
+                  <AlertTriangleIcon
+                    size={18}
+                    color={showImageError ? '#DC2626' : '#D97706'}
                   />
-                );
-              })}
+                  <Text
+                    style={[
+                      styles.warningTitle,
+                      showImageError ? styles.warningTitleError : null,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    Service images
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.warningBadge,
+                    filledServiceImagesCount >= MIN_SERVICE_IMAGES
+                      ? styles.warningBadgeSuccess
+                      : null,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.warningBadgeText,
+                      filledServiceImagesCount >= MIN_SERVICE_IMAGES
+                        ? styles.warningBadgeTextSuccess
+                        : null,
+                    ]}
+                  >
+                    {filledServiceImagesCount >= MIN_SERVICE_IMAGES
+                      ? `✓ ${filledServiceImagesCount} added`
+                      : `${filledServiceImagesCount} / ${MIN_SERVICE_IMAGES} required`}
+                  </Text>
+                </View>
+              </View>
+              <Text
+                style={[
+                  styles.warningBody,
+                  showImageError ? styles.warningBodyError : null,
+                ]}
+              >
+                Upload minimum of 3 images and a maximum of 6 images and different angles of the image you wish to upload.
+              </Text>
             </View>
+
+            <ImageUploadGrid
+              images={draft.images}
+              maxImages={6}
+              columns={3}
+              columnGap={24}
+              rowGap={16}
+              borderRadius={24}
+              cameraSize={24}
+              isError={showImageError}
+              showRemoveBadge={true}
+              onSlotPress={(index) => handleSlotPress('service', index)}
+              onRemoveImage={(index) => removeImage(index)}
+              accessibilityLabelPrefix="Service photo"
+            />
           </View>
 
           {/* ── 5. Service Category ⓘ ── */}
@@ -760,8 +920,35 @@ export const BusinessServicesWizardScreen: React.FC = () => {
                   handleFocusField('discounts');
                 }}
                 keyboardType="numeric"
+                multiline={false}
+                numberOfLines={1}
+                scrollEnabled={true}
               />
             </View>
+
+            {/* Live Discount Calculation Feedback Pill */}
+            {discountPreviewText ? (
+              <View
+                style={[
+                  styles.discountFeedbackPill,
+                  isDiscountExceeding
+                    ? styles.discountFeedbackPillWarning
+                    : styles.discountFeedbackPillSuccess,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.discountFeedbackText,
+                    isDiscountExceeding
+                      ? styles.discountFeedbackTextWarning
+                      : styles.discountFeedbackTextSuccess,
+                  ]}
+                  numberOfLines={2}
+                >
+                  {discountPreviewText}
+                </Text>
+              </View>
+            ) : null}
 
             <Text style={styles.helperText}>
               Would you like to offer discounts to clients for booking this service? Enter discount amount below
@@ -851,6 +1038,9 @@ export const BusinessServicesWizardScreen: React.FC = () => {
                       handleFocusField('priceDuration');
                     }}
                     keyboardType="numeric"
+                    multiline={false}
+                    numberOfLines={1}
+                    scrollEnabled={true}
                   />
                 </View>
               </View>
@@ -862,6 +1052,7 @@ export const BusinessServicesWizardScreen: React.FC = () => {
                   activeOpacity={0.7}
                   style={[
                     styles.dropdownField,
+                    !draft.duration && styles.dropdownFieldInactive,
                     showDurationError && styles.errorBorder,
                   ]}
                   onPress={() => {
@@ -877,7 +1068,10 @@ export const BusinessServicesWizardScreen: React.FC = () => {
                   >
                     {draft.duration || '1 hr'}
                   </Text>
-                  <ArrowDown01Icon size={24} color="rgba(0, 8, 20, 0.96)" />
+                  <ArrowDown01Icon
+                    size={24}
+                    color={draft.duration ? 'rgba(0, 8, 20, 0.96)' : 'rgba(192, 192, 204, 0.96)'}
+                  />
                 </TouchableOpacity>
               </View>
             </View>
@@ -890,17 +1084,18 @@ export const BusinessServicesWizardScreen: React.FC = () => {
               mode="create"
               showSectionHeader={true}
               showSubtitle={true}
-              showRemoveBadge={false}
+              showRemoveBadge={true}
               onAddPackage={addPackage}
               onUpdatePackage={updatePackage}
               onSlotPress={(pkgId, slotIdx) => handleSlotPress('package', slotIdx, pkgId)}
+              onRemoveImage={(pkgId, slotIdx) => removePackageImage(pkgId, slotIdx)}
               onOpenGuide={handleOpenGuide}
               onDurationPress={(pkgId) => {
                 triggerLightHaptic();
                 setActiveDurationTarget(pkgId);
               }}
-              onFocusContents={() => handleFocusField('package')}
-              onFocusPrice={() => handleFocusField('package')}
+              onFocusContents={(pkgId, offset) => handleFocusField('packageContents', offset)}
+              onFocusPrice={(pkgId, offset) => handleFocusField('packagePrice', offset)}
             />
           </View>
         </ScrollView>
@@ -911,7 +1106,7 @@ export const BusinessServicesWizardScreen: React.FC = () => {
             styles.stickyFooter,
             {
               paddingTop: 12,
-              paddingBottom: Math.max(insets.bottom, 16),
+              paddingBottom: hasDock ? 14 : Math.max(insets.bottom, 14),
             },
           ]}
         >
@@ -1000,6 +1195,8 @@ export const BusinessServicesWizardScreen: React.FC = () => {
         }}
         onClose={() => setActiveDurationTarget(null)}
       />
+
+      <NativeDockSpacer backgroundColor="#FFFFFF" />
     </SafeAreaView>
   );
 };
@@ -1066,6 +1263,75 @@ const styles = StyleSheet.create({
   fieldSection: {
     width: '100%',
     marginBottom: 40,
+  },
+  /* Service Images Warning Notice Banner (1:1 parity with BusinessPhotosScreen) */
+  warningBanner: {
+    width: '100%',
+    backgroundColor: '#FFFBEB',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    padding: 14,
+    marginBottom: 20,
+  },
+  warningBannerError: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FCA5A5',
+  },
+  warningHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  warningTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    marginRight: 8,
+  },
+  warningTitle: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_600SemiBold',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#92400E',
+    includeFontPadding: false,
+  },
+  warningTitleError: {
+    color: '#991B1B',
+  },
+  warningBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  warningBadgeSuccess: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#10B981',
+  },
+  warningBadgeText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#B45309',
+    includeFontPadding: false,
+  },
+  warningBadgeTextSuccess: {
+    color: '#047857',
+  },
+  warningBody: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#78350F',
+    includeFontPadding: false,
+  },
+  warningBodyError: {
+    color: '#7F1D1D',
   },
   labelWithInfoRow: {
     flexDirection: 'row',
@@ -1174,6 +1440,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
   },
+  dropdownFieldInactive: {
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderColor: 'rgba(247, 247, 247, 0.96)',
+  },
   dropdownText: {
     flex: 1,
     fontFamily: FONT_REGULAR,
@@ -1198,9 +1468,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   textInput: {
     width: '100%',
+    minWidth: 0,
     fontFamily: FONT_REGULAR,
     fontSize: 16,
     lineHeight: 24,
@@ -1237,6 +1509,7 @@ const styles = StyleSheet.create({
   },
   columnItem: {
     flex: 1,
+    minWidth: 0,
   },
 
   priceInputField: {
@@ -1250,9 +1523,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     gap: 6,
+    overflow: 'hidden',
+    minWidth: 0,
   },
   currencyPrefixContainer: {
     paddingRight: 6,
+    flexShrink: 0,
   },
   currencyPrefixText: {
     fontFamily: FONT_REGULAR,
@@ -1267,6 +1543,7 @@ const styles = StyleSheet.create({
     height: 24,
     backgroundColor: 'rgba(235, 235, 245, 0.96)',
     marginRight: 4,
+    flexShrink: 0,
   },
   nairaSymbol: {
     fontFamily: FONT_MEDIUM,
@@ -1275,9 +1552,11 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: 'rgba(0, 8, 20, 0.96)',
     includeFontPadding: false,
+    flexShrink: 0,
   },
   priceTextInput: {
     flex: 1,
+    minWidth: 0,
     fontFamily: FONT_MEDIUM,
     fontWeight: '500',
     fontSize: 16,
@@ -1401,5 +1680,33 @@ const styles = StyleSheet.create({
   },
   nextTextEnabled: {
     color: '#FFFFFF',
+  },
+  discountFeedbackPill: {
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 4,
+  },
+  discountFeedbackPillSuccess: {
+    backgroundColor: 'rgba(12, 121, 12, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(12, 121, 12, 0.25)',
+  },
+  discountFeedbackPillWarning: {
+    backgroundColor: 'rgba(204, 41, 41, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(204, 41, 41, 0.25)',
+  },
+  discountFeedbackText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 13,
+    lineHeight: 18,
+    letterSpacing: 0.2,
+  },
+  discountFeedbackTextSuccess: {
+    color: '#0C790C',
+  },
+  discountFeedbackTextWarning: {
+    color: '#CC2929',
   },
 });

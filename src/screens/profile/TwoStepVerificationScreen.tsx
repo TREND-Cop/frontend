@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Check } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { useUserContext } from '../../store/UserContext';
 
 // ── Custom Animated 64x32px Toggle Switch (Figma Spec) ──
@@ -85,7 +85,7 @@ const CustomToggleSwitch: React.FC<ToggleSwitchProps> = ({ value, onValueChange 
 };
 
 export const TwoStepVerificationScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { profileData, setTwoStepEnabled } = useUserContext();
 
   // Screen modes: 'toggle' | 'input'
@@ -122,10 +122,10 @@ export const TwoStepVerificationScreen: React.FC = () => {
   const handleGoBack = () => {
     if (step === 'input') {
       setStep('toggle');
-    } else if (router.canGoBack()) {
-      router.back();
+    } else if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/profile' as any);
+      safeRouter.replace('/profile' as any);
     }
   };
 
@@ -160,7 +160,7 @@ export const TwoStepVerificationScreen: React.FC = () => {
     setEmailError(null);
 
     // Navigate to Account Verification method selection
-    router.push({
+    safeRouter.push({
       pathname: '/profile-verification-method',
       params: { type: 'email', targetEmail: trimmed },
     });

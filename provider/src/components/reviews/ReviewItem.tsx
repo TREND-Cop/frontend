@@ -55,6 +55,7 @@ export interface ReviewItemProps {
   onPressReply?: (review: Review) => void;
   onPressMenu?: (review: Review) => void;
   hideReplyButton?: boolean;
+  hideMenu?: boolean;
 }
 
 /**
@@ -67,6 +68,7 @@ export const ReviewItem: React.FC<ReviewItemProps> = ({
   onPressReply,
   onPressMenu,
   hideReplyButton = false,
+  hideMenu = false,
 }) => {
   const { businessName } = useProviderOnboarding();
   const displayBusinessName = businessName?.trim() || 'Luminous lux';
@@ -98,17 +100,19 @@ export const ReviewItem: React.FC<ReviewItemProps> = ({
               {review.client.isVerified && <ClientVerifiedBadge size={20} />}
             </View>
 
-            {/* ⋮ Menu Button (Hit area >= 44x44, stub for Prompt 2) */}
-            <TouchableOpacity
-              style={styles.menuButton}
-              activeOpacity={0.7}
-              onPress={() => onPressMenu?.(review)}
-              accessibilityRole="button"
-              accessibilityLabel={`More options for ${review.client.name}'s review`}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <EllipsisVerticalIcon size={24} />
-            </TouchableOpacity>
+            {/* ⋮ Menu Button (Hit area >= 44x44, hidden for staff read-only) */}
+            {!hideMenu && (
+              <TouchableOpacity
+                style={styles.menuButton}
+                activeOpacity={0.7}
+                onPress={() => onPressMenu?.(review)}
+                accessibilityRole="button"
+                accessibilityLabel={`More options for ${review.client.name}'s review`}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <EllipsisVerticalIcon size={24} />
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Review Text */}

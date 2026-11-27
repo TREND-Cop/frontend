@@ -12,7 +12,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Play } from 'lucide-react-native';
 import { ShareIcon } from '../components/ShareIcon';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../utils/safeNavigation';
 import { shareStore } from '../utils/shareStore';
 import { previewStore } from '../utils/previewStore';
 import { getSafeBottomPadding } from '../utils/safeArea';
@@ -22,7 +23,7 @@ const DEFAULT_VIDEO = require('../../assets/videos/generate_a_sec_video_on_beau.
 const FALLBACK_VIDEO_THUMB = require('../../assets/images/custom/body_therapy_video_frame.jpg');
 
 export default function VideoScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
 
@@ -273,10 +274,10 @@ export default function VideoScreen() {
         player.pause();
       } catch {}
     }
-    if (router.canGoBack()) {
-      router.back();
+    if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/(tabs)' as any);
+      safeRouter.replace('/(tabs)' as any);
     }
   };
 

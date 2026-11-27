@@ -8,7 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { SafeImage } from '../../components/ui/SafeImage';
 import { EmptyCompletedAppointmentScreen } from './EmptyCompletedAppointmentScreen';
@@ -128,15 +128,15 @@ const SUCCESSFUL_APPOINTMENTS: BookedAppointmentItem[] = [
 ];
 
 export const BookingsListScreen = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
 
   const handleGoBack = () => {
-    router.replace('/home/bookings' as any);
+    safeRouter.replace('/home/bookings' as any);
   };
 
   const handleCardPress = (item: BookedAppointmentItem) => {
-    router.push({
+    safeRouter.push({
       pathname: '/successful-booking',
       params: {
         id: item.id,
@@ -183,7 +183,7 @@ export const BookingsListScreen = () => {
   if (completedAppointments.length === 0) {
     return (
       <EmptyCompletedAppointmentScreen
-        onBookNow={() => router.replace('/home' as any)}
+        onBookNow={() => safeRouter.replace('/home' as any)}
       />
     );
   }

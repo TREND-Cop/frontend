@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle, Rect, G } from 'react-native-svg';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 import { DommyLoader } from '../../components/DommyLoader';
@@ -206,7 +206,7 @@ function BarberChairIllustration({ size = 150 }: { size?: number }) {
 export function ProviderOngoingAppointmentsScreen() {
 
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   const {
     ongoingAppointments,
@@ -278,7 +278,7 @@ export function ProviderOngoingAppointmentsScreen() {
           <TouchableOpacity
             style={styles.headerIconButton}
             activeOpacity={0.7}
-            onPress={() => router.back()}
+            onPress={() => safeRouter.back()}
           >
             <ArrowLeft02Icon />
           </TouchableOpacity>
@@ -395,7 +395,7 @@ export function ProviderOngoingAppointmentsScreen() {
                     style={styles.topCard}
                     activeOpacity={0.85}
                     onPress={() => {
-                      router.push({
+                      safeRouter.push({
                         pathname: '/ongoing-appointment/[id]',
                         params: {
                           id: item.id,
@@ -682,9 +682,9 @@ const styles = StyleSheet.create({
     color: 'rgba(96, 96, 102, 0.96)',
   },
 
-  // ── Cards List (gap: 35px between cards) ──────────────────────────────────
+  // ── Cards List (gap: 40px between cards) ──────────────────────────────────
   cardsList: {
-    gap: 35,
+    gap: 40,
   },
   compoundCardWrapper: {
     width: '100%',

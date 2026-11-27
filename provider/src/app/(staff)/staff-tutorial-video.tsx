@@ -1,11 +1,12 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { StaffTutorialVideoModal } from '../../components/staff/tutorial/StaffTutorialVideoModal';
 import { STAFF_TUTORIAL_STEPS } from '../../constants/staffTutorialSteps';
 
 export default function StaffTutorialVideoRoute() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams<{ step?: string; title?: string }>();
   const stepNumber = params.step ? parseInt(params.step, 10) : 2;
   const step =
@@ -19,7 +20,7 @@ export default function StaffTutorialVideoRoute() {
         step={step}
         isTour={false}
         customTitle={params.title}
-        onBack={() => router.back()}
+        onBack={() => safeRouter.back()}
       />
     </View>
   );

@@ -10,13 +10,15 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ArrowLeft, Copy, Check } from 'lucide-react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { bookingStore } from '../../utils/bookingStore';
 import { useBookingContext } from '../../store/BookingContext';
 import { typography } from '../../constants/theme';
 import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
+import { trendApi, getAuthToken } from '../../api/trendApi';
 
 // ── Zenith Bank Logo matching Figma ──
 const ZenithBankLogo = () => (
@@ -157,7 +159,7 @@ const ThreeDotsLoader = () => {
 export type TransactionStatus = 'idle' | 'verifying' | 'incomplete' | 'error' | 'success';
 
 export const BankTransferScreen = ({ navigation }: { navigation?: any }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const bottomInset = Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16);
   const params = useLocalSearchParams<{ state?: TransactionStatus }>();
@@ -174,17 +176,40 @@ export const BankTransferScreen = ({ navigation }: { navigation?: any }) => {
     'bank_transfer'
   );
 
-  const accountNumber = '1234567890';
-  const accountName = 'TREND SECURE';
-  const bankName = 'Zenith Bank';
+  const [accountNumber, setAccountNumber] = useState('1234567890');
+  const [accountName, setAccountName] = useState('TREND SECURE');
+  const [bankName, setBankName] = useState('Zenith Bank');
+
+  useEffect(() => {
+    let active = true;
+    trendApi.payments
+      .getBankDetails()
+      .then((res) => {
+        if (!active || !res.ok || !res.data) return;
+        const { account_number, account_name, bank_name } = res.data;
+        if (account_number && account_number !== '0000000000') {
+          setAccountNumber(account_number);
+        }
+        if (account_name && account_name !== 'Trend Ltd') {
+          setAccountName(account_name);
+        }
+        if (bank_name && bank_name !== 'Your Bank') {
+          setBankName(bank_name);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleGoBack = () => {
     if (navigation?.canGoBack && navigation.canGoBack()) {
-      navigation.goBack();
-    } else if (router.canGoBack()) {
-      router.back();
+      safeRouter.back();
+    } else if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/payment');
+      safeRouter.replace('/payment');
     }
   };
 
@@ -219,7 +244,20 @@ export const BankTransferScreen = ({ navigation }: { navigation?: any }) => {
           bankName: bankName,
         };
         const newAppt = await confirmBooking(transferDetails);
-        router.push({
+        try {
+          const token = await getAuthToken();
+          if (token && newAppt?.id) {
+            await trendApi.payments.submit({
+              booking_id: newAppt.id,
+              amount: finalTotal || newAppt.totalPrice || 0,
+              method: 'transfer',
+              reference: newAppt.ticketNumber,
+            });
+          }
+        } catch {
+          // Non-fatal payment report fallback
+        }
+        safeRouter.push({
           pathname: '/booking-success',
           params: { appointmentId: newAppt?.id },
         });
@@ -487,18 +525,19 @@ const styles = StyleSheet.create({
     color: 'rgba(0, 8, 20, 0.96)',
   },
 
-  // ── 3-Dots Loading Indicator ──
+  // ── 3-Dots Loading Indicator (Figma Standard: 16px dots, gap 20px) ──
   dotsLoaderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    height: 24,
+    gap: 20,
+    width: 88,
+    height: 16,
   },
   loaderDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     backgroundColor: 'rgba(0, 8, 20, 0.96)',
   },
 

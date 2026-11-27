@@ -10,7 +10,8 @@ import {
   StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 import { getStaffById, StaffStatusCode } from '../../store/staffStore';
@@ -417,7 +418,7 @@ const EFFICIENCY_TAGS = [
 ];
 
 export function ProviderStaffProfileScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams<{
     id?: string;
     name?: string;
@@ -500,7 +501,7 @@ export function ProviderStaffProfileScreen() {
       })),
       index
     );
-    router.push({
+    safeRouter.push({
       pathname: '/gallery-preview' as any,
       params: { index, initialIndex: index, title: `${firstName} Portfolio` },
     });
@@ -517,7 +518,7 @@ export function ProviderStaffProfileScreen() {
           <TouchableOpacity
             activeOpacity={0.8}
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => safeRouter.back()}
           >
             <ArrowLeft02Icon size={24} color="rgba(0, 8, 20, 0.96)" />
           </TouchableOpacity>
@@ -678,7 +679,7 @@ export function ProviderStaffProfileScreen() {
               activeOpacity={0.8}
               style={styles.seeAllCircleButton}
               onPress={() =>
-                router.push({
+                safeRouter.push({
                   pathname: '/staff-portfolio' as any,
                   params: { name: staffName, id: params.id },
                 })
@@ -746,21 +747,7 @@ export function ProviderStaffProfileScreen() {
 
         {/* ── 1:1 Figma Reviews & Rating (bisola review and rate, top: 1125px) ── */}
         <View style={styles.reviewsSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Review & Rating</Text>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.seeAllCircleButton}
-              onPress={() =>
-                router.push({
-                  pathname: '/staff-reviews' as any,
-                  params: { name: staffName, id: params.id },
-                })
-              }
-            >
-              <ArrowRight02Icon size={24} color="rgba(0, 8, 20, 0.96)" />
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.sectionTitle}>Review & Rating</Text>
 
           {/* Horizontal Swipeable Review Cards */}
           <ScrollView
@@ -854,7 +841,7 @@ export function ProviderStaffProfileScreen() {
           style={styles.messageButton}
           onPress={() => {
             const staffId = params.id || storeStaff?.id || staffName.toLowerCase().replace(/\s+/g, '-');
-            router.push({
+            safeRouter.push({
               pathname: '/chat' as any,
               params: {
                 id: staffId,

@@ -1,16 +1,19 @@
-import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
 import {
   Conversation,
   DEV_SAMPLE_CONVERSATIONS,
   SAMPLE_SEED_CONVERSATIONS,
 } from '../constants/messages.config';
 import { useStaffStore } from './StaffContext';
+import { loadFromStorage, saveToStorage, STORAGE_KEYS } from '../utils/providerStorage';
+import { trendApi, getAuthToken, extractArray } from '../api/trendApi';
 
 export interface MessagesContextType {
   conversations: Conversation[];
   markConversationRead: (id: string) => void;
   getConversationForStaff: (staffId: string) => Conversation | undefined;
   startConversation: (staffId: string) => string;
+  updateLastMessage: (convIdOrStaffId: string, preview: string, time?: string) => void;
 }
 
 const MessagesContext = createContext<MessagesContextType | undefined>(undefined);
@@ -18,41 +21,65 @@ const MessagesContext = createContext<MessagesContextType | undefined>(undefined
 export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { staff } = useStaffStore();
 
-  // In-memory conversations store
-  // TODO (Backend): load conversations, unread counts, realtime updates. No persistence.
   const [conversations, setConversations] = useState<Conversation[]>(() => {
     if (!DEV_SAMPLE_CONVERSATIONS) {
       return [];
     }
-
-    // Seed conversations dynamically with existing staff if available
-    if (staff.length > 0) {
-      return [
-        {
-          id: 'conv_1',
-          staffId: staff[0].id,
-          lastMessagePreview: "Hello this is luminious looks and we're..",
-          lastMessageTime: '12:11',
-          unreadCount: 1,
-          kind: 'Staff',
-        },
-        ...(staff.length > 1
-          ? [
-              {
-                id: 'conv_2',
-                staffId: staff[1].id,
-                lastMessagePreview: "Hello this is luminious looks and we're..",
-                lastMessageTime: 'Wed/3/2026',
-                unreadCount: 0,
-                kind: 'Staff' as const,
-              },
-            ]
-          : []),
-      ];
-    }
-
     return SAMPLE_SEED_CONVERSATIONS;
   });
+
+  // Hydrate conversations from storage and live backend
+  useEffect(() => {
+    let isMounted = true;
+    const hydrate = async () => {
+      const saved = await loadFromStorage<Conversation[] | null>(
+        STORAGE_KEYS.PROVIDER_CONVERSATIONS,
+        null
+      );
+      if (isMounted && saved && saved.length > 0) {
+        setConversations(saved);
+      }
+
+      try {
+        const token = await getAuthToken();
+        if (!token || !isMounted) return;
+        const res = await trendApi.conversations.list();
+        if (!res.ok || !res.data || !isMounted) return;
+        const rows = extractArray<any>(res.data, ['conversations']);
+        if (rows.length === 0) return;
+
+        const mapped: Conversation[] = rows.map((c: any, idx: number) => ({
+          id: String(c.id || c.user_id || `remote_conv_${idx}`),
+          staffId: String(c.partner_id || c.user_id || c.id || `remote_${idx}`),
+          lastMessagePreview: c.last_message || c.lastMessage || '',
+          lastMessageTime: c.last_message_at || c.updated_at
+            ? new Date(c.last_message_at || c.updated_at).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : 'Just now',
+          unreadCount: Number(c.unread_count ?? c.unreadCount ?? 0),
+          kind: c.role === 'staff' ? 'Staff' : undefined,
+        }));
+
+        setConversations((prev) => {
+          const ids = new Set(mapped.map((m) => m.id));
+          return [...mapped, ...prev.filter((p) => !ids.has(p.id))];
+        });
+      } catch {
+        // Keep local conversations intact
+      }
+    };
+    hydrate();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Persist conversations
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.PROVIDER_CONVERSATIONS, conversations);
+  }, [conversations]);
 
   const markConversationRead = useCallback((id: string) => {
     setConversations((prev) =>
@@ -88,14 +115,31 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     [conversations]
   );
 
+  const updateLastMessage = useCallback((convIdOrStaffId: string, preview: string, time?: string) => {
+    const formattedTime = time || 'Just now';
+    setConversations((prev) =>
+      prev.map((conv) => {
+        if (conv.id === convIdOrStaffId || conv.staffId === convIdOrStaffId) {
+          return {
+            ...conv,
+            lastMessagePreview: preview,
+            lastMessageTime: formattedTime,
+          };
+        }
+        return conv;
+      })
+    );
+  }, []);
+
   const value = useMemo(
     () => ({
       conversations,
       markConversationRead,
       getConversationForStaff,
       startConversation,
+      updateLastMessage,
     }),
-    [conversations, markConversationRead, getConversationForStaff, startConversation]
+    [conversations, markConversationRead, getConversationForStaff, startConversation, updateLastMessage]
   );
 
   return <MessagesContext.Provider value={value}>{children}</MessagesContext.Provider>;

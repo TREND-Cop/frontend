@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { triggerLightHaptic } from '../../../utils/haptics';
+import { useSingleFlight } from '../../../utils/safeNavigation';
 
 const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
 const FONT_REGULAR = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular';
@@ -186,12 +187,12 @@ export const WorkDaysSheet: React.FC<WorkDaysSheetProps> = ({
 
   const canConfirm = hasSelection && isChanged;
 
-  const handleConfirmPress = () => {
-    if (!canConfirm) return;
+  const handleConfirmPress = useSingleFlight(() => {
+    if (!visible || !canConfirm) return;
     triggerLightHaptic();
     onConfirm(orderedWorkingDays);
     onClose();
-  };
+  });
 
   // Pair items in CSS order:
   // Row 1: Monday, Tuesday
@@ -215,7 +216,17 @@ export const WorkDaysSheet: React.FC<WorkDaysSheetProps> = ({
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
 
-        <View style={[styles.sheetContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <View
+        style={[
+          styles.sheetContainer,
+          {
+            paddingBottom:
+              Platform.OS === 'android'
+                ? Math.max(insets.bottom, 24) + 12
+                : insets.bottom + 16,
+          },
+        ]}
+      >
           {/* ── 1. Filter Header (62px, CSS Spec) ── */}
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Work Days</Text>

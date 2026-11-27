@@ -1,19 +1,20 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Platform,
-} from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getSafeBottomPadding } from '../../utils/safeArea';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, ChevronLeft, ChevronRight, Check, X } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { bookingStore } from '../../utils/bookingStore';
+import { useLocalSearchParams } from 'expo-router';
+import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { typography } from '../../constants/theme';
+import { bookingStore } from '../../utils/bookingStore';
+import { getSafeBottomPadding } from '../../utils/safeArea';
+import { useSafeRouter } from '../../utils/safeNavigation';
 
 // ── Day Options (6 days in 3 rows x 2 columns matching Figma) ──
 const DAY_OPTIONS = [
@@ -82,7 +83,7 @@ const MIN_SELECTABLE_INDEX = PAST_YEARS.length;
 const MAX_SELECTABLE_INDEX = YEAR_ITEMS.length - 1;
 
 export const AppointmentDayScreen = ({ navigation }: { navigation?: any }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
 
   const initialDateObj = (() => {
@@ -235,11 +236,11 @@ export const AppointmentDayScreen = ({ navigation }: { navigation?: any }) => {
 
   const handleGoBack = () => {
     if (navigation?.canGoBack && navigation.canGoBack()) {
-      navigation.goBack();
-    } else if (router.canGoBack()) {
-      router.back();
+      safeRouter.back();
+    } else if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/booking-review' as any);
+      safeRouter.replace('/booking-review' as any);
     }
   };
 
@@ -287,14 +288,14 @@ export const AppointmentDayScreen = ({ navigation }: { navigation?: any }) => {
 
     if (fromReview) {
       if (navigation?.canGoBack && navigation.canGoBack()) {
-        navigation.goBack();
-      } else if (router.canGoBack()) {
-        router.back();
+        safeRouter.back();
+      } else if (safeRouter.canGoBack()) {
+        safeRouter.back();
       } else {
-        router.replace('/booking-review' as any);
+        safeRouter.replace('/booking-review' as any);
       }
     } else {
-      router.push('/appointment-time' as any);
+      safeRouter.push('/appointment-time' as any);
     }
   };
 
@@ -322,14 +323,8 @@ export const AppointmentDayScreen = ({ navigation }: { navigation?: any }) => {
 
         {/* ─── Header (Figma: height 64px, borderBottom) ─── */}
         <View style={styles.header}>
-          <TouchableOpacity
-            onPress={handleGoBack}
-            style={styles.backButton}
-            activeOpacity={0.7}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <ArrowLeft size={24} color="rgba(0, 8, 20, 0.96)" />
-          </TouchableOpacity>
+          {/* Empty spacer on the left keeps the title centered without a conflicting back button */}
+          <View style={styles.headerPlaceholder} />
 
           <Text style={styles.headerTitle}>Appointment Day</Text>
 
@@ -343,371 +338,371 @@ export const AppointmentDayScreen = ({ navigation }: { navigation?: any }) => {
           </TouchableOpacity>
         </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        scrollEnabled={calendarTab !== 'Year'}
-        nestedScrollEnabled={true}
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: 110 + insets.bottom },
-        ]}
-      >
-        {/* ─── Section 1: Day of the week ─── */}
-        <View style={styles.dayOfWeekSection}>
-          <Text style={styles.sectionHeading}>Day of the week</Text>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={calendarTab !== 'Year'}
+          nestedScrollEnabled={true}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: 110 + insets.bottom },
+          ]}
+        >
+          {/* ─── Section 1: Day of the week ─── */}
+          <View style={styles.dayOfWeekSection}>
+            <Text style={styles.sectionHeading}>Day of the week</Text>
 
-          {/* 3 rows x 2 columns grid */}
-          <View style={styles.dayGridContainer}>
-            {/* Row 1: Monday, Tuesday */}
-            <View style={styles.dayGridRow}>
-              {DAY_OPTIONS.slice(0, 2).map((item) => {
-                const isSelected = selectedDayOfWeek === item.key;
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[
-                      styles.dayButton,
-                      isSelected && styles.dayButtonSelected,
-                    ]}
-                    activeOpacity={0.8}
-                    onPress={() => handleSelectDayOfWeek(item.key)}
-                  >
-                    <Text
-                      style={[
-                        styles.dayButtonText,
-                        isSelected && styles.dayButtonTextSelected,
-                      ]}
-                    >
-                      {item.label}
-                    </Text>
-
-                    <View
-                      style={[
-                        styles.radioCircle,
-                        isSelected && styles.radioCircleSelected,
-                      ]}
-                    >
-                      {isSelected && (
-                        <Check size={14} color="#FFFFFF" strokeWidth={2.5} />
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Row 2: Wednesday, Thursday */}
-            <View style={styles.dayGridRow}>
-              {DAY_OPTIONS.slice(2, 4).map((item) => {
-                const isSelected = selectedDayOfWeek === item.key;
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[
-                      styles.dayButton,
-                      isSelected && styles.dayButtonSelected,
-                    ]}
-                    activeOpacity={0.8}
-                    onPress={() => handleSelectDayOfWeek(item.key)}
-                  >
-                    <Text
-                      style={[
-                        styles.dayButtonText,
-                        isSelected && styles.dayButtonTextSelected,
-                      ]}
-                    >
-                      {item.label}
-                    </Text>
-
-                    <View
-                      style={[
-                        styles.radioCircle,
-                        isSelected && styles.radioCircleSelected,
-                      ]}
-                    >
-                      {isSelected && (
-                        <Check size={14} color="#FFFFFF" strokeWidth={2.5} />
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Row 3: Friday, Saturday */}
-            <View style={styles.dayGridRow}>
-              {DAY_OPTIONS.slice(4, 6).map((item) => {
-                const isSelected = selectedDayOfWeek === item.key;
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[
-                      styles.dayButton,
-                      isSelected && styles.dayButtonSelected,
-                    ]}
-                    activeOpacity={0.8}
-                    onPress={() => handleSelectDayOfWeek(item.key)}
-                  >
-                    <Text
-                      style={[
-                        styles.dayButtonText,
-                        isSelected && styles.dayButtonTextSelected,
-                      ]}
-                    >
-                      {item.label}
-                    </Text>
-
-                    <View
-                      style={[
-                        styles.radioCircle,
-                        isSelected && styles.radioCircleSelected,
-                      ]}
-                    >
-                      {isSelected && (
-                        <Check size={14} color="#FFFFFF" strokeWidth={2.5} />
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        </View>
-
-        {/* ─── Section 2: Interactive Dynamic Calendar ─── */}
-        <View style={styles.calendarCardContainer}>
-          {/* Header: Month, Year + Circular Back / Forward Buttons */}
-          <View style={styles.modalHeaderRow}>
-            <Text style={styles.modalMonthTitle}>
-              {calendarTab === 'Month'
-                ? `${MONTH_NAMES[calendarMonthIndex]}, ${calendarYear}`
-                : `${calendarYear}`}
-            </Text>
-
-            <View style={styles.modalNavButtonsRow}>
-              <TouchableOpacity
-                style={[
-                  styles.modalNavCircleButton,
-                  !canGoPrev && styles.modalNavCircleButtonDisabled,
-                ]}
-                disabled={!canGoPrev}
-                activeOpacity={0.7}
-                onPress={handleMonthPrev}
-              >
-                <ChevronLeft
-                  size={20}
-                  color={canGoPrev ? "#1A82FF" : "rgba(192, 192, 204, 0.6)"}
-                  strokeWidth={2}
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.modalNavCircleButton,
-                  !canGoNext && styles.modalNavCircleButtonDisabled,
-                ]}
-                disabled={!canGoNext}
-                activeOpacity={0.7}
-                onPress={handleMonthNext}
-              >
-                <ChevronRight
-                  size={20}
-                  color={canGoNext ? "#1A82FF" : "rgba(192, 192, 204, 0.6)"}
-                  strokeWidth={2}
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Segmented Month / Year Tab (358x48, radius 24px, pill 105x40) */}
-          <View style={styles.calendarTabTrack}>
-            <TouchableOpacity
-              style={[
-                styles.calendarTabPill,
-                calendarTab === 'Month' && styles.calendarTabPillActive,
-              ]}
-              activeOpacity={0.8}
-              onPress={() => setCalendarTab('Month')}
-            >
-              <Text
-                style={[
-                  styles.calendarTabText,
-                  calendarTab === 'Month' && styles.calendarTabTextActive,
-                ]}
-              >
-                Month
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.calendarTabPill,
-                calendarTab === 'Year' && styles.calendarTabPillActive,
-              ]}
-              activeOpacity={0.8}
-              onPress={() => setCalendarTab('Year')}
-            >
-              <Text
-                style={[
-                  styles.calendarTabText,
-                  calendarTab === 'Year' && styles.calendarTabTextActive,
-                ]}
-              >
-                Year
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Calendar Grid (Month View) vs Year Wheel Picker (Year View) */}
-          {calendarTab === 'Month' ? (
-            <View style={styles.calendarGrid}>
-              {calendarDaysList.map((dayNum) => {
-                const isPastDay =
-                  calendarYear < CURRENT_YEAR ||
-                  (calendarYear === CURRENT_YEAR && calendarMonthIndex < CURRENT_MONTH) ||
-                  (calendarYear === CURRENT_YEAR && calendarMonthIndex === CURRENT_MONTH && dayNum < CURRENT_DAY);
-
-                const isAvailable = !isPastDay && !DISABLED_CALENDAR_DAYS.includes(dayNum);
-                const isSelected = selectedCalendarDay === dayNum;
-
-                return (
-                  <TouchableOpacity
-                    key={dayNum}
-                    style={[
-                      styles.calendarDayCell,
-                      isSelected && styles.calendarDayCellSelected,
-                      !isAvailable && styles.calendarDayCellDisabled,
-                    ]}
-                    disabled={!isAvailable}
-                    activeOpacity={0.7}
-                    onPress={() => handleSelectCalendarDay(dayNum, isAvailable)}
-                  >
-                    <Text
-                      style={[
-                        styles.calendarDayText,
-                        isSelected && styles.textWhite,
-                        !isAvailable && styles.calendarDayTextDisabled,
-                      ]}
-                    >
-                      {dayNum}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-              {/* Dummy filler elements to prevent incomplete bottom row from spreading out wide */}
-              {Array.from({ length: 10 }).map((_, i) => (
-                <View key={`dummy_${i}`} style={styles.calendarDayCellDummy} pointerEvents="none" />
-              ))}
-            </View>
-          ) : (
-            <View style={styles.orderTypeContainer}>
-              {/* Selector bar (Figma: 326x40, left 16, top 118, bg rgba(229, 229, 229, 0.8), radius 24px) */}
-              <View style={styles.yearSelectorBar} pointerEvents="none" />
-
-              {/* Top vertical guide lines (flanking years above selector bar) */}
-              <View style={styles.topVerticalDividerLeft} pointerEvents="none" />
-              <View style={styles.topVerticalDividerRight} pointerEvents="none" />
-
-              {/* Bottom vertical guide lines (flanking years below selector bar) */}
-              <View style={styles.bottomVerticalDividerLeft} pointerEvents="none" />
-              <View style={styles.bottomVerticalDividerRight} pointerEvents="none" />
-
-              {/* Swipeable / Scrollable Years Wheel */}
-              <ScrollView
-                ref={yearScrollRef}
-                style={styles.yearScrollView}
-                showsVerticalScrollIndicator={false}
-                snapToInterval={ITEM_HEIGHT}
-                snapToAlignment="center"
-                decelerationRate="fast"
-                nestedScrollEnabled={true}
-                scrollEventThrottle={16}
-                overScrollMode="never"
-                bounces={true}
-                contentContainerStyle={styles.yearScrollContent}
-                onScroll={handleYearScroll}
-                onScrollEndDrag={handleScrollEndDrag}
-                onMomentumScrollEnd={handleScrollEnd}
-              >
-                {YEAR_ITEMS.map((yrItem, idx) => {
-                  const yr = yrItem.year;
-                  const isPast = yrItem.isPast;
-                  const isSelected = !isPast && yr === calendarYear;
-                  const diff = Math.abs(yr - calendarYear);
+            {/* 3 rows x 2 columns grid */}
+            <View style={styles.dayGridContainer}>
+              {/* Row 1: Monday, Tuesday */}
+              <View style={styles.dayGridRow}>
+                {DAY_OPTIONS.slice(0, 2).map((item) => {
+                  const isSelected = selectedDayOfWeek === item.key;
                   return (
                     <TouchableOpacity
-                      key={yr}
-                      style={styles.yearScrollItem}
-                      activeOpacity={isPast ? 1 : 0.7}
-                      disabled={isPast}
-                      onPress={() => {
-                        if (isPast) return;
-                        setCalendarYear(yr);
-                        yearScrollRef.current?.scrollTo({
-                          y: idx * ITEM_HEIGHT,
-                          animated: true,
-                        });
-                      }}
+                      key={item.id}
+                      style={[
+                        styles.dayButton,
+                        isSelected && styles.dayButtonSelected,
+                      ]}
+                      activeOpacity={0.8}
+                      onPress={() => handleSelectDayOfWeek(item.key)}
                     >
                       <Text
                         style={[
-                          styles.yearItemText,
-                          isPast && styles.yearItemTextDisabled,
-                          !isPast && isSelected && styles.yearItemTextSelected,
-                          !isPast && !isSelected && diff === 1 && styles.yearItemTextDiff1,
-                          !isPast && !isSelected && diff === 2 && styles.yearItemTextDiff2,
-                          !isPast && !isSelected && diff >= 3 && styles.yearItemTextDiff3,
+                          styles.dayButtonText,
+                          isSelected && styles.dayButtonTextSelected,
                         ]}
                       >
-                        {yr}
+                        {item.label}
+                      </Text>
+
+                      <View
+                        style={[
+                          styles.radioCircle,
+                          isSelected && styles.radioCircleSelected,
+                        ]}
+                      >
+                        {isSelected && (
+                          <Check size={14} color="#FFFFFF" strokeWidth={2.5} />
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Row 2: Wednesday, Thursday */}
+              <View style={styles.dayGridRow}>
+                {DAY_OPTIONS.slice(2, 4).map((item) => {
+                  const isSelected = selectedDayOfWeek === item.key;
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[
+                        styles.dayButton,
+                        isSelected && styles.dayButtonSelected,
+                      ]}
+                      activeOpacity={0.8}
+                      onPress={() => handleSelectDayOfWeek(item.key)}
+                    >
+                      <Text
+                        style={[
+                          styles.dayButtonText,
+                          isSelected && styles.dayButtonTextSelected,
+                        ]}
+                      >
+                        {item.label}
+                      </Text>
+
+                      <View
+                        style={[
+                          styles.radioCircle,
+                          isSelected && styles.radioCircleSelected,
+                        ]}
+                      >
+                        {isSelected && (
+                          <Check size={14} color="#FFFFFF" strokeWidth={2.5} />
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Row 3: Friday, Saturday */}
+              <View style={styles.dayGridRow}>
+                {DAY_OPTIONS.slice(4, 6).map((item) => {
+                  const isSelected = selectedDayOfWeek === item.key;
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[
+                        styles.dayButton,
+                        isSelected && styles.dayButtonSelected,
+                      ]}
+                      activeOpacity={0.8}
+                      onPress={() => handleSelectDayOfWeek(item.key)}
+                    >
+                      <Text
+                        style={[
+                          styles.dayButtonText,
+                          isSelected && styles.dayButtonTextSelected,
+                        ]}
+                      >
+                        {item.label}
+                      </Text>
+
+                      <View
+                        style={[
+                          styles.radioCircle,
+                          isSelected && styles.radioCircleSelected,
+                        ]}
+                      >
+                        {isSelected && (
+                          <Check size={14} color="#FFFFFF" strokeWidth={2.5} />
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          </View>
+
+          {/* ─── Section 2: Interactive Dynamic Calendar ─── */}
+          <View style={styles.calendarCardContainer}>
+            {/* Header: Month, Year + Circular Back / Forward Buttons */}
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalMonthTitle}>
+                {calendarTab === 'Month'
+                  ? `${MONTH_NAMES[calendarMonthIndex]}, ${calendarYear}`
+                  : `${calendarYear}`}
+              </Text>
+
+              <View style={styles.modalNavButtonsRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.modalNavCircleButton,
+                    !canGoPrev && styles.modalNavCircleButtonDisabled,
+                  ]}
+                  disabled={!canGoPrev}
+                  activeOpacity={0.7}
+                  onPress={handleMonthPrev}
+                >
+                  <ChevronLeft
+                    size={20}
+                    color={canGoPrev ? "#1A82FF" : "rgba(192, 192, 204, 0.6)"}
+                    strokeWidth={2}
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.modalNavCircleButton,
+                    !canGoNext && styles.modalNavCircleButtonDisabled,
+                  ]}
+                  disabled={!canGoNext}
+                  activeOpacity={0.7}
+                  onPress={handleMonthNext}
+                >
+                  <ChevronRight
+                    size={20}
+                    color={canGoNext ? "#1A82FF" : "rgba(192, 192, 204, 0.6)"}
+                    strokeWidth={2}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Segmented Month / Year Tab (358x48, radius 24px, pill 105x40) */}
+            <View style={styles.calendarTabTrack}>
+              <TouchableOpacity
+                style={[
+                  styles.calendarTabPill,
+                  calendarTab === 'Month' && styles.calendarTabPillActive,
+                ]}
+                activeOpacity={0.8}
+                onPress={() => setCalendarTab('Month')}
+              >
+                <Text
+                  style={[
+                    styles.calendarTabText,
+                    calendarTab === 'Month' && styles.calendarTabTextActive,
+                  ]}
+                >
+                  Month
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.calendarTabPill,
+                  calendarTab === 'Year' && styles.calendarTabPillActive,
+                ]}
+                activeOpacity={0.8}
+                onPress={() => setCalendarTab('Year')}
+              >
+                <Text
+                  style={[
+                    styles.calendarTabText,
+                    calendarTab === 'Year' && styles.calendarTabTextActive,
+                  ]}
+                >
+                  Year
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Calendar Grid (Month View) vs Year Wheel Picker (Year View) */}
+            {calendarTab === 'Month' ? (
+              <View style={styles.calendarGrid}>
+                {calendarDaysList.map((dayNum) => {
+                  const isPastDay =
+                    calendarYear < CURRENT_YEAR ||
+                    (calendarYear === CURRENT_YEAR && calendarMonthIndex < CURRENT_MONTH) ||
+                    (calendarYear === CURRENT_YEAR && calendarMonthIndex === CURRENT_MONTH && dayNum < CURRENT_DAY);
+
+                  const isAvailable = !isPastDay && !DISABLED_CALENDAR_DAYS.includes(dayNum);
+                  const isSelected = selectedCalendarDay === dayNum;
+
+                  return (
+                    <TouchableOpacity
+                      key={dayNum}
+                      style={[
+                        styles.calendarDayCell,
+                        isSelected && styles.calendarDayCellSelected,
+                        !isAvailable && styles.calendarDayCellDisabled,
+                      ]}
+                      disabled={!isAvailable}
+                      activeOpacity={0.7}
+                      onPress={() => handleSelectCalendarDay(dayNum, isAvailable)}
+                    >
+                      <Text
+                        style={[
+                          styles.calendarDayText,
+                          isSelected && styles.textWhite,
+                          !isAvailable && styles.calendarDayTextDisabled,
+                        ]}
+                      >
+                        {dayNum}
                       </Text>
                     </TouchableOpacity>
                   );
                 })}
-              </ScrollView>
+                {/* Dummy filler elements to prevent incomplete bottom row from spreading out wide */}
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <View key={`dummy_${i}`} style={styles.calendarDayCellDummy} pointerEvents="none" />
+                ))}
+              </View>
+            ) : (
+              <View style={styles.orderTypeContainer}>
+                {/* Selector bar (Figma: 326x40, left 16, top 118, bg rgba(229, 229, 229, 0.8), radius 24px) */}
+                <View style={styles.yearSelectorBar} pointerEvents="none" />
 
-              <LinearGradient
-                colors={['#FFFFFF', 'rgba(255, 255, 255, 0)']}
-                style={[styles.topGradientFade, { pointerEvents: 'none' } as any]}
-                pointerEvents="none"
-              />
+                {/* Top vertical guide lines (flanking years above selector bar) */}
+                <View style={styles.topVerticalDividerLeft} pointerEvents="none" />
+                <View style={styles.topVerticalDividerRight} pointerEvents="none" />
 
-              <LinearGradient
-                colors={['rgba(255, 255, 255, 0)', '#FFFFFF']}
-                style={[styles.bottomGradientFade, { pointerEvents: 'none' } as any]}
-                pointerEvents="none"
-              />
-            </View>
-          )}
-        </View>
-      </ScrollView>
+                {/* Bottom vertical guide lines (flanking years below selector bar) */}
+                <View style={styles.bottomVerticalDividerLeft} pointerEvents="none" />
+                <View style={styles.bottomVerticalDividerRight} pointerEvents="none" />
 
-      {/* ─── Bottom Fixed Action Bar: Apply Button (Figma: height 48px, radius 24px) ─── */}
-      <View
-        style={[
-          styles.bottomBar,
-          { paddingBottom: getSafeBottomPadding(insets, 16, 8) },
-        ]}
-      >
-        <TouchableOpacity
+                {/* Swipeable / Scrollable Years Wheel */}
+                <ScrollView
+                  ref={yearScrollRef}
+                  style={styles.yearScrollView}
+                  showsVerticalScrollIndicator={false}
+                  snapToInterval={ITEM_HEIGHT}
+                  snapToAlignment="center"
+                  decelerationRate="fast"
+                  nestedScrollEnabled={true}
+                  scrollEventThrottle={16}
+                  overScrollMode="never"
+                  bounces={true}
+                  contentContainerStyle={styles.yearScrollContent}
+                  onScroll={handleYearScroll}
+                  onScrollEndDrag={handleScrollEndDrag}
+                  onMomentumScrollEnd={handleScrollEnd}
+                >
+                  {YEAR_ITEMS.map((yrItem, idx) => {
+                    const yr = yrItem.year;
+                    const isPast = yrItem.isPast;
+                    const isSelected = !isPast && yr === calendarYear;
+                    const diff = Math.abs(yr - calendarYear);
+                    return (
+                      <TouchableOpacity
+                        key={yr}
+                        style={styles.yearScrollItem}
+                        activeOpacity={isPast ? 1 : 0.7}
+                        disabled={isPast}
+                        onPress={() => {
+                          if (isPast) return;
+                          setCalendarYear(yr);
+                          yearScrollRef.current?.scrollTo({
+                            y: idx * ITEM_HEIGHT,
+                            animated: true,
+                          });
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.yearItemText,
+                            isPast && styles.yearItemTextDisabled,
+                            !isPast && isSelected && styles.yearItemTextSelected,
+                            !isPast && !isSelected && diff === 1 && styles.yearItemTextDiff1,
+                            !isPast && !isSelected && diff === 2 && styles.yearItemTextDiff2,
+                            !isPast && !isSelected && diff >= 3 && styles.yearItemTextDiff3,
+                          ]}
+                        >
+                          {yr}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+
+                <LinearGradient
+                  colors={['#FFFFFF', 'rgba(255, 255, 255, 0)']}
+                  style={[styles.topGradientFade, { pointerEvents: 'none' } as any]}
+                  pointerEvents="none"
+                />
+
+                <LinearGradient
+                  colors={['rgba(255, 255, 255, 0)', '#FFFFFF']}
+                  style={[styles.bottomGradientFade, { pointerEvents: 'none' } as any]}
+                  pointerEvents="none"
+                />
+              </View>
+            )}
+          </View>
+        </ScrollView>
+
+        {/* ─── Bottom Fixed Action Bar: Apply Button (Figma: height 48px, radius 24px) ─── */}
+        <View
           style={[
-            styles.applyBtn,
-            !selectedCalendarDay && styles.applyBtnDisabled,
+            styles.bottomBar,
+            { paddingBottom: getSafeBottomPadding(insets, 16, 8) },
           ]}
-          disabled={!selectedCalendarDay}
-          activeOpacity={0.85}
-          onPress={handleApply}
         >
-          <Text
+          <TouchableOpacity
             style={[
-              styles.applyBtnText,
-              !selectedCalendarDay && styles.applyBtnTextDisabled,
+              styles.applyBtn,
+              !selectedCalendarDay && styles.applyBtnDisabled,
             ]}
+            disabled={!selectedCalendarDay}
+            activeOpacity={0.85}
+            onPress={handleApply}
           >
-            Apply
-          </Text>
-        </TouchableOpacity>
-      </View>
+            <Text
+              style={[
+                styles.applyBtnText,
+                !selectedCalendarDay && styles.applyBtnTextDisabled,
+              ]}
+            >
+              Apply
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );

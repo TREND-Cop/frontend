@@ -13,7 +13,8 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 
 import { useStaffMember } from '../../context/StaffContext';
@@ -59,7 +60,7 @@ function WhiteBackArrowIcon({ size = 24 }: { size?: number }) {
  * - Back button returns cleanly to Portfolio tab without skeleton reload
  */
 export const StaffPhotoViewerScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { id, index } = useLocalSearchParams<{ id: string; index?: string }>();
   const { width: windowWidth } = useWindowDimensions();
 
@@ -77,7 +78,7 @@ export const StaffPhotoViewerScreen: React.FC = () => {
 
   const handleBack = () => {
     triggerLightHaptic();
-    router.back();
+    safeRouter.back();
   };
 
   const handleScroll = useCallback(

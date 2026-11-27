@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,11 @@ import {
   ScrollView,
   Image,
   Platform,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,21 +22,29 @@ import { useProfileSkeleton } from '../../hooks/useProfileSkeleton';
 import { ProfileSkeleton } from './ProfileSkeleton';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 import { SuccessToast } from '../../components/reviews/SuccessToast';
+import { useBottomInset } from '../../utils/bottomInset';
+import { useNativeBackExitGuard } from '../../utils/exitAppGuard';
 
 // ── SVG Icons ──
-function NotificationBellIcon({ size = 24 }: { size?: number }) {
+function NotificationBellIcon({
+  size = 24,
+  color = 'rgba(192, 192, 204, 0.96)',
+}: {
+  size?: number;
+  color?: string;
+}) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d="M12 2C8.686 2 6 4.686 6 8v4.27l-1.7 2.55A1 1 0 005.13 16h13.74a1 1 0 00.83-1.55L18 12.27V8c0-3.314-2.686-6-6-6z"
-        stroke="#141B34"
+        stroke={color}
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <Path
         d="M9.5 19a2.5 2.5 0 005 0"
-        stroke="#141B34"
+        stroke={color}
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -100,15 +110,48 @@ function UserCircleIcon({ size = 24 }: { size?: number }) {
   );
 }
 
-function MoneyReceiveIcon({ size = 24 }: { size?: number }) {
+function WalletIcon({ size = 24 }: { size?: number }) {
+  const strokeColor = 'rgba(192, 192, 204, 0.96)';
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M2 17h20M2 7h20M12 12a3 3 0 100-6 3 3 0 000 6z"
-        stroke="rgba(192, 192, 204, 0.96)"
+        d="M3 7.5C3 6.11929 4.11929 5 5.5 5H16.5C17.3284 5 18 4.32843 18 3.5C18 2.67157 17.3284 2 16.5 2H7C4.79086 2 3 3.79086 3 6V18.5C3 20.1569 4.34315 21.5 6 21.5H18C19.6569 21.5 21 20.1569 21 18.5V8.5C21 6.84315 19.6569 5.5 18 5.5H5.5"
+        stroke={strokeColor}
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
+      />
+      <Path
+        d="M21 12.5H18C16.8954 12.5 16 13.3954 16 14.5C16 15.6046 16.8954 16.5 18 16.5H21"
+        stroke={strokeColor}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function TrashIcon({ size = 24, color = 'rgba(204, 41, 41, 0.9)' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19.5 5.5L18.8803 15.5251C18.7219 18.0864 18.6428 19.3671 18.0008 20.2879C17.6833 20.7431 17.2747 21.1273 16.8007 21.416C15.8421 22 14.559 22 11.9927 22C9.42312 22 8.1383 22 7.17905 21.4149C6.7048 21.1257 6.296 20.7408 5.97868 20.2848C5.33688 19.3626 5.25945 18.0801 5.10461 15.5152L4.5 5.5"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <Path
+        d="M3 5.5H21M16.0557 5.5L15.3731 4.09173C14.9196 3.15626 14.6928 2.68852 14.3017 2.39681C14.215 2.3321 14.1231 2.27454 14.027 2.2247C13.5939 2 13.0741 2 12.0345 2C10.9688 2 10.436 2 9.99568 2.23412C9.8981 2.28601 9.80498 2.3459 9.71729 2.41317C9.32164 2.7167 9.10063 3.20155 8.65861 4.17126L8.05292 5.5"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <Path
+        d="M9.5 16.5V10.5M14.5 16.5V10.5"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
       />
     </Svg>
   );
@@ -137,36 +180,41 @@ function LockPasswordIcon({ size = 24 }: { size?: number }) {
   );
 }
 
-function PhoneLockIcon({ size = 24 }: { size?: number }) {
+function PhoneLockIcon({ size = 24, color = 'rgba(192, 192, 204, 0.96)' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {/* Phone Body */}
       <Rect
-        x="4"
-        y="2"
+        x="3"
+        y="2.5"
         width="11"
-        height="20"
+        height="19"
         rx="2.5"
-        stroke="rgba(192, 192, 204, 0.96)"
+        stroke={color}
         strokeWidth="1.5"
       />
+      {/* Home bar */}
       <Path
-        d="M8.5 18h2"
-        stroke="rgba(192, 192, 204, 0.96)"
+        d="M7.5 18h2"
+        stroke={color}
         strokeWidth="1.5"
         strokeLinecap="round"
       />
-      <Rect
-        x="14"
-        y="8.5"
-        width="6"
-        height="5.5"
-        rx="1"
-        stroke="rgba(192, 192, 204, 0.96)"
-        strokeWidth="1.2"
-      />
+      {/* Lock Shackle */}
       <Path
-        d="M15.5 8.5V7a1.5 1.5 0 013 0v1.5"
-        stroke="rgba(192, 192, 204, 0.96)"
+        d="M15 10V7.5a2 2 0 014 0V10"
+        stroke={color}
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+      {/* Lock Body */}
+      <Rect
+        x="13.5"
+        y="10"
+        width="7"
+        height="6.5"
+        rx="1.5"
+        stroke={color}
         strokeWidth="1.2"
       />
     </Svg>
@@ -276,7 +324,7 @@ function ProfileNavIcon({ size = 24, active = true }: { size?: number; active?: 
 
 export function ProviderProfileScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams<{ toast?: string }>();
   const { ownerName, ownerPhone, ownerPhoto } = useProviderProfile();
   const unreadNotificationsCount = useUnreadNotificationCount();
@@ -293,19 +341,22 @@ export function ProviderProfileScreen() {
   }, [params.toast]);
 
   // Navigation handlers
-  const handleNotificationPress = () => router.push('/notifications' as any);
-  const handleProfileUpdatePress = () => router.push('/profile-settings' as any);
-  const handlePayoutsPress = () => router.push('/payout-method' as any);
-  const handleNotificationSettingsPress = () => router.push('/notification-settings' as any);
-  const handleTermsPolicyPress = () => router.push('/terms-policy' as any);
-  const handleLogoutPress = () => router.push('/logout' as any);
-  const handleDashboardPress = () => router.replace('/dashboard' as any);
-  const handleMessagesPress = () => router.replace('/messages' as any);
+  const handleNotificationPress = () => safeRouter.push('/notifications' as any);
+  const handleProfileUpdatePress = () => safeRouter.push('/profile-settings' as any);
+  const handlePayoutsPress = () => safeRouter.push('/payout-option' as any);
+  const handleNotificationSettingsPress = () => safeRouter.push('/notification-settings' as any);
+  const handleTermsPolicyPress = () => safeRouter.push('/terms-policy' as any);
+  const handleLogoutPress = () => safeRouter.push('/logout' as any);
+  const handleDeleteAccountPress = () => safeRouter.push('/delete-account' as any);
+  const handleDashboardPress = () => safeRouter.replace('/dashboard' as any);
+  const handleMessagesPress = () => safeRouter.replace('/messages' as any);
 
-  // Stationary bottom bar offset
-  const lockedBottomOffset = Platform.OS === 'android'
-    ? Math.max(insets.bottom, 56) + 16
-    : Math.max(insets.bottom, 20);
+  // Android Native Back Button Guard:
+  // - Prompts user with in-built Exit Confirmation Dialog; NEVER pops to login/auth!
+  useNativeBackExitGuard();
+
+  // Bottom navigation offset & sizing via centralized useBottomInset
+  const { tabBottomOffset, tabScrollPadding, bottomFadeHeight } = useBottomInset();
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
@@ -316,7 +367,7 @@ export function ProviderProfileScreen() {
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: lockedBottomOffset + 80 + 36 },
+            { paddingBottom: tabScrollPadding },
           ]}
           showsVerticalScrollIndicator={false}
         >
@@ -330,7 +381,7 @@ export function ProviderProfileScreen() {
               onPress={handleNotificationPress}
               style={styles.notificationButton}
             >
-              <NotificationBellIcon size={24} />
+              <NotificationBellIcon size={24} color="#141B34" />
               {unreadNotificationsCount > 0 && (
                 <View style={styles.notificationBadge}>
                   <Text style={styles.notificationBadgeText}>
@@ -347,7 +398,7 @@ export function ProviderProfileScreen() {
             <View style={styles.avatarContainer}>
               {ownerPhoto ? (
                 <Image
-                  source={{ uri: ownerPhoto }}
+                  source={typeof ownerPhoto === 'string' ? { uri: ownerPhoto } : ownerPhoto}
                   style={styles.avatarImage}
                   resizeMode="cover"
                 />
@@ -402,15 +453,15 @@ export function ProviderProfileScreen() {
 
               <View style={styles.cardDivider} />
 
-              {/* Row 2: Payouts */}
+              {/* Row 2: Payout Wallet */}
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={handlePayoutsPress}
                 style={styles.menuRow}
               >
                 <View style={styles.menuRowLeft}>
-                  <MoneyReceiveIcon size={24} />
-                  <Text style={styles.menuRowLabel}>Payouts</Text>
+                  <WalletIcon size={24} />
+                  <Text style={styles.menuRowLabel}>Payout Wallet</Text>
                 </View>
                 <ChevronRightIcon size={24} />
               </TouchableOpacity>
@@ -439,7 +490,7 @@ export function ProviderProfileScreen() {
               {/* Row 1: Password Settings */}
               <TouchableOpacity
                 activeOpacity={0.7}
-                onPress={() => router.push('/password-change' as any)}
+                onPress={() => safeRouter.push('/password-change' as any)}
                 style={styles.menuRow}
               >
                 <View style={styles.menuRowLeft}>
@@ -454,7 +505,7 @@ export function ProviderProfileScreen() {
               {/* Row 2: Phone Number Change */}
               <TouchableOpacity
                 activeOpacity={0.7}
-                onPress={() => router.push('/phone-number-change' as any)}
+                onPress={() => safeRouter.push('/phone-number-change' as any)}
                 style={styles.menuRow}
               >
                 <View style={styles.menuRowLeft}>
@@ -469,7 +520,7 @@ export function ProviderProfileScreen() {
               {/* Row 3: Gmail Update */}
               <TouchableOpacity
                 activeOpacity={0.7}
-                onPress={() => router.push('/gmail-security' as any)}
+                onPress={() => safeRouter.push('/gmail-security' as any)}
                 style={styles.menuRow}
               >
                 <View style={styles.menuRowLeft}>
@@ -481,27 +532,42 @@ export function ProviderProfileScreen() {
             </View>
           </View>
 
-          {/* ── Privacy & Terms Button Container (358x56px) ── */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={handleTermsPolicyPress}
-            style={styles.singleCardButton}
-          >
-            <View style={styles.menuRowLeft}>
-              <PolicyDocumentIcon size={24} />
-              <Text style={styles.menuRowLabel}>Privacy & Terms</Text>
-            </View>
-            <ChevronRightIcon size={24} />
-          </TouchableOpacity>
+          {/* ── Terms of Service + Logout Card Group (Figma: top 985, 358x135px, radius 24px) ── */}
+          <View style={styles.cardGroup}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={handleTermsPolicyPress}
+              style={styles.menuRow}
+            >
+              <View style={styles.menuRowLeft}>
+                <PolicyDocumentIcon size={24} />
+                <Text style={styles.menuRowLabel}>Terms of Service</Text>
+              </View>
+              <ChevronRightIcon size={24} />
+            </TouchableOpacity>
 
-          {/* ── Log Out Button Container (358x56px) ── */}
+            <View style={styles.cardDivider} />
+
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={handleLogoutPress}
+              style={styles.menuRow}
+            >
+              <View style={styles.menuRowLeft}>
+                <LogoutSquareIcon size={24} />
+                <Text style={styles.logoutText}>Logout</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* ── Delete Account Row (Figma: top 1160 => 40px below cardGroup, 358x56px, padding 8px, gap 16px) ── */}
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={handleLogoutPress}
-            style={styles.logoutButton}
+            onPress={handleDeleteAccountPress}
+            style={styles.deleteAccountButton}
           >
-            <LogoutSquareIcon size={24} />
-            <Text style={styles.logoutText}>Log Out</Text>
+            <TrashIcon size={24} />
+            <Text style={styles.deleteAccountText}>Delete Account</Text>
           </TouchableOpacity>
         </ScrollView>
       )}
@@ -512,7 +578,7 @@ export function ProviderProfileScreen() {
         <View
           style={[
             styles.bottomBackdropShield,
-            { height: lockedBottomOffset + 80 + 36 },
+            { height: bottomFadeHeight },
           ]}
           pointerEvents="none"
         >
@@ -532,7 +598,7 @@ export function ProviderProfileScreen() {
           pointerEvents="box-none"
           style={[
             styles.bottomNavContainer,
-            { bottom: lockedBottomOffset },
+            { bottom: tabBottomOffset },
           ]}
         >
           <View style={styles.bottomNavBar}>
@@ -597,7 +663,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 16,
   },
 
   // ── Header (height: 48px) ──
@@ -606,14 +672,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     height: 48,
-    marginBottom: 24,
+    marginBottom: 28,
   },
   headerTitle: {
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_700Bold',
-    fontWeight: '700',
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
     fontSize: 24,
     lineHeight: 32,
-    letterSpacing: 0.1,
+    letterSpacing: 0.2,
     color: '#000000',
   },
   notificationButton: {
@@ -648,17 +714,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // ── Profile Card (Frame 1000006524: 358x238px) ──
+  // ── Profile Card (Frame 1000006524: 358x254px) ──
   profileCard: {
     width: '100%',
-    height: 238,
+    minHeight: 254,
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     borderWidth: 1,
     borderColor: 'rgba(235, 235, 245, 0.96)',
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 24,
     alignItems: 'center',
-    marginBottom: 24,
+    justifyContent: 'center',
+    marginBottom: 32,
   },
   avatarContainer: {
     width: 109,
@@ -667,7 +735,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(235, 235, 245, 0.96)',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   avatarImage: {
     width: '100%',
@@ -681,7 +749,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     color: '#000000',
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   badgePhoneRow: {
     flexDirection: 'row',
@@ -694,7 +762,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
     gap: 8,
     height: 28,
@@ -725,7 +793,7 @@ const styles = StyleSheet.create({
 
   // ── Section Container ──
   sectionContainer: {
-    marginBottom: 24,
+    marginBottom: 32,
   },
   sectionTitle: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
@@ -734,7 +802,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 0.5,
     color: 'rgba(96, 96, 102, 0.96)',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   cardGroup: {
     width: '100%',
@@ -743,18 +811,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(235, 235, 245, 0.96)',
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 16,
+    gap: 12,
   },
   menuRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    height: 52,
+    height: 48,
   },
   menuRowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 16,
   },
   menuRowLabel: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
@@ -770,33 +839,26 @@ const styles = StyleSheet.create({
     width: '100%',
   },
 
-  // ── Privacy & Terms ──
-  singleCardButton: {
-    width: '100%',
-    height: 56,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(235, 235, 245, 0.96)',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    marginBottom: 20,
-  },
-
-  // ── Log Out Button ──
-  logoutButton: {
-    width: '100%',
-    height: 56,
-    borderRadius: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    gap: 16,
-    marginBottom: 24,
-  },
+  // ── Logout & Delete Account ──
   logoutText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.4,
+    color: 'rgba(204, 41, 41, 0.9)',
+  },
+  deleteAccountButton: {
+    width: '100%',
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 8,
+    gap: 16,
+    marginTop: 40,
+    marginBottom: 32,
+  },
+  deleteAccountText: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
     fontWeight: '400',
     fontSize: 16,
@@ -850,18 +912,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 16,
     ...Platform.select({
       ios: {
-        shadowColor: 'rgba(133, 139, 148, 0.08)',
-        shadowOffset: { width: 4, height: 10 },
-        shadowOpacity: 1,
+        shadowColor: 'rgba(133, 139, 148, 0.12)',
+        shadowOffset: { width: 0, height: 16 },
+        shadowOpacity: 0.12,
         shadowRadius: 24,
       },
       android: {
-        elevation: 12,
+        elevation: 10,
       },
     }),
+    borderWidth: 1,
+    borderColor: 'rgba(235, 235, 245, 0.96)',
   },
   navTabItem: {
     flex: 1,

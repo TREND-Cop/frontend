@@ -26,7 +26,7 @@ import {
 } from 'react-native';
 import { colors, typography, radius, spacing } from '../../constants/theme';
 import { PrimaryButton } from '../../components/PrimaryButton';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -179,7 +179,7 @@ export const EmailVerificationScreen = ({
    * Handles the "Verify" button press.
    * Calls the stubbed verifyCode function and navigates on success.
    */
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   const handleVerify = useCallback(async () => {
     if (!allDigitsEntered) return;
@@ -191,13 +191,13 @@ export const EmailVerificationScreen = ({
       if (navigation?.navigate) {
         navigation.navigate('PasswordResetSuccess');
       } else {
-        router.replace('/password-reset-success' as any);
+        safeRouter.replace('/password-reset-success' as any);
       }
     } else {
       // TODO: Show an error to the user (e.g. "Invalid code, please try again")
       console.log('Verification failed');
     }
-  }, [allDigitsEntered, otp, navigation, router]);
+  }, [allDigitsEntered, otp, navigation, safeRouter]);
 
   /**
    * Handles the "Resend" button press.
@@ -223,7 +223,7 @@ export const EmailVerificationScreen = ({
    */
   const handleGoBack = () => {
     if (navigation) {
-      navigation.goBack();
+      safeRouter.back();
     }
   };
 

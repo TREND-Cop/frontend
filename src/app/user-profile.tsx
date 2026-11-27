@@ -2,19 +2,19 @@
  * Route: /user-profile
  */
 
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../utils/safeNavigation';
 import { UserProfileScreen } from '../screens/profile-setup/UserProfileScreen';
 
 export default function UserProfileRoute() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   return (
     <UserProfileScreen
       navigation={{
         navigate: (screen: string) => {
-          if (screen === 'UserGender') router.push('/user-gender');
+          if (screen === 'UserGender') safeRouter.push('/user-gender');
         },
-        goBack: () => router.back(),
+        goBack: () => safeRouter.back(),
       }}
     />
   );

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet, ScrollView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SkeletonBox } from '../ProviderDashboardSkeleton';
+import { useBottomInset } from '../../utils/bottomInset';
 
 /**
  * Staff Home Skeleton Screen
@@ -12,11 +13,7 @@ import { SkeletonBox } from '../ProviderDashboardSkeleton';
  */
 export const StaffHomeSkeleton: React.FC = () => {
   const insets = useSafeAreaInsets();
-
-  const lockedBottomOffset =
-    Platform.OS === 'android'
-      ? Math.max(insets.bottom, 56) + 16
-      : Math.max(insets.bottom, 20);
+  const { tabScrollPadding } = useBottomInset();
 
   return (
     <View style={styles.container}>
@@ -26,7 +23,7 @@ export const StaffHomeSkeleton: React.FC = () => {
           styles.scrollContent,
           {
             paddingTop: Math.max(insets.top + 16, 56),
-            paddingBottom: lockedBottomOffset + 80 + 36,
+            paddingBottom: tabScrollPadding,
           },
         ]}
         showsVerticalScrollIndicator={false}
@@ -55,7 +52,7 @@ export const StaffHomeSkeleton: React.FC = () => {
         <View style={[styles.sectionContainer, { marginTop: 28 }]}>
           <View style={styles.personalDataHeader}>
             <SkeletonBox width={130} height={24} borderRadius={6} />
-            <SkeletonBox width={120} height={16} borderRadius={4} style={{ marginTop: 4 }} />
+            <SkeletonBox width={120} height={16} borderRadius={4} />
           </View>
 
           <View style={styles.personalDataCardWrapper}>
@@ -118,6 +115,9 @@ const styles = StyleSheet.create({
     rowGap: 20,
   },
   personalDataHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 16,
   },
   personalDataCardWrapper: {

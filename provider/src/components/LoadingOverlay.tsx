@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Animated } from 'react-native';
+import { Animated, StyleSheet, View } from 'react-native';
 
 export interface LoadingOverlayProps {
   visible?: boolean;
@@ -27,7 +27,7 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
   dotGap = 20,
   overlayOpacity = 0.1,
   dotColor = 'rgba(0, 8, 20, 0.96)',
-  centered = false,
+  centered = true,
 }) => {
   const dot1 = useRef(new Animated.Value(0.35)).current;
   const dot2 = useRef(new Animated.Value(0.35)).current;

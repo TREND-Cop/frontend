@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ArrowLeft, Star, StarHalf } from 'lucide-react-native';
 import { ShareIcon } from '../../components/ShareIcon';
 import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
@@ -22,7 +23,7 @@ interface ReviewItem {
 }
 
 export default function BisolaReviewsScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams();
   const specialistId = (params.id as string) || 'p1';
   const headerTitle =
@@ -74,7 +75,7 @@ export default function BisolaReviewsScreen() {
 
   const handlePreviewAttachment = (attachments: any[], index: number) => {
     previewStore.setPreviewImages(attachments, 'Review Photos', undefined, index);
-    router.push({
+    safeRouter.push({
       pathname: '/professional/gallery-preview',
       params: { index, initialIndex: index, source: 'review' },
     });
@@ -87,12 +88,12 @@ export default function BisolaReviewsScreen() {
           <TouchableOpacity 
             style={styles.iconButton} 
             onPress={() => {
-              if (router.canGoBack()) {
-                router.back();
+              if (safeRouter.canGoBack()) {
+                safeRouter.back();
               } else if (params.salonId) {
-                router.replace(`/salon/${params.salonId}` as any);
+                safeRouter.replace(`/salon/${params.salonId}` as any);
               } else {
-                router.replace(`/professional/${specialistId}` as any);
+                safeRouter.replace(`/professional/${specialistId}` as any);
               }
             }} 
             activeOpacity={0.7}

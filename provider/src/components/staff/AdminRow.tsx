@@ -62,7 +62,8 @@ export const AdminRow: React.FC<AdminRowProps> = ({
     );
   }
 
-  const displayName = fullName && fullName.trim().length > 0 ? fullName.trim() : '';
+  const displayName =
+    fullName && fullName.trim().length > 0 ? fullName.trim() : 'James Kalba';
 
   return (
     <View
@@ -113,9 +114,9 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontFamily: FONT_MEDIUM,
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: Platform.OS === 'ios' ? 0.5 : 0.2,
+    fontSize: 20,
+    lineHeight: 28,
+    letterSpacing: 0.2,
     color: 'rgba(0, 8, 20, 0.96)',
   },
   ownerRow: {

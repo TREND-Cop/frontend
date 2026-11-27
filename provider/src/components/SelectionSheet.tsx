@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
+import { useSingleFlight } from '../utils/safeNavigation';
 
 export interface SelectionOption {
   id: string;
@@ -208,46 +209,54 @@ export const SelectionSheet: React.FC<SelectionSheetProps> = ({
     );
   }, [options, searchQuery]);
 
-  const handleRowPress = useCallback(
-    (option: SelectionOption) => {
-      setSelectedOption(option);
-      setIsTypingCustom(false);
-      setCustomInputValue('');
+  const handleRowPress = useSingleFlight(
+    useCallback(
+      (option: SelectionOption) => {
+        if (!visible) return;
+        setSelectedOption(option);
+        setIsTypingCustom(false);
+        setCustomInputValue('');
 
-      if (!showConfirmButton) {
-        onSelect(option);
-        setSearchQuery('');
-        onClose();
-      }
-    },
-    [showConfirmButton, onSelect, onClose]
+        if (!showConfirmButton) {
+          onSelect(option);
+          setSearchQuery('');
+          onClose();
+        }
+      },
+      [visible, showConfirmButton, onSelect, onClose]
+    ),
+    showConfirmButton ? 120 : 600
   );
 
-  const handleConfirmPress = useCallback(() => {
-    if (isTypingCustom && customInputValue.trim()) {
-      const customOpt: SelectionOption = {
-        id: 'custom',
-        label: customInputValue.trim(),
-      };
-      if (onConfirm) onConfirm(customOpt, customInputValue.trim());
-      onSelect(customOpt);
-    } else if (selectedOption) {
-      if (onConfirm) onConfirm(selectedOption);
-      onSelect(selectedOption);
-    }
-    setSearchQuery('');
-    onClose();
-  }, [isTypingCustom, customInputValue, selectedOption, onConfirm, onSelect, onClose]);
+  const handleConfirmPress = useSingleFlight(
+    useCallback(() => {
+      if (!visible) return;
+      if (isTypingCustom && customInputValue.trim()) {
+        const customOpt: SelectionOption = {
+          id: 'custom',
+          label: customInputValue.trim(),
+        };
+        if (onConfirm) onConfirm(customOpt, customInputValue.trim());
+        onSelect(customOpt);
+      } else if (selectedOption) {
+        if (onConfirm) onConfirm(selectedOption);
+        onSelect(selectedOption);
+      }
+      setSearchQuery('');
+      onClose();
+    }, [visible, isTypingCustom, customInputValue, selectedOption, onConfirm, onSelect, onClose])
+  );
 
   const isConfirmEnabled =
     (isTypingCustom && customInputValue.trim().length > 0) ||
     (!isTypingCustom && selectedOption !== null);
 
-  const handleDismiss = () => {
+  const handleDismiss = useSingleFlight(() => {
+    if (!visible) return;
     setSearchQuery('');
     setIsTypingCustom(false);
     onClose();
-  };
+  });
 
   return (
     <Modal
@@ -281,9 +290,7 @@ export const SelectionSheet: React.FC<SelectionSheetProps> = ({
               paddingBottom:
                 activeKeyboardHeight > 0
                   ? 8
-                  : Platform.OS === 'android'
-                  ? Math.max(insets.bottom, 56)
-                  : Math.max(insets.bottom, 16),
+                  : insets.bottom + 16,
             },
           ]}
         >

@@ -14,7 +14,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { colors, typography, radius, spacing } from '../../constants/theme';
 import { ProfileSetupHeader } from '../../components/ProfileSetupHeader';
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -37,7 +37,7 @@ const GENDER_OPTIONS = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const UserGenderScreen = ({ navigation }: { navigation?: any }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { setGender } = useUserContext();
   // ── State ───────────────────────────────────────────────────────────────
   const [selectedGender, setSelectedGender] = useState<string | null>(null);
@@ -50,15 +50,15 @@ export const UserGenderScreen = ({ navigation }: { navigation?: any }) => {
     if (navigation?.navigate) {
       navigation.navigate('Username');
     } else {
-      router.push('/username');
+      safeRouter.push('/username');
     }
   };
 
   const handleBack = () => {
     if (navigation?.goBack) {
-      navigation.goBack();
+      safeRouter.back();
     } else {
-      router.back();
+      safeRouter.back();
     }
   };
 
@@ -127,7 +127,6 @@ export const UserGenderScreen = ({ navigation }: { navigation?: any }) => {
         title="Next"
         onPress={handleNext}
         disabled={!selectedGender}
-        currentStep={3}
       />
     </SafeAreaView>
   );

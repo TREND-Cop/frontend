@@ -13,7 +13,8 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 import { ShareIcon } from '../../components/ShareIcon';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
@@ -91,7 +92,7 @@ const DEFAULT_GALLERY_IMAGES = [
 ];
 
 export function ProviderGalleryPreviewScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -197,7 +198,7 @@ export function ProviderGalleryPreviewScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => safeRouter.back()}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           activeOpacity={0.7}
         >
@@ -221,10 +222,7 @@ export function ProviderGalleryPreviewScreen() {
         style={[
           styles.carouselWrapper,
           {
-            paddingBottom:
-              Platform.OS === 'android'
-                ? Math.max(insets.bottom, 56)
-                : Math.max(16, insets.bottom + 8),
+            paddingBottom: insets.bottom + 16,
           },
         ]}
       >

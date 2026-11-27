@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
 import { DEV_SAMPLE_WORK_PHOTOS } from '../constants/postWork.config';
+import { loadFromStorage, saveToStorage, STORAGE_KEYS } from '../utils/providerStorage';
 
 // TODO (Backend): shape to confirm
 export interface WorkPhoto {
@@ -33,6 +34,24 @@ export const WorkPhotosProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [photos, setPhotos] = useState<WorkPhoto[]>(() => {
     return DEV_SAMPLE_WORK_PHOTOS ? INITIAL_DEV_PHOTOS : [];
   });
+
+  // Hydrate work photos from storage on mount
+  useEffect(() => {
+    let isMounted = true;
+    loadFromStorage<WorkPhoto[] | null>(STORAGE_KEYS.WORK_PHOTOS, null).then((saved) => {
+      if (isMounted && saved && saved.length > 0) {
+        setPhotos(saved);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Persist work photos on updates
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.WORK_PHOTOS, photos);
+  }, [photos]);
 
   // Mock upload stub
   const uploadWorkPhoto = useCallback(async (uri: string): Promise<WorkPhoto> => {

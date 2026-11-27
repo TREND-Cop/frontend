@@ -1,15 +1,15 @@
-import React, { useState, useRef } from 'react';
+import { StatusBar } from 'expo-status-bar';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
+  Animated,
+  Dimensions,
   ImageBackground,
   Platform,
-  Dimensions,
-  Animated,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
@@ -82,16 +82,23 @@ function UsersRoundIcon({ size = 20, color = 'rgba(96, 96, 102, 0.96)' }: { size
 
 export interface ProviderOnboardingScreenProps {
   initialTab?: 'login' | 'create_account';
+  businessOwnerOnly?: boolean;
   onSelectRole?: (role: 'business_owner' | 'staff', mode: 'login' | 'create_account') => void;
 }
 
 export const ProviderOnboardingScreen: React.FC<ProviderOnboardingScreenProps> = ({
-  initialTab = 'create_account',
+  initialTab = 'login',
+  businessOwnerOnly = false,
   onSelectRole,
 }) => {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'login' | 'create_account'>(initialTab);
   const pillAnim = useRef(new Animated.Value(initialTab === 'login' ? 0 : 162)).current;
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+    pillAnim.setValue(initialTab === 'login' ? 0 : 162);
+  }, [initialTab]);
 
   const handleTabChange = (tab: 'login' | 'create_account') => {
     if (tab === activeTab) return;
@@ -112,8 +119,9 @@ export const ProviderOnboardingScreen: React.FC<ProviderOnboardingScreenProps> =
   };
 
   return (
-    <View style={styles.onbarding}>
-      <StatusBar style="light" />
+    <View style={styles.webViewportOuter}>
+      <View style={styles.onbarding}>
+        <StatusBar style="light" />
 
       {/* ── Background: Word Trend in cursive text ── */}
       <ImageBackground
@@ -130,8 +138,8 @@ export const ProviderOnboardingScreen: React.FC<ProviderOnboardingScreenProps> =
         style={[
           styles.entryBottomSheet,
           {
-            height: 379 + (Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 0)),
-            paddingBottom: (Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 0)) + 12,
+            height: 379 + insets.bottom,
+            paddingBottom: insets.bottom + 12,
           },
         ]}
       >
@@ -186,31 +194,42 @@ export const ProviderOnboardingScreen: React.FC<ProviderOnboardingScreenProps> =
         </View>
 
         {/* ── Role Selection Area (top: 192px) ── */}
-        {activeTab === 'create_account' ? (
-          /* ── Create Account Mode: Single Business Owner Card (358px x 112px, NO STAFF) ── */
+        {activeTab === 'create_account' || businessOwnerOnly ? (
+          /* Single Business Owner Card (358px x 112px) */
           <TactilePressable
-            style={styles.businessOwnerButtonFull}
+            style={[
+              styles.businessOwnerButtonFull,
+              activeTab === 'create_account' && styles.businessOwnerButtonCreateSurface,
+            ]}
             onPress={() => handleRolePress('business_owner')}
           >
-            {/* Frame 1000006400 (198px x 32px, gap: 6px) */}
-            <View style={styles.roleHeaderRowFull}>
-              {/* Frame 1000006399 (32px x 32px, radius: 24px) */}
+            <View
+              style={
+                activeTab === 'create_account'
+                  ? styles.roleHeaderRowFull
+                  : styles.roleHeaderRowHalf
+              }
+            >
               <View style={styles.iconCircle}>
                 <Store02Icon size={20} color="rgba(96, 96, 102, 0.96)" />
               </View>
-              {/* Create an account as a */}
-              <Text style={styles.createAccountAsText}>
-                Create an account as a
+              <Text
+                style={
+                  activeTab === 'create_account'
+                    ? styles.createAccountAsText
+                    : styles.loginAsText
+                }
+              >
+                {activeTab === 'create_account' ? 'Create an account as a' : 'Login as'}
               </Text>
             </View>
 
-            {/* Business Owner Title (324px x 24px) */}
             <Text style={styles.roleTitleFull} numberOfLines={1}>
               Business Owner
             </Text>
           </TactilePressable>
         ) : (
-          /* ── Login Mode: Business Owner & Staff Side-by-Side (358px x 112px, gap: 24px) ── */
+          /* ── Native Login Mode: Business Owner & Staff Side-by-Side (358px x 112px, gap: 24px) ── */
           <View style={styles.buttonsRow}>
             {/* Business Owner Button (167px x 112px) */}
             <TactilePressable
@@ -253,8 +272,9 @@ export const ProviderOnboardingScreen: React.FC<ProviderOnboardingScreenProps> =
         )}
       </View>
 
-      {/* Android System Dock Barrier */}
-      <NativeDockSpacer backgroundColor="#FFFFFF" />
+        {/* Android System Dock Barrier */}
+        <NativeDockSpacer backgroundColor="#FFFFFF" />
+      </View>
     </View>
   );
 };
@@ -262,19 +282,29 @@ export const ProviderOnboardingScreen: React.FC<ProviderOnboardingScreenProps> =
 export default ProviderOnboardingScreen;
 
 const styles = StyleSheet.create({
+  webViewportOuter: {
+    flex: 1,
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+  },
   /* onbarding */
   onbarding: {
     position: 'relative',
     width: '100%',
+    maxWidth: Platform.OS === 'web' ? 420 : undefined,
     height: '100%',
     backgroundColor: '#212226',
     justifyContent: 'flex-end',
+    overflow: 'hidden',
   },
 
   backgroundImage: {
-    ...StyleSheet.absoluteFill,
-    width: '100%',
-    height: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: Platform.OS === 'web' ? 400 : 0,
   },
 
   topBackdropOverlay: {
@@ -400,6 +430,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 16,
     elevation: 4,
+  },
+  businessOwnerButtonCreateSurface: {
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    shadowOpacity: 0,
+    elevation: 0,
   },
 
   /* Frame 1000006400 (198px x 32px, gap: 6px) */

@@ -8,7 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter, useSingleFlight } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 
 import { useProviderProfile } from '../../context/ProviderProfileContext';
@@ -18,8 +18,8 @@ function ArrowLeftIcon({ size = 24 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M15 18l-6-6 6-6"
-        stroke="#141B34"
+        d="M19 12H5M11 6l-6 6 6 6"
+        stroke="#000814"
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -29,18 +29,22 @@ function ArrowLeftIcon({ size = 24 }: { size?: number }) {
 }
 
 export function ProviderLogoutScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { clearProfile } = useProviderProfile();
 
-  const handleGoBackHome = () => {
-    router.replace('/dashboard' as any);
-  };
+  const handleGoBackHome = useSingleFlight(() => {
+    safeRouter.replace('/dashboard' as any);
+  });
 
-  const handleConfirmLogout = async () => {
-    await clearProfile();
-    router.replace('/login-business-owner' as any);
-  };
+  const handleConfirmLogout = useSingleFlight(async () => {
+    try {
+      await clearProfile();
+    } catch (e) {
+      console.warn('Error clearing profile on logout:', e);
+    }
+    safeRouter.resetRoot('/login-business-owner');
+  });
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
@@ -48,13 +52,13 @@ export function ProviderLogoutScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           activeOpacity={0.8}
-          onPress={() => router.back()}
+          onPress={() => safeRouter.back()}
           style={styles.headerButton}
         >
           <ArrowLeftIcon size={24} />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Log out</Text>
+        <Text style={styles.headerTitle}>Logout</Text>
 
         <View style={styles.headerPlaceholder} />
       </View>
@@ -78,7 +82,7 @@ export function ProviderLogoutScreen() {
         </View>
 
         {/* ── Action Buttons ── */}
-        <View style={[styles.buttonsContainer, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+        <View style={[styles.buttonsContainer, { paddingBottom: insets.bottom + 24 }]}>
           {/* Go back home (Primary Button) */}
           <TouchableOpacity
             activeOpacity={0.85}
@@ -88,13 +92,13 @@ export function ProviderLogoutScreen() {
             <Text style={styles.primaryButtonText}>Go back home</Text>
           </TouchableOpacity>
 
-          {/* Log out (Danger Outline Button) */}
+          {/* Logout (Danger Outline Button) */}
           <TouchableOpacity
             activeOpacity={0.85}
             onPress={handleConfirmLogout}
             style={styles.logoutButton}
           >
-            <Text style={styles.logoutButtonText}>Log out</Text>
+            <Text style={styles.logoutButtonText}>Logout</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -115,18 +119,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(235, 235, 245, 0.96)',
   },
   headerButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(235, 235, 245, 0.96)',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
   },
   headerTitle: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
@@ -158,8 +158,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   illustrationImage: {
-    width: 170,
-    height: 170,
+    width: 150,
+    height: 150,
   },
   textContainer: {
     alignItems: 'center',
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   },
   buttonsContainer: {
     width: '100%',
-    gap: 16,
+    gap: 40,
   },
   primaryButton: {
     width: '100%',

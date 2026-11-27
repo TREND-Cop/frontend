@@ -463,8 +463,8 @@ export const AmenitiesBottomSheet: React.FC<AmenitiesBottomSheetProps> = ({
                   keyboardHeight > 0
                     ? 8
                     : Platform.OS === 'android'
-                    ? Math.max(insets.bottom, 56)
-                    : Math.max(insets.bottom, 16),
+                    ? Math.max(insets.bottom, 24) + 12
+                    : insets.bottom + 16,
               },
             ]}
           >

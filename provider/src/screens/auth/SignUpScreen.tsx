@@ -10,16 +10,24 @@ import {
   Platform,
   Keyboard,
   Dimensions,
+  BackHandler,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { Eye, EyeOff, ChevronDown } from 'lucide-react-native';
 import { ProviderCountryPickerSheet, CountryItem } from '../../components/ProviderCountryPickerSheet';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 import { PayoutTermsNotice } from '../../components/payout/PayoutTermsNotice';
 import { isPhoneValid, isPasswordValid, checkPhoneExists } from '../../constants/validation';
+import { saveToStorage, removeFromStorage, STORAGE_KEYS } from '../../utils/providerStorage';
+import { HAS_SEEN_TUTORIAL_KEY } from '../../context/ProviderOnboardingContext';
+import { setPendingProviderAuthDraft, trendApi } from '../../api/trendApi';
+import {
+  signInProviderWithGoogle,
+  consumeProviderGoogleRedirectResult,
+} from '../../api/firebaseAuth';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -84,8 +92,18 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
   onSuccess,
   onNavigateLogin,
 }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
+
+  // Hardware back press on SignUpScreen returns cleanly to root onboarding screen
+  useEffect(() => {
+    const onBackPress = () => {
+      safeRouter.replace('/' as any);
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [safeRouter]);
 
   // ── Form State ──
   const [phone, setPhone] = useState('');
@@ -146,7 +164,10 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
   // TODO (Backend): Wire with actual Supabase / backend authentication once phone auth is configured.
   // Note: Provider accounts will require role metadata to distinguish from customer accounts.
   const onCreateAccount = useCallback(async (payload: { phone: string; password: string }) => {
-    // Stubbed action for backend registration
+    setPendingProviderAuthDraft({
+      phone: payload.phone,
+      password: payload.password,
+    });
   }, []);
 
   // ── Submission Handler (Validate on press, as specified) ──
@@ -179,6 +200,15 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
       return;
     }
 
+    // Reset any previous tutorial state for this new registration
+    try {
+      await saveToStorage(STORAGE_KEYS.PROVIDER_HAS_COMPLETED_TUTORIAL, false);
+      await removeFromStorage(STORAGE_KEYS.PROVIDER_HAS_COMPLETED_TUTORIAL);
+      await removeFromStorage(STORAGE_KEYS.PROVIDER_TUTORIAL_COMPLETED_AT);
+      await removeFromStorage(STORAGE_KEYS.PROVIDER_PAYOUT_MODAL_DISMISSED);
+      await removeFromStorage(HAS_SEEN_TUTORIAL_KEY);
+    } catch {}
+
     // Call backend registration stub
     await onCreateAccount({
       phone: `${selectedCountry.code}${phone}`,
@@ -188,20 +218,59 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
     if (onSuccess) {
       onSuccess({ phone, countryCode: selectedCountry.code });
     } else {
-      router.push({
+      safeRouter.push({
         pathname: '/business-owner-profile' as any,
         params: { phone, countryCode: selectedCountry.code },
       });
     }
-  }, [phone, password, selectedCountry, onCreateAccount, onSuccess, router]);
+  }, [phone, password, selectedCountry, onCreateAccount, onSuccess, safeRouter]);
 
   const handleLoginPress = () => {
     if (onNavigateLogin) {
       onNavigateLogin();
     } else {
-      router.push('/login-business-owner' as any);
+      safeRouter.push('/login-business-owner' as any);
     }
   };
+
+  const finishProviderGoogleSignUp = useCallback(
+    async (res: Awaited<ReturnType<typeof signInProviderWithGoogle>>) => {
+      if (!res.ok) {
+        if (!res.cancelled && !res.redirecting && res.error) {
+          setPhoneError(res.error);
+        }
+        return;
+      }
+
+      let hasBusiness = false;
+      try {
+        const bizRes = await trendApi.business.getMe('business');
+        if (bizRes.ok && bizRes.data) {
+          hasBusiness = true;
+        }
+      } catch {}
+
+      if (hasBusiness && !res.created) {
+        safeRouter.resetRoot('/dashboard' as any);
+      } else {
+        safeRouter.push('/business-owner-profile' as any);
+      }
+    },
+    [safeRouter]
+  );
+
+  useEffect(() => {
+    consumeProviderGoogleRedirectResult().then((res) => {
+      if (res) finishProviderGoogleSignUp(res);
+    });
+  }, [finishProviderGoogleSignUp]);
+
+  const handleGoogleSignUp = useCallback(async () => {
+    setPhoneError(null);
+    setPasswordError(null);
+    const res = await signInProviderWithGoogle();
+    await finishProviderGoogleSignUp(res);
+  }, [finishProviderGoogleSignUp]);
 
   const handleTermsPress = () => {
     setShowTermsModal(true);
@@ -381,9 +450,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
             <TouchableOpacity
               activeOpacity={0.75}
               style={styles.socialButton}
-              onPress={() => {
-                // Stub OAuth
-              }}
+              onPress={handleGoogleSignUp}
             >
               <GoogleIcon size={24} />
             </TouchableOpacity>

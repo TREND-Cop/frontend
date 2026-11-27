@@ -17,6 +17,7 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BankOption, DEFAULT_BANKS } from '../../constants/payout.constants';
 import { NativeDockSpacer } from '../NativeDockSpacer';
+import { useSingleFlight } from '../../utils/safeNavigation';
 
 export interface BankSelectionSheetProps {
   visible: boolean;
@@ -105,10 +106,17 @@ export const BankSelectionSheet: React.FC<BankSelectionSheetProps> = ({
     return banks.filter((b) => b.name.toLowerCase().includes(q));
   }, [banks, searchQuery]);
 
-  const handleDismiss = () => {
+  const handleDismiss = useSingleFlight(() => {
     setSearchQuery('');
     onClose();
-  };
+  });
+
+  const handleBankPress = useSingleFlight((bank: BankOption) => {
+    if (!visible) return;
+    onSelectBank(bank);
+    setSearchQuery('');
+    onClose();
+  });
 
   if (!visible) return null;
 
@@ -147,9 +155,7 @@ export const BankSelectionSheet: React.FC<BankSelectionSheetProps> = ({
               paddingBottom:
                 activeKeyboardHeight > 0
                   ? 8
-                  : Platform.OS === 'android'
-                  ? Math.max(insets.bottom, 56)
-                  : Math.max(insets.bottom, 16),
+                  : insets.bottom + 16,
             },
           ]}
         >
@@ -223,10 +229,7 @@ export const BankSelectionSheet: React.FC<BankSelectionSheetProps> = ({
                   <TouchableOpacity
                     style={styles.bankItemRow}
                     activeOpacity={0.7}
-                    onPress={() => {
-                      onSelectBank(bank);
-                      handleDismiss();
-                    }}
+                    onPress={() => handleBankPress(bank)}
                   >
                     <View style={styles.bankItemLeft}>
                       <Image

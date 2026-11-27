@@ -1,33 +1,43 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  TextInput,
   Image,
   Platform,
   StatusBar,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
+import { useStaffStore, StaffMember } from '../../context/StaffContext';
+import { useBusinessStore } from '../../store/businessStore';
 import {
-  ProviderStaffFilterModal,
-  StaffStatusFilter,
-} from '../../components/ProviderStaffFilterModal';
+  deriveStaffStatus,
+  DEV_STAFF_ONGOING_APPOINTMENTS,
+  StaffFilterOption,
+} from '../../constants/staffStatus.config';
+import { StaffStatusFilterModal } from '../../components/staff/StaffStatusFilterModal';
+import { NoStaffIllustration } from '../../components/staff/NoStaffIllustration';
+import { triggerLightHaptic } from '../../utils/haptics';
 
-// ── Typography Mandate (AGENTS.md) ──────────────────────────────────────────
-const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
+// ── Typography Mandate (AGENTS.md & Figma CSS) ──────────────────────────────
 const FONT_REGULAR = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular';
-const FONT_BOLD = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_700Bold';
+const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
 const FONT_BUTTON = Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium';
 
-// ── 1:1 Vector Icons ──────────────────────────────────────────────────────────
+// ── 1:1 Vector Icons from Figma Export ──────────────────────────────────────
 
-function ArrowLeft02Icon({ size = 24, color = 'rgba(0, 8, 20, 0.96)' }: { size?: number; color?: string }) {
+function ArrowLeft02Icon({
+  size = 24,
+  color = 'rgba(0, 8, 20, 0.96)',
+}: {
+  size?: number;
+  color?: string;
+}) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -50,7 +60,13 @@ function ArrowLeft02Icon({ size = 24, color = 'rgba(0, 8, 20, 0.96)' }: { size?:
   );
 }
 
-function ArrowRight02Icon({ size = 24, color = 'rgba(0, 8, 20, 0.96)' }: { size?: number; color?: string }) {
+function ArrowRight02Icon({
+  size = 24,
+  color = 'rgba(0, 8, 20, 0.96)',
+}: {
+  size?: number;
+  color?: string;
+}) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -82,7 +98,13 @@ function SearchIcon({ size = 24, color = '#000000' }: { size?: number; color?: s
   );
 }
 
-function FilterFunnelIcon({ size = 20, color = 'rgba(0, 8, 20, 0.96)' }: { size?: number; color?: string }) {
+function FilterFunnelIcon({
+  size = 24,
+  color = '#141B34',
+}: {
+  size?: number;
+  color?: string;
+}) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -99,52 +121,110 @@ function FilterFunnelIcon({ size = 20, color = 'rgba(0, 8, 20, 0.96)' }: { size?
 /**
  * 1:1 Seat Selector (Barber Chair) Vector from Figma
  */
-function SeatSelectorIcon({ size = 20, color = 'rgba(12, 121, 12, 0.96)' }: { size?: number; color?: string }) {
+function SeatSelectorIcon({
+  size = 20,
+  strokeWidth = 1.25,
+  color = 'rgba(12, 121, 12, 0.96)',
+}: {
+  size?: number;
+  strokeWidth?: number;
+  color?: string;
+}) {
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
       <Path
         d="M6.5 8V4.5C6.5 3.12 7.62 2 9 2h2c1.38 0 2.5 1.12 2.5 2.5V8"
         stroke={color}
-        strokeWidth={1.25}
+        strokeWidth={strokeWidth}
         strokeLinecap="round"
       />
       <Path
         d="M4 8.5v3a1 1 0 001 1h1.5"
         stroke={color}
-        strokeWidth={1.25}
+        strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <Path
         d="M16 8.5v3a1 1 0 01-1 1h-1.5"
         stroke={color}
-        strokeWidth={1.25}
+        strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <Path
         d="M6 12.5h8"
         stroke={color}
-        strokeWidth={1.25}
+        strokeWidth={strokeWidth}
         strokeLinecap="round"
       />
       <Path
         d="M10 12.5V17"
         stroke={color}
-        strokeWidth={1.25}
+        strokeWidth={strokeWidth}
         strokeLinecap="round"
       />
       <Path
         d="M6.5 17h7"
         stroke={color}
-        strokeWidth={1.25}
+        strokeWidth={strokeWidth}
         strokeLinecap="round"
       />
     </Svg>
   );
 }
 
-function StarGoldIcon({ size = 18, color = 'rgba(248, 155, 24, 0.96)' }: { size?: number; color?: string }) {
+/**
+ * 1:1 Figma briefcase-06 Vector Icon
+ */
+function Briefcase06Icon({
+  size = 16,
+  color = 'rgba(12, 121, 12, 0.96)',
+}: {
+  size?: number;
+  color?: string;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <Path
+        d="M5.66 4.33V3c0-.55.45-1 1-1h2.68c.55 0 1 .45 1 1v1.33"
+        stroke={color}
+        strokeWidth={1}
+        strokeLinecap="round"
+      />
+      <Rect
+        x="1.33"
+        y="4.33"
+        width="13.34"
+        height="9.67"
+        rx="2"
+        stroke={color}
+        strokeWidth={1}
+      />
+      <Path
+        d="M1.33 8h13.34"
+        stroke={color}
+        strokeWidth={1}
+        strokeLinecap="round"
+      />
+      <Path
+        d="M7 8v1.33h2V8"
+        stroke={color}
+        strokeWidth={1}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function StarGoldIcon({
+  size = 18,
+  color = 'rgba(248, 155, 24, 0.96)',
+}: {
+  size?: number;
+  color?: string;
+}) {
   return (
     <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
       <Path
@@ -155,16 +235,34 @@ function StarGoldIcon({ size = 18, color = 'rgba(248, 155, 24, 0.96)' }: { size?
   );
 }
 
-function Time04Icon({ size = 18, color = 'rgba(96, 96, 102, 0.96)' }: { size?: number; color?: string }) {
+function Time04Icon({
+  size = 18,
+  color = 'rgba(96, 96, 102, 0.96)',
+}: {
+  size?: number;
+  color?: string;
+}) {
   return (
     <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
-      <Circle cx="9" cy="9" r="7.5" stroke={color} strokeWidth={1.2} />
-      <Path d="M9 5.25v3.75l2.25 1.5" stroke={color} strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="9" cy="9" r="7.5" stroke={color} strokeWidth={1} />
+      <Path
+        d="M9 5.25v3.75l2.25 1.5"
+        stroke={color}
+        strokeWidth={1}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
-function FastFoodOutlineIcon({ size = 16, color = '#F89B18' }: { size?: number; color?: string }) {
+function FastFoodOutlineIcon({
+  size = 16,
+  color = 'rgba(248, 155, 24, 0.96)',
+}: {
+  size?: number;
+  color?: string;
+}) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -202,7 +300,13 @@ function FastFoodOutlineIcon({ size = 16, color = '#F89B18' }: { size?: number; 
   );
 }
 
-function Home03Icon({ size = 16, color = 'rgba(96, 96, 102, 0.96)' }: { size?: number; color?: string }) {
+function Home03Icon({
+  size = 16,
+  color = 'rgba(96, 96, 102, 0.96)',
+}: {
+  size?: number;
+  color?: string;
+}) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -223,285 +327,181 @@ function Home03Icon({ size = 16, color = 'rgba(96, 96, 102, 0.96)' }: { size?: n
   );
 }
 
-/**
- * 1:1 Figma Rectangle 283: Specialist Empty State Illustration (150x150)
- * Stacked translucent identification cards with specialist silhouette
- */
-function StaffEmptyIllustration({ size = 150 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 150 150" fill="none">
-      {/* Background circular halo */}
-      <Circle cx="75" cy="75" r="54" fill="#F0F2F5" opacity={0.7} />
-
-      {/* Layer 1: Left back tilted card */}
-      <Rect
-        x="36"
-        y="38"
-        width="66"
-        height="82"
-        rx="16"
-        fill="#E5E8EC"
-        opacity={0.85}
-        transform="rotate(-12 70 79)"
-      />
-
-      {/* Layer 2: Main center specialist badge card */}
-      <Rect
-        x="45"
-        y="35"
-        width="60"
-        height="78"
-        rx="16"
-        fill="#D5D9DF"
-      />
-
-      {/* User profile silhouette */}
-      {/* Head */}
-      <Circle cx="75" cy="63" r="13" fill="#FFFFFF" />
-
-      {/* Torso / Shoulders */}
-      <Path
-        d="M58 97c0-7.73 6.27-14 14-14h6c7.73 0 14 6.27 14 14v4H58v-4z"
-        fill="#FFFFFF"
-      />
-    </Svg>
-  );
-}
-
-// ── Types & Initial Data ────────────────────────────────────────────────────
-
-interface StaffDutyItem {
-  id: string;
-  name: string;
-  role: string;
-  status: string;
-  statusCode: StaffStatusFilter;
-  hours?: string;
-  avatar: any;
-  service: {
-    title: string;
-    rating: string;
-    duration: string;
-    price: string;
-    image: any;
-  };
-}
-
-const INITIAL_STAFF_MEMBERS: StaffDutyItem[] = [
-  {
-    id: 'staff-1',
-    name: 'Ibrahim Musa',
-    role: 'Barber',
-    status: 'Attending to client',
-    statusCode: 'attending',
-    avatar: require('../../../assets/images/profile/1007604716.jpg'),
-    service: {
-      title: 'Hair wash',
-      rating: '2.5',
-      duration: '1hr',
-      price: '₦22,700',
-      image: require('../../../assets/images/appointments/hair_cut.jpg'),
-    },
-  },
-  {
-    id: 'staff-2',
-    name: 'Ayobami Isaac',
-    role: 'Barber',
-    status: 'Attending to client',
-    statusCode: 'attending',
-    avatar: require('../../../assets/images/profile/1007643877.jpg'),
-    service: {
-      title: 'Hair wash',
-      rating: '3.5',
-      duration: '1hr',
-      price: '₦22,700',
-      image: require('../../../assets/images/appointments/hair_cut.jpg'),
-    },
-  },
-  {
-    id: 'staff-3',
-    name: 'Godwill Thomas',
-    role: 'Nail Artist',
-    hours: '8am - 10pm',
-    status: 'Available for work',
-    statusCode: 'available',
-    avatar: require('../../../assets/images/profile/1007604717.jpg'),
-    service: {
-      title: 'Crystal Nail Art',
-      rating: '4.1',
-      duration: '45min',
-      price: '₦18,500',
-      image: require('../../../assets/images/appointments/nail_art.png'),
-    },
-  },
-  {
-    id: 'staff-4',
-    name: 'Gavin Nwosi',
-    role: 'Nail Artist',
-    hours: '8am - 10pm',
-    status: 'Lunch Break',
-    statusCode: 'on_break',
-    avatar: require('../../../assets/images/profile/gavin_nwosis_avatar.png'),
-    service: {
-      title: 'Nail Repair',
-      rating: '4.1',
-      duration: '24min',
-      price: '₦15,000',
-      image: require('../../../assets/images/appointments/nail_art.png'),
-    },
-  },
-  {
-    id: 'staff-5',
-    name: 'Emmanuel Kalu',
-    role: 'Nail Artist',
-    hours: '8am - 10pm',
-    status: 'Closed',
-    statusCode: 'closed',
-    avatar: require('../../../assets/images/profile/1007618600.jpg'),
-    service: {
-      title: 'Pedicure Care',
-      rating: '4.1',
-      duration: '30min',
-      price: '₦12,000',
-      image: require('../../../assets/images/appointments/nail_art.png'),
-    },
-  },
+const NO_STAFF_IMAGE = require('../../../assets/images/staff/no_staff_illustration.png');
+const DEFAULT_AVATARS = [
+  require('../../../assets/images/profile/1007604716.jpg'),
+  require('../../../assets/images/profile/1007643877.jpg'),
+  require('../../../assets/images/profile/1007604717.jpg'),
+  require('../../../assets/images/profile/gavin_nwosis_avatar.png'),
+  require('../../../assets/images/profile/1007618600.jpg'),
+  require('../../../assets/images/profile/1007655253.jpg'),
 ];
 
-import {
-  useStaffStore,
-  StaffMember,
-  StaffStatusCode,
-} from '../../store/staffStore';
+function getStaffPhotoSource(member: StaffMember, index: number) {
+  const photo = member.photoUri ?? member.avatarUri;
+  if (!photo) {
+    return DEFAULT_AVATARS[index % DEFAULT_AVATARS.length];
+  }
+  if (typeof photo === 'number') {
+    return photo;
+  }
+  if (typeof photo === 'string' && photo.trim().length > 0) {
+    return { uri: photo };
+  }
+  if (typeof photo === 'object' && photo !== null && 'uri' in photo) {
+    return photo;
+  }
+  return DEFAULT_AVATARS[index % DEFAULT_AVATARS.length];
+}
 
-export function ProviderStaffOnDutyScreen() {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-  const [selectedFilters, setSelectedFilters] = useState<StaffStatusFilter[]>([]);
-  const [recentFilters, setRecentFilters] = useState<StaffStatusFilter[]>([]);
+// ── Screen Component ────────────────────────────────────────────────────────
 
-  useEffect(() => {
-    if (selectedFilters.length > 0) {
-      setRecentFilters((prev) => Array.from(new Set([...selectedFilters, ...prev])));
-    }
-  }, [selectedFilters]);
-  const { staffList, addStaffMember } = useStaffStore();
+interface ProviderStaffOnDutyScreenProps {
+  initialFilter?: StaffFilterOption;
+  hideHeader?: boolean;
+}
 
-  const filteredStaff = useMemo(() => {
-    let result = staffList;
-    if (selectedFilters.length > 0) {
-      result = result.filter((s) => selectedFilters.includes(s.statusCode));
-    }
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      result = result.filter(
-        (s) =>
-          s.name.toLowerCase().includes(q) ||
-          s.role.toLowerCase().includes(q) ||
-          s.service.title.toLowerCase().includes(q)
+export function ProviderStaffOnDutyScreen({}: ProviderStaffOnDutyScreenProps = {}) {
+  const safeRouter = useSafeRouter();
+  const { business } = useBusinessStore();
+
+  // 1. Data source: from existing StaffProvider (zero duplication)
+  const { staff: providerStaff } = useStaffStore();
+
+  // 2. Derive status for each staff member in real-time
+  // TODO (Backend: realtime status)
+  const staffWithStatus = useMemo(() => {
+    return providerStaff.map((member, index) => {
+      const derived = deriveStaffStatus(
+        member,
+        DEV_STAFF_ONGOING_APPOINTMENTS,
+        new Date(),
+        business.isOpen
       );
-    }
-    return result;
-  }, [staffList, searchQuery, selectedFilters]);
+      const photo = getStaffPhotoSource(member, index);
+      const roleText = member.role || (member.roles && member.roles[0]) || 'Barber';
+      const hoursText = member.workHours
+        ? `${member.workHours.start} - ${member.workHours.end}`
+        : '8am - 10pm';
 
-  const handleAddStaffPress = () => {
-    const newStaff: StaffMember = {
-      id: `staff-${Date.now()}`,
-      name: 'Blessing Udoh',
-      role: 'Hair Stylist',
-      status: 'Attending to client',
-      statusCode: 'attending',
-      hours: '8am - 10pm',
-      avatar: require('../../../assets/images/profile/1007655253.jpg'),
-      client: {
-        name: 'Jessica Amadi',
-        badge: 'New Client',
-        avatar: require('../../../assets/images/appointments/jude_fabulous.png'),
-        gender: 'Female',
-        badgeStatus: 'Non',
-        membership: '1 Day ago',
-      },
-      service: {
-        title: 'Full Hair Grooming',
-        rating: '5.0',
-        duration: '1hr 30min',
-        price: '₦30,000',
-        image: require('../../../assets/images/appointments/hair_cut.jpg'),
-      },
-      appointmentInfo: {
-        date: 'Today',
-        time: '11:30am',
-        type: 'In-Shop Service',
-      },
-      addOn: {
-        title: 'Hair Treatment',
-        price: '₦10,000',
-        duration: '30min',
-        rating: '5.0',
-        image: require('../../../assets/images/appointments/nail_art.png'),
-      },
-      note: {
-        text: '',
-        count: '0/120',
-      },
-      package: {
-        price: '₦5,500',
-        images: [
-          require('../../../assets/images/packages/shampoo_wash.png'),
-          require('../../../assets/images/packages/facial_sheet_mask.png'),
-        ],
-        items: ['Full Grooming', 'Scalp Wash', 'Conditioning'],
-      },
-      summary: {
-        appointmentCost: '₦40,000',
-        trendPoints: '-₦2,000',
-        paymentType: 'Opay (Transfer)',
-        total: '₦38,000',
-      },
+      return {
+        member,
+        index,
+        photo,
+        roleText,
+        hoursText,
+        derived,
+      };
+    });
+  }, [providerStaff, business.isOpen]);
+
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<StaffFilterOption>('all');
+  const [recentFilter, setRecentFilter] = useState<StaffFilterOption | null>(null);
+
+  // Summary counts
+  const { availableCount, busyCount, breakCount, closedCount } = useMemo(() => {
+    let available = 0;
+    let busy = 0;
+    let onBreak = 0;
+    let closed = 0;
+    staffWithStatus.forEach((item) => {
+      if (item.derived.status === 'busy') busy++;
+      else if (item.derived.status === 'available') available++;
+      else if (item.derived.status === 'on_break') onBreak++;
+      else if (item.derived.status === 'closed') closed++;
+    });
+    return {
+      availableCount: available,
+      busyCount: busy,
+      breakCount: onBreak,
+      closedCount: closed,
     };
-    addStaffMember(newStaff);
-    setSelectedFilters([]);
-    setSearchQuery('');
+  }, [staffWithStatus]);
+
+  // On-duty staff: available, busy, or on break
+  const onDutyStaff = useMemo(() => {
+    return staffWithStatus.filter(
+      (item) => item.derived.status !== 'closed'
+    );
+  }, [staffWithStatus]);
+
+  // Filtered staff list
+  const filteredStaff = useMemo(() => {
+    if (activeFilter === 'busy') {
+      return staffWithStatus.filter((item) => item.derived.status === 'busy');
+    }
+    if (activeFilter === 'break') {
+      return staffWithStatus.filter((item) => item.derived.status === 'on_break');
+    }
+    if (activeFilter === 'closed') {
+      return staffWithStatus.filter((item) => item.derived.status === 'closed');
+    }
+    if (activeFilter === 'available') {
+      return staffWithStatus.filter((item) => item.derived.status === 'available');
+    }
+    // 'all': on this "Staff Status" screen, show on-duty staff, or all registered staff if business is open
+    return onDutyStaff.length > 0 ? onDutyStaff : staffWithStatus;
+  }, [staffWithStatus, activeFilter, onDutyStaff]);
+
+  const isEmpty = filteredStaff.length === 0;
+
+  // Dynamic summary text based on active filter
+  const summaryText = useMemo(() => {
+    if (isEmpty || providerStaff.length === 0) return '0 Staff';
+    switch (activeFilter) {
+      case 'busy':
+        return `${busyCount} Busy staff`;
+      case 'break':
+        return `${breakCount} Staff on break`;
+      case 'closed':
+        return `${closedCount} Closed staff`;
+      case 'available':
+        return `${availableCount} Available staff`;
+      case 'all':
+      default:
+        return `${availableCount} Available staff, ${busyCount} busy staff`;
+    }
+  }, [isEmpty, providerStaff.length, activeFilter, busyCount, breakCount, closedCount, availableCount]);
+
+  const handleApplyFilter = (filter: StaffFilterOption) => {
+    setActiveFilter(filter);
+    if (filter !== 'all') {
+      setRecentFilter(filter);
+    }
   };
 
-  const isNoJobState = filteredStaff.length === 0;
+  const handleClearFilter = () => {
+    setActiveFilter('all');
+  };
 
-  const getCountLabel = () => {
-    if (isNoJobState) {
-      return '3 Available staff';
-    }
-    if (selectedFilters.length === 1) {
-      const f = selectedFilters[0];
-      if (f === 'available') return `${filteredStaff.length} Available staff`;
-      if (f === 'on_break') return `${filteredStaff.length} Staff on break`;
-      if (f === 'closed') return `${filteredStaff.length} Closed staff`;
-      if (f === 'attending') return `${filteredStaff.length} In-service staff`;
-    }
-    return `${filteredStaff.length} Staff on duty`;
+  const handleRemoveRecentFilter = () => {
+    setRecentFilter(null);
   };
 
   return (
-    <SafeAreaView edges={['top']} style={styles.safeContainer}>
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* ── Fixed Page Header (64px) ── */}
-      <View style={styles.headerContainer}>
+      <View style={styles.header}>
         <View style={styles.headerContent}>
-          {/* Back button 48x48 */}
+          {/* Back Button (48x48) */}
           <TouchableOpacity
-            activeOpacity={0.8}
-            style={styles.headerIconButton}
-            onPress={() => router.back()}
+            activeOpacity={0.7}
+            style={styles.backButton}
+            onPress={() => safeRouter.back()}
+            accessibilityLabel="Go back"
           >
             <ArrowLeft02Icon size={24} color="rgba(0, 8, 20, 0.96)" />
           </TouchableOpacity>
 
-          {/* Centered Top Header: My Staffs */}
-          <Text style={styles.headerTitleText}>My Staffs</Text>
+          {/* Title: 'Staff Status' (DM Sans 500 / SF Pro 500 17px/24px) */}
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            Staff Status
+          </Text>
 
-          {/* Dummy Right Spacer (48x48, opacity 0) */}
+          {/* Invisible Right Slot Spacer (48x48, opacity 0) */}
           <View style={styles.headerSpacer} pointerEvents="none" />
         </View>
       </View>
@@ -513,265 +513,308 @@ export function ProviderStaffOnDutyScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* ── Search & Filter Bar (358x48px, top: 132px in Figma) ── */}
+        {/* ── Search Field + Filter Button Row (358x48px) ── */}
         <View style={styles.searchRow}>
-          {/* Search Input Bar (288x48px) */}
+          {/* Search field: pressable field, navigates to /staff-search */}
           <TouchableOpacity
             activeOpacity={0.85}
-            style={styles.searchInputContainer}
-            onPress={() => router.push('/staff-search')}
+            style={styles.searchField}
+            onPress={() => {
+              triggerLightHaptic();
+              safeRouter.push('/staff-search');
+            }}
+            accessibilityLabel="Search here"
           >
             <SearchIcon size={24} color="#000000" />
-            <Text style={styles.searchPlaceholderText}>
-              {searchQuery.trim() ? searchQuery : 'Search here..'}
-            </Text>
+            <Text style={styles.searchPlaceholder}>Search here..</Text>
           </TouchableOpacity>
 
-          {/* Filter Button (48x48px) */}
+          {/* Filter button: opens filter sheet */}
           <TouchableOpacity
             activeOpacity={0.8}
             style={styles.filterButton}
-            onPress={() => setIsFilterModalOpen(true)}
+            onPress={() => {
+              triggerLightHaptic();
+              setFilterModalVisible(true);
+            }}
+            accessibilityLabel="Filter staff"
           >
-            <FilterFunnelIcon
-              size={20}
-              color="rgba(0, 8, 20, 0.96)"
-            />
-            {selectedFilters.length > 0 && (
+            <FilterFunnelIcon size={24} color="#141B34" />
+            {activeFilter !== 'all' && (
               <View style={styles.filterBadge}>
-                <Text style={styles.filterBadgeText}>{selectedFilters.length}</Text>
+                <Text style={styles.filterBadgeText}>1</Text>
               </View>
             )}
           </TouchableOpacity>
         </View>
 
-        {/* ── Staff Subheader Label (top: 196px / 220px in Figma) ── */}
-        <View style={styles.countLabelContainer}>
-          <Text style={isNoJobState ? styles.countLabelTextBold : styles.countLabelText}>
-            {getCountLabel()}
+        {/* ── Summary / Count Line (14px/20px) ── */}
+        <View style={styles.summaryLineContainer}>
+          <Text
+            style={[
+              styles.summaryText,
+              activeFilter !== 'all' && styles.summaryTextFiltered,
+            ]}
+          >
+            {summaryText}
           </Text>
         </View>
 
-        {/* ── State Switcher: No Job State vs Populated Staff Cards ── */}
-        {isNoJobState ? (
-          /* ── 1:1 Figma No Job State ── */
-          <View style={styles.noJobStateContainer}>
-            {/* Rectangle 283: Specialist Empty Graphic (150x150, top: 332px) */}
-            <View style={styles.emptyGraphicContainer}>
-              <StaffEmptyIllustration size={150} />
+        {/* ── State Switcher: Empty State vs Populated Staff Cards ── */}
+        {isEmpty ? (
+          /* ── 1:1 Figma Empty State ('no job state') ── */
+          <View style={styles.emptyContainer}>
+            {/* Rectangle 283: 130x130 Illustration */}
+            <View style={styles.emptyIllustrationWrapper}>
+              <NoStaffIllustration size={130} style={styles.emptyIllustration} />
             </View>
 
-            {/* Frame 1000006541: Title & Description (338x92px, top: 490px) */}
-            <View style={styles.specialistTextContainer}>
-              <Text style={styles.specialistTitleText}>Specialist</Text>
-              <Text style={styles.specialistSubtitleText}>
+            {/* Frame 1000006541: Title & Description */}
+            <View style={styles.emptyTextBlock}>
+              <Text style={styles.emptyTitle}>No Staff Found</Text>
+              <Text style={styles.emptySubtitle}>
                 Add staff members who will provide your services to clients.
               </Text>
             </View>
 
-            {/* Filled action Button: Add staff (319x48px, top: 630px) */}
+            {/* Filled action Button: 'Add staff' (319x48px, radius 24px) */}
             <TouchableOpacity
               activeOpacity={0.85}
               style={styles.addStaffButton}
-              onPress={handleAddStaffPress}
+              onPress={() => {
+                triggerLightHaptic();
+                safeRouter.push('/staff-add');
+              }}
+              accessibilityLabel="Add staff"
             >
               <Text style={styles.addStaffButtonText}>Add staff</Text>
             </TouchableOpacity>
           </View>
         ) : (
-          /* ── Populated Staff Duty Cards List (358x208px, 44px gap) ── */
-          <View style={styles.staffCardsList}>
-            {filteredStaff.map((staff) => {
-              const handleStaffPress = () => {
-                if (staff.statusCode === 'attending') {
-                  router.push({
-                    pathname: '/staff/[id]',
-                    params: {
-                      id: staff.id,
-                      name: staff.name,
-                      role: staff.role,
-                      status: staff.status,
-                      statusCode: staff.statusCode,
-                      hours: staff.hours || '8am - 10pm',
-                      gender: staff.gender || 'Male',
-                      badge: staff.badge || staff.role,
-                      experience: staff.experience || '2 Years',
-                      serviceTitle: staff.service.title,
-                      servicePrice: staff.service.price,
-                      serviceDuration: staff.service.duration,
-                      serviceRating: staff.service.rating,
-                      clientName: staff.client.name,
-                      clientBadge: staff.client.badge,
-                      clientGender: staff.client.gender,
-                      clientMembership: staff.client.membership,
-                      appointmentDate: staff.appointmentInfo.date,
-                      appointmentTime: staff.appointmentInfo.time,
-                      appointmentType: staff.appointmentInfo.type,
-                      addOnTitle: staff.addOn.title,
-                      addOnPrice: staff.addOn.price,
-                      totalCost: staff.summary.total,
-                    },
-                  });
-                } else {
-                  // Staff not attending to client: route to staff profile with status clearly showing
-                  router.push({
-                    pathname: '/staff-profile',
-                    params: {
-                      id: staff.id,
-                      name: staff.name,
-                      staffName: staff.name,
-                      role: staff.role,
-                      staffRole: staff.role,
-                      status: staff.status,
-                      staffStatus: staff.status,
-                      statusCode: staff.statusCode,
-                      hours: staff.hours || '8am - 10pm',
-                      staffHours: staff.hours || '8am - 10pm',
-                      gender: staff.gender || 'Male',
-                      badge: staff.badge || staff.role,
-                      experience: staff.experience || '2 Years',
-                      rating: staff.service.rating || '4.1',
-                    },
-                  });
-                }
-              };
+          /* ── Populated Staff Cards List (40px gap between cards) ── */
+          <View style={styles.cardsList}>
+            {filteredStaff.map((item) => {
+              const { member, photo, roleText, hoursText, derived } = item;
 
-              // ── 1:1 Figma Compact Status Card for Available, On Break & Closed ──
-              if (
-                staff.statusCode === 'available' ||
-                staff.statusCode === 'on_break' ||
-                staff.statusCode === 'closed'
-              ) {
+              // ── 1. BUSY CARD (Large 358×208) ──
+              if (derived.status === 'busy') {
+                const serviceInfo = derived.ongoingService || {
+                  title: 'Hair wash',
+                  photo: require('../../../assets/images/appointments/hair_cut.jpg'),
+                  rating: '3.5',
+                  duration: '1hr',
+                  price: '₦22,700',
+                };
+
+                const handleBusyPress = () => {
+                  triggerLightHaptic();
+                  safeRouter.push({
+                    pathname: '/staff-in-progress/[id]' as any,
+                    params: { id: member.id },
+                  });
+                };
+
                 return (
                   <TouchableOpacity
-                    key={staff.id}
-                    style={styles.compactStaffCard}
+                    key={member.id}
+                    style={styles.busyCard}
                     activeOpacity={0.88}
-                    onPress={handleStaffPress}
+                    onPress={handleBusyPress}
                   >
-                    <View style={styles.compactLeftGroup}>
-                      <Image source={staff.avatar} style={styles.compactAvatar} />
-                      <View style={styles.compactInfoCol}>
-                        <Text style={styles.compactNameText} numberOfLines={1}>
-                          {staff.name}
-                        </Text>
-                        <Text style={styles.compactHoursText} numberOfLines={1}>
-                          {staff.role} • {staff.hours || '8am - 10pm'}
-                        </Text>
+                    {/* Header Row: User Tag (326x42) */}
+                    <View style={styles.busyHeaderRow}>
+                      <View style={styles.busyUserInfo}>
+                        <Image source={photo} style={styles.busyAvatar} />
+                        <View style={styles.busyUserText}>
+                          <Text style={styles.busyUserName} numberOfLines={1}>
+                            {member.name}
+                          </Text>
+                          <Text style={styles.busyUserRole} numberOfLines={1}>
+                            {roleText}
+                          </Text>
+                        </View>
+                      </View>
 
-                        {staff.statusCode === 'available' && (
-                          <View style={styles.availableBadge}>
-                            <SeatSelectorIcon size={14} color="rgba(12, 121, 12, 0.96)" />
-                            <Text style={styles.availableBadgeText}>Available for work</Text>
-                          </View>
-                        )}
-
-                        {staff.statusCode === 'on_break' && (
-                          <View style={styles.breakBadge}>
-                            <FastFoodOutlineIcon size={14} color="#F89B18" />
-                            <Text style={styles.breakBadgeText}>Lunch Break</Text>
-                          </View>
-                        )}
-
-                        {staff.statusCode === 'closed' && (
-                          <View style={styles.closedBadge}>
-                            <Home03Icon size={14} color="rgba(96, 96, 102, 0.96)" />
-                            <Text style={styles.closedBadgeText}>Closed</Text>
-                          </View>
-                        )}
+                      {/* Chip 'Busy' (78x28) */}
+                      <View style={styles.busyChip}>
+                        <SeatSelectorIcon
+                          size={20}
+                          strokeWidth={1.25}
+                          color="rgba(12, 121, 12, 0.96)"
+                        />
+                        <Text style={styles.busyChipText}>Busy</Text>
                       </View>
                     </View>
 
-                    <View style={styles.compactRatingRow}>
-                      <StarGoldIcon size={16} color="rgba(248, 155, 24, 0.96)" />
-                      <Text style={styles.compactRatingText}>{staff.service.rating || '4.1'}</Text>
+                    {/* Line 169 Divider (326x1) */}
+                    <View style={styles.busyDivider} />
+
+                    {/* Current Service Row (326x84) */}
+                    <View style={styles.busyServiceRow}>
+                      <View style={styles.busyBookedItem}>
+                        {/* Photo frame 80x80 with shadow & 72x72 inner image */}
+                        <View style={styles.busyPhotoFrame}>
+                          <Image
+                            source={serviceInfo.photo}
+                            style={styles.busyServiceImage}
+                            resizeMode="cover"
+                          />
+                        </View>
+
+                        {/* Service details column */}
+                        <View style={styles.busyServiceInfo}>
+                          <Text style={styles.busyServiceTitle} numberOfLines={1}>
+                            {serviceInfo.title}
+                          </Text>
+
+                          <View style={styles.busyMetaRow}>
+                            {/* Rating */}
+                            <View style={styles.busyMetaItem}>
+                              <StarGoldIcon size={18} color="rgba(248, 155, 24, 0.96)" />
+                              <Text style={styles.busyMetaText}>
+                                {serviceInfo.rating}
+                              </Text>
+                            </View>
+
+                            {/* Duration */}
+                            <View style={styles.busyMetaItem}>
+                              <Time04Icon size={18} color="rgba(96, 96, 102, 0.96)" />
+                              <Text style={styles.busyMetaText}>
+                                {serviceInfo.duration}
+                              </Text>
+                            </View>
+                          </View>
+
+                          {/* Price */}
+                          <Text style={styles.busyPriceText}>
+                            {serviceInfo.price}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {/* Right Arrow Button (40x40) */}
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        style={styles.busyArrowButton}
+                        onPress={handleBusyPress}
+                        accessibilityLabel="View staff detail"
+                      >
+                        <ArrowRight02Icon size={24} color="rgba(0, 8, 20, 0.96)" />
+                      </TouchableOpacity>
                     </View>
                   </TouchableOpacity>
                 );
               }
 
-              // ── 1:1 Figma Detailed In-Service / Ongoing Card ──
+              // ── 2. COMPACT CARD (358×116) ──
+              const handleCompactPress = () => {
+                // Opens existing staff profile (Messages prompt 3)
+                safeRouter.push({
+                  pathname: '/staff-profile',
+                  params: {
+                    id: member.id,
+                    staffId: member.id,
+                    name: member.name,
+                    staffName: member.name,
+                    role: roleText,
+                    staffRole: roleText,
+                    status: derived.chipLabel,
+                    staffStatus: derived.chipLabel,
+                    statusCode: derived.status,
+                    hours: hoursText,
+                    staffHours: hoursText,
+                    experience: `${member.experienceYears || 1} Years`,
+                    rating: '4.1',
+                  },
+                });
+              };
+
               return (
                 <TouchableOpacity
-                  key={staff.id}
-                  style={styles.staffCard}
+                  key={member.id}
+                  style={styles.compactCard}
                   activeOpacity={0.88}
-                  onPress={handleStaffPress}
+                  onPress={handleCompactPress}
                 >
-                  {/* ── User Tag (326x42px) ── */}
-                  <View style={styles.userTagRow}>
-                    {/* Left: Avatar + Name + Role */}
-                    <View style={styles.userInfoGroup}>
-                      <Image source={staff.avatar} style={styles.userAvatar} />
-                      <View style={styles.userNameColumn}>
-                        <Text style={styles.userNameText} numberOfLines={1}>
-                          {staff.name}
-                        </Text>
-                        <Text style={styles.userRoleText} numberOfLines={1}>
-                          {staff.role}
-                        </Text>
-                      </View>
-                    </View>
+                  {/* Photo 80x80 radius 16 */}
+                  <Image source={photo} style={styles.compactPhoto} resizeMode="cover" />
 
-                    {/* Right: Attending to client Status Tag */}
-                    <View style={styles.statusTag}>
-                      <SeatSelectorIcon size={20} color="rgba(12, 121, 12, 0.96)" />
-                      <Text style={styles.statusTagText}>
-                        {staff.status}
+                  {/* Information column (width 230, height 84) */}
+                  <View style={styles.compactInfoCol}>
+                    {/* Name row */}
+                    <Text style={styles.compactName} numberOfLines={1}>
+                      {member.name}
+                    </Text>
+
+                    {/* Field & Time row */}
+                    <View style={styles.compactFieldTimeRow}>
+                      <Text style={styles.compactRole} numberOfLines={1}>
+                        {roleText}
+                      </Text>
+                      <View style={styles.compactDot} />
+                      <Text style={styles.compactHours} numberOfLines={1}>
+                        {hoursText}
                       </Text>
                     </View>
-                  </View>
 
-                  {/* ── Line 169 Divider (326x1px) ── */}
-                  <View style={styles.cardDivider} />
-
-                  {/* ── Service with Next Button (326x84px) ── */}
-                  <View style={styles.serviceRow}>
-                    {/* Left: Booked Item */}
-                    <View style={styles.bookedItemGroup}>
-                      {/* Image Placeholder (80x80px with shadow) */}
-                      <View style={styles.imagePlaceholder}>
-                        <Image
-                          source={staff.service.image}
-                          style={styles.serviceThumbnail}
-                          resizeMode="cover"
-                        />
-                      </View>
-
-                      {/* Booked Information (84px high) */}
-                      <View style={styles.bookedInfoColumn}>
-                        <Text style={styles.serviceTitleText} numberOfLines={1}>
-                          {staff.service.title}
-                        </Text>
-
-                        {/* Duration & Rating Row */}
-                        <View style={styles.metaRow}>
-                          {/* Rating */}
-                          <View style={styles.metaSubGroup}>
-                            <StarGoldIcon size={18} color="rgba(248, 155, 24, 0.96)" />
-                            <Text style={styles.metaText}>{staff.service.rating}</Text>
-                          </View>
-
-                          {/* Duration */}
-                          <View style={styles.metaSubGroup}>
-                            <Time04Icon size={18} color="rgba(96, 96, 102, 0.96)" />
-                            <Text style={styles.metaText}>{staff.service.duration}</Text>
-                          </View>
+                    {/* Tag & Rate row */}
+                    <View style={styles.compactTagRateRow}>
+                      {/* Status Chip Variants */}
+                      {derived.status === 'available' && (
+                        <View style={styles.availableChip}>
+                          <Briefcase06Icon
+                            size={16}
+                            color="rgba(12, 121, 12, 0.96)"
+                          />
+                          <Text style={styles.availableChipText}>
+                            Available For work
+                          </Text>
                         </View>
+                      )}
 
-                        {/* Price (16px Med 510) */}
-                        <Text style={styles.priceText}>{staff.service.price}</Text>
+                      {derived.status === 'on_break' && (
+                        <View style={styles.lunchBreakChip}>
+                          <FastFoodOutlineIcon
+                            size={16}
+                            color="rgba(248, 155, 24, 0.96)"
+                          />
+                          <Text style={styles.lunchBreakChipText}>
+                            Lunch Break
+                          </Text>
+                        </View>
+                      )}
+
+                      {derived.status === 'closed' && (
+                        <View style={styles.closedChip}>
+                          <Home03Icon
+                            size={16}
+                            color="rgba(96, 96, 102, 0.96)"
+                          />
+                          <Text style={styles.closedChipText}>
+                            Closed
+                          </Text>
+                        </View>
+                      )}
+
+                      {derived.status === 'attending' && (
+                        <View style={styles.attendingChip}>
+                          <SeatSelectorIcon
+                            size={16}
+                            strokeWidth={1}
+                            color="rgba(12, 121, 12, 0.96)"
+                          />
+                          <Text style={styles.attendingChipText}>
+                            Attending to client
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Rating (16x16 star + 4.1) */}
+                      <View style={styles.compactRatingRow}>
+                        <StarGoldIcon size={16} color="rgba(248, 155, 24, 0.96)" />
+                        <Text style={styles.compactRatingText}>4.1</Text>
                       </View>
                     </View>
-
-                    {/* Right: Next / Forward Button (40x40px) */}
-                    <TouchableOpacity
-                      activeOpacity={0.8}
-                      style={styles.nextButton}
-                      onPress={handleStaffPress}
-                    >
-                      <ArrowRight02Icon size={24} color="rgba(0, 8, 20, 0.96)" />
-                    </TouchableOpacity>
                   </View>
                 </TouchableOpacity>
               );
@@ -780,78 +823,65 @@ export function ProviderStaffOnDutyScreen() {
         )}
       </ScrollView>
 
-      {/* ── Filter Bottom Sheet Modal (1:1 Figma) ── */}
-      <ProviderStaffFilterModal
-        visible={isFilterModalOpen}
-        selectedFilters={selectedFilters}
-        recentFilters={recentFilters}
-        onRemoveRecentFilter={(filter) => {
-          setRecentFilters((prev) => prev.filter((f) => f !== filter));
-          setSelectedFilters((prev) => prev.filter((f) => f !== filter));
-        }}
-        staffList={staffList}
-        onClose={() => setIsFilterModalOpen(false)}
-        onApply={(filters) => {
-          const applied = Array.isArray(filters) ? filters : (filters === 'all' ? [] : [filters]);
-          setSelectedFilters(applied);
-          if (applied.length > 0) {
-            setRecentFilters((prev) => Array.from(new Set([...applied, ...prev])));
-          }
-          setIsFilterModalOpen(false);
-        }}
-        onClear={() => {
-          setSelectedFilters([]);
-          setIsFilterModalOpen(false);
-        }}
-      />
+      {/* ── Native Dock Protection Spacer (enforces safe system bar boundary) ── */}
+      <NativeDockSpacer />
 
-      {/* ── Android Native System Dock Barrier ── */}
-      <NativeDockSpacer backgroundColor="#FFFFFF" />
+      {/* ── Filter Bottom Sheet Modal ── */}
+      <StaffStatusFilterModal
+        visible={filterModalVisible}
+        onClose={() => setFilterModalVisible(false)}
+        activeFilter={activeFilter}
+        recentFilter={recentFilter}
+        onApplyFilter={handleApplyFilter}
+        onClearFilter={handleClearFilter}
+        onRemoveRecentFilter={handleRemoveRecentFilter}
+      />
     </SafeAreaView>
   );
 }
 
-export default ProviderStaffOnDutyScreen;
-
-// ── 1:1 Converter Output Stylesheet ─────────────────────────────────────────
+// ── 1:1 Converted Figma Styles ──────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safeContainer: {
+  safeArea: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
 
-  /* ── Page Header (64px height, top: 44px) ── */
-  headerContainer: {
+  /* ── Header (64px high, border-bottom 1px) ── */
+  header: {
     height: 64,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(235, 235, 245, 0.96)',
-    paddingVertical: 8,
     paddingHorizontal: 16,
+    paddingVertical: 8,
     justifyContent: 'center',
   },
   headerContent: {
-    width: '100%',
     height: 48,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    width: '100%',
   },
-  headerIconButton: {
+  backButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTitleText: {
+  headerTitle: {
+    flex: 1,
     fontFamily: FONT_MEDIUM,
+    fontWeight: '500',
     fontSize: 17,
     lineHeight: 24,
     letterSpacing: 0.2,
     color: 'rgba(0, 8, 20, 0.96)',
     textAlign: 'center',
+    includeFontPadding: false,
   },
   headerSpacer: {
     width: 48,
@@ -859,26 +889,26 @@ const styles = StyleSheet.create({
     opacity: 0,
   },
 
-  /* ── Scroll View ── */
+  /* ── Main Scroll View ── */
   scrollView: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
   scrollContent: {
+    paddingTop: 24,
     paddingBottom: 40,
+    alignItems: 'center',
   },
 
-  /* ── Search & Filter Row (358x48px, top: 132px) ── */
+  /* ── Search & Filter Row (358x48) ── */
   searchRow: {
     width: 358,
     height: 48,
-    alignSelf: 'center',
-    marginTop: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  searchInputContainer: {
+  searchField: {
     width: 288,
     height: 48,
     backgroundColor: 'rgba(248, 249, 250, 0.98)',
@@ -886,21 +916,12 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(192, 192, 204, 0.96)',
     borderRadius: 24,
     paddingHorizontal: 16,
+    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
   },
-  searchInput: {
-    flex: 1,
-    fontFamily: FONT_REGULAR,
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 0.4,
-    color: '#000000',
-    paddingVertical: 0,
-  },
-  searchPlaceholderText: {
-    flex: 1,
+  searchPlaceholder: {
     fontFamily: FONT_REGULAR,
     fontSize: 14,
     lineHeight: 20,
@@ -910,176 +931,130 @@ const styles = StyleSheet.create({
   filterButton: {
     width: 48,
     height: 48,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(248, 249, 250, 0.98)',
     borderWidth: 1,
     borderColor: 'rgba(192, 192, 204, 0.96)',
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    position: 'relative',
   },
   filterBadge: {
     position: 'absolute',
-    top: -2,
-    right: -2,
-    minWidth: 20,
+    width: 20,
     height: 20,
-    borderRadius: 10,
-    backgroundColor: '#CC2929',
+    left: 35,
+    top: -2,
+    backgroundColor: 'rgba(204, 41, 41, 0.9)',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 4,
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-    zIndex: 2,
+    zIndex: 1,
   },
   filterBadgeText: {
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_600SemiBold',
-    fontWeight: '600',
-    fontSize: 11,
-    lineHeight: 14,
+    fontFamily: FONT_REGULAR,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0.5,
     color: '#FFFFFF',
-    includeFontPadding: false,
     textAlign: 'center',
   },
 
-  /* ── Staff Subheader Label (14px, top: 196px / 220px) ── */
-  countLabelContainer: {
+  /* ── Summary Line (height 20, top: 220 in Figma) ── */
+  summaryLineContainer: {
     width: 358,
-    alignSelf: 'center',
-    marginTop: 16,
-    marginBottom: 16,
+    height: 20,
+    marginTop: 40,
+    justifyContent: 'center',
   },
-  countLabelText: {
+  summaryText: {
     fontFamily: FONT_REGULAR,
     fontSize: 14,
     lineHeight: 20,
     letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
+    includeFontPadding: false,
   },
-  countLabelTextBold: {
-    fontFamily: FONT_BOLD,
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 0.4,
-    color: 'rgba(96, 96, 102, 0.96)',
+  summaryTextFiltered: {
+    color: '#000000',
   },
 
-  /* ── Populated Staff Cards List ── */
-  staffCardsList: {
+  /* ── Empty State ('no job state') ── */
+  emptyContainer: {
     width: 358,
-    alignSelf: 'center',
-    gap: 44, // 1:1 Figma spacing: 520px - (268px + 208px) = 44px
-  },
-
-  /* ── 1:1 Figma Compact Status Card for Available, On Break & Closed ── */
-  compactStaffCard: {
-    width: 358,
-    minHeight: 88,
-    backgroundColor: 'rgba(247, 247, 247, 0.96)',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(235, 235, 245, 0.96)',
-    padding: 16,
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    marginTop: 42,
   },
-  compactLeftGroup: {
-    flexDirection: 'row',
+  emptyIllustrationWrapper: {
+    width: 130,
+    height: 130,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyIllustration: {
+    width: 130,
+    height: 130,
+  },
+  emptyTextBlock: {
+    width: 338,
     alignItems: 'center',
     gap: 16,
-    flex: 1,
+    marginTop: 16,
   },
-  compactAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(235, 235, 245, 0.96)',
-  },
-  compactInfoCol: {
-    flex: 1,
-    gap: 4,
-  },
-  compactNameText: {
+  emptyTitle: {
     fontFamily: FONT_MEDIUM,
     fontWeight: '500',
     fontSize: 16,
-    lineHeight: 22,
-    color: 'rgba(0, 8, 20, 0.96)',
+    lineHeight: 24,
+    letterSpacing: 0.5,
+    color: '#000000',
+    textAlign: 'center',
+    includeFontPadding: false,
   },
-  compactHoursText: {
+  emptySubtitle: {
     fontFamily: FONT_REGULAR,
-    fontSize: 14,
-    lineHeight: 20,
+    fontWeight: '400',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
+    textAlign: 'center',
+    includeFontPadding: false,
   },
-  availableBadge: {
-    flexDirection: 'row',
+  addStaffButton: {
+    width: 319,
+    height: 48,
+    backgroundColor: 'rgba(0, 8, 20, 0.96)',
+    borderRadius: 24,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(238, 248, 238, 0.8)',
-    borderRadius: 16,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    alignSelf: 'flex-start',
-    marginTop: 2,
+    marginTop: 34,
+    shadowColor: 'rgba(133, 139, 148, 0.08)',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 16,
+    elevation: 4,
   },
-  availableBadgeText: {
-    fontFamily: FONT_REGULAR,
-    fontSize: 12,
-    lineHeight: 16,
-    color: 'rgba(12, 121, 12, 0.96)',
-  },
-  breakBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255, 246, 235, 0.96)',
-    borderRadius: 16,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    alignSelf: 'flex-start',
-    marginTop: 2,
-  },
-  breakBadgeText: {
-    fontFamily: FONT_REGULAR,
-    fontSize: 12,
-    lineHeight: 16,
-    color: '#F89B18',
-  },
-  closedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(240, 241, 245, 0.96)',
-    borderRadius: 16,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    alignSelf: 'flex-start',
-    marginTop: 2,
-  },
-  closedBadgeText: {
-    fontFamily: FONT_REGULAR,
-    fontSize: 12,
-    lineHeight: 16,
-    color: 'rgba(96, 96, 102, 0.96)',
-  },
-  compactRatingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  compactRatingText: {
-    fontFamily: FONT_REGULAR,
-    fontSize: 14,
-    lineHeight: 20,
-    color: 'rgba(96, 96, 102, 0.96)',
+  addStaffButtonText: {
+    fontFamily: FONT_BUTTON,
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.15,
+    color: '#FFFFFF',
+    includeFontPadding: false,
   },
 
-  /* ── Staff Card (358x208px) ── */
-  staffCard: {
+  /* ── Cards List (40px gap between cards) ── */
+  cardsList: {
+    width: 358,
+    marginTop: 40,
+    gap: 40,
+  },
+
+  /* ── Busy Card (358x208) ── */
+  busyCard: {
     width: 358,
     height: 208,
     backgroundColor: 'rgba(247, 247, 247, 0.96)',
@@ -1087,93 +1062,81 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(235, 235, 245, 0.96)',
     borderRadius: 24,
     padding: 16,
-    gap: 24,
+    justifyContent: 'space-between',
   },
-
-  /* ── User Tag Row (326x42px) ── */
-  userTagRow: {
+  busyHeaderRow: {
     width: 326,
     height: 42,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  userInfoGroup: {
+  busyUserInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  userAvatar: {
+  busyAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(235, 235, 245, 0.96)',
   },
-  userNameColumn: {
-    flexDirection: 'column',
-    justifyContent: 'center',
+  busyUserText: {
     gap: 2,
-    maxWidth: 110,
+    width: 200,
   },
-  userNameText: {
+  busyUserName: {
     fontFamily: FONT_REGULAR,
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: 0.4,
     color: '#000000',
   },
-  userRoleText: {
+  busyUserRole: {
     fontFamily: FONT_REGULAR,
     fontSize: 14,
     lineHeight: 20,
-    letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
   },
-
-  /* ── Attending to client Status Tag ── */
-  statusTag: {
+  busyChip: {
+    width: 78,
     height: 28,
     backgroundColor: 'rgba(238, 248, 238, 0.8)',
     borderRadius: 16,
-    paddingVertical: 4,
     paddingHorizontal: 8,
+    paddingVertical: 4,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
-  statusTagText: {
+  busyChipText: {
     fontFamily: FONT_REGULAR,
     fontSize: 14,
     lineHeight: 20,
     letterSpacing: 0.4,
     color: 'rgba(12, 121, 12, 0.96)',
-    textAlign: 'center',
   },
-
-  /* ── Line 169 Divider (326x1px) ── */
-  cardDivider: {
+  busyDivider: {
     width: 326,
     height: 1,
     backgroundColor: 'rgba(235, 235, 245, 0.96)',
   },
-
-  /* ── Service Row (326x84px) ── */
-  serviceRow: {
+  busyServiceRow: {
     width: 326,
     height: 84,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  bookedItemGroup: {
+  busyBookedItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    flex: 1,
   },
-  imagePlaceholder: {
+  busyPhotoFrame: {
     width: 80,
     height: 80,
     backgroundColor: '#FFFFFF',
@@ -1181,116 +1144,219 @@ const styles = StyleSheet.create({
     padding: 4,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: 'rgba(133, 139, 148, 0.08)',
-    shadowOffset: { width: 4, height: 10 },
-    shadowOpacity: 0.08,
+    shadowColor: 'rgba(133, 139, 148, 0.16)',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
     shadowRadius: 16,
-    elevation: 6,
+    elevation: 3,
   },
-  serviceThumbnail: {
+  busyServiceImage: {
     width: 72,
     height: 72,
-    borderRadius: 16,
+    borderRadius: 12,
   },
-  bookedInfoColumn: {
-    flexDirection: 'column',
-    alignItems: 'flex-start',
+  busyServiceInfo: {
+    height: 84,
+    justifyContent: 'center',
     gap: 8,
-    flex: 1,
   },
-  serviceTitleText: {
+  busyServiceTitle: {
     fontFamily: FONT_REGULAR,
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: 0.4,
     color: '#000000',
   },
-  metaRow: {
+  busyMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 24,
     height: 20,
   },
-  metaSubGroup: {
+  busyMetaItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  metaText: {
+  busyMetaText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 14,
+    lineHeight: 20,
+    color: 'rgba(96, 96, 102, 0.96)',
+  },
+  busyPriceText: {
+    fontFamily: FONT_MEDIUM,
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.5,
+    color: 'rgba(0, 8, 20, 0.96)',
+  },
+  busyArrowButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 24,
+    padding: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  /* ── Compact Card (358x116) ── */
+  compactCard: {
+    width: 358,
+    height: 116,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(235, 235, 245, 0.96)',
+    borderRadius: 24,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  compactPhoto: {
+    width: 80,
+    height: 80,
+    borderRadius: 16,
+  },
+  compactInfoCol: {
+    flex: 1,
+    height: 84,
+    justifyContent: 'center',
+    gap: 8,
+  },
+  compactName: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.4,
+    color: '#000000',
+  },
+  compactFieldTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 20,
+  },
+  compactRole: {
     fontFamily: FONT_REGULAR,
     fontSize: 14,
     lineHeight: 20,
     letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
   },
-  priceText: {
-    fontFamily: FONT_MEDIUM,
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: 0.5,
-    color: 'rgba(0, 8, 20, 0.96)',
+  compactDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: 'rgba(192, 192, 204, 0.96)',
   },
-  nextButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 24,
-    justifyContent: 'center',
+  compactHours: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 14,
+    lineHeight: 20,
+    color: 'rgba(96, 96, 102, 0.96)',
+  },
+  compactTagRateRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    height: 24,
   },
 
-  /* ── 1:1 Figma No Job State (390x844px) ── */
-  noJobStateContainer: {
-    width: '100%',
-    alignItems: 'center',
-  },
-  emptyGraphicContainer: {
+  /* Chip: Available For work (width 150, height 24) */
+  availableChip: {
     width: 150,
-    height: 150,
-    marginTop: 48, // Coordinates matching top: 332px
-    justifyContent: 'center',
+    height: 24,
+    backgroundColor: 'rgba(238, 248, 238, 0.8)',
+    borderRadius: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
-  specialistTextContainer: {
-    width: 338,
-    marginTop: 28, // Coordinates matching top: 490px
-    alignItems: 'center',
-    gap: 16,
-  },
-  specialistTitleText: {
-    fontFamily: FONT_MEDIUM,
-    fontSize: 20,
-    lineHeight: 28,
-    letterSpacing: 0.2,
-    color: '#000000',
-    textAlign: 'center',
-  },
-  specialistSubtitleText: {
+  availableChipText: {
     fontFamily: FONT_REGULAR,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0.4,
+    color: 'rgba(12, 121, 12, 0.96)',
+  },
+
+  /* Chip: Lunch Break (width 115, height 24) */
+  lunchBreakChip: {
+    width: 115,
+    height: 24,
+    backgroundColor: 'rgba(246, 240, 230, 0.96)',
+    borderRadius: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  lunchBreakChipText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0.4,
+    color: 'rgba(248, 155, 24, 0.96)',
+  },
+
+  /* Chip: Closed (width 82, height 24) */
+  closedChip: {
+    width: 82,
+    height: 24,
+    backgroundColor: 'rgba(229, 229, 229, 0.8)',
+    borderRadius: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  closedChipText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 12,
+    lineHeight: 16,
     letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
-    textAlign: 'center',
   },
-  addStaffButton: {
-    width: 319,
-    height: 48,
-    backgroundColor: 'rgba(0, 8, 20, 0.96)',
-    borderRadius: 24,
-    marginTop: 48, // Coordinates matching top: 630px
-    justifyContent: 'center',
+
+  /* Chip: Attending to client (width 152, height 24) */
+  attendingChip: {
+    width: 152,
+    height: 24,
+    backgroundColor: 'rgba(238, 248, 238, 0.8)',
+    borderRadius: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: 'rgba(133, 139, 148, 0.08)',
-    shadowOffset: { width: 4, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 6,
+    gap: 8,
   },
-  addStaffButtonText: {
-    fontFamily: FONT_BUTTON,
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: 0.15,
-    color: '#FFFFFF',
+  attendingChipText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0.4,
+    color: 'rgba(12, 121, 12, 0.96)',
+  },
+
+  /* Rating */
+  compactRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 20,
+  },
+  compactRatingText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 14,
+    lineHeight: 20,
+    color: 'rgba(96, 96, 102, 0.96)',
   },
 });
+
+export default ProviderStaffOnDutyScreen;

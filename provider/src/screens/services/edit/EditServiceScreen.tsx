@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,12 @@ import {
   Platform,
   Image,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   LayoutChangeEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../../utils/safeNavigation';
 import * as ImagePicker from 'expo-image-picker';
 import Svg, { Path, Circle } from 'react-native-svg';
 
@@ -32,7 +33,8 @@ import { GenderSelectionSheet } from '../../../components/wizard/GenderSelection
 import { ServiceDurationSheet } from '../../../components/wizard/ServiceDurationSheet';
 import { ProviderPhotoUploadSheet } from '../../../components/ProviderPhotoUploadSheet';
 import { DashedPhotoSlot } from '../../../components/wizard/DashedPhotoSlot';
-import { NativeDockSpacer } from '../../../components/NativeDockSpacer';
+import { ImageUploadGrid } from '../../../components/ImageUploadGrid';
+import { getServicePricing, formatNaira } from '../../../utils/servicePricing';
 
 const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
 const FONT_REGULAR = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular';
@@ -138,7 +140,7 @@ interface ServiceFormSlice {
  * - Back button -> discards working copy, returns to Review
  */
 export const EditServiceScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const scrollViewRef = useRef<ScrollView>(null);
 
   const { draft, commitWorkingCopy } = useServiceDraft();
@@ -188,11 +190,101 @@ export const EditServiceScreen: React.FC = () => {
     | null
   >(null);
 
-  // Field layout coordinates for smooth error auto-scroll
+  // Field layout coordinates for smooth auto-scroll on focus and error
   const fieldYCoordinates = useRef<Record<string, number>>({});
+  const activeFocusedFieldRef = useRef<string | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // Fallback anchor offsets (in px) calibrated to actual rendered vertical rhythm
+  const EDIT_FIELD_FALLBACK_OFFSETS: Record<string, number> = {
+    image: 180,
+    category: 480,
+    name: 620,
+    description: 760,
+    discounts: 1020,
+    gender: 1180,
+    price: 1360,
+    package: 1540,
+  };
+
   const setFieldLayout = (fieldKey: string) => (event: LayoutChangeEvent) => {
     fieldYCoordinates.current[fieldKey] = event.nativeEvent.layout.y;
   };
+
+  const activeFieldOffsetRef = useRef<number | undefined>(undefined);
+
+  const scrollToActiveField = useCallback((fieldKey?: string | null, customOffset?: number) => {
+    const targetKey = fieldKey || activeFocusedFieldRef.current;
+    if (!targetKey || !scrollViewRef.current) return;
+
+    let targetY: number | undefined;
+
+    if (targetKey === 'packagePrice') {
+      const basePackageY = fieldYCoordinates.current['package'] !== undefined
+        ? fieldYCoordinates.current['package']
+        : EDIT_FIELD_FALLBACK_OFFSETS['package'];
+      targetY = (basePackageY || 1280) + (customOffset !== undefined ? customOffset : 440);
+    } else if (targetKey === 'packageContents') {
+      const basePackageY = fieldYCoordinates.current['package'] !== undefined
+        ? fieldYCoordinates.current['package']
+        : EDIT_FIELD_FALLBACK_OFFSETS['package'];
+      targetY = (basePackageY || 1280) + (customOffset !== undefined ? customOffset : 240);
+    } else {
+      const measuredY = fieldYCoordinates.current[targetKey];
+      const fallbackY = EDIT_FIELD_FALLBACK_OFFSETS[targetKey];
+      targetY = measuredY !== undefined ? measuredY : fallbackY;
+    }
+
+    if (targetY === undefined) return;
+
+    // Scroll so the input field sits comfortably in the upper third of the viewport (~20px below header)
+    const desiredScrollY = Math.max(0, targetY - 20);
+    scrollViewRef.current.scrollTo({
+      y: desiredScrollY,
+      animated: true,
+    });
+  }, []);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      const kbH = e?.endCoordinates?.height || 320;
+      setKeyboardHeight(kbH);
+      if (activeFocusedFieldRef.current) {
+        scrollToActiveField(activeFocusedFieldRef.current, activeFieldOffsetRef.current);
+        setTimeout(() => {
+          scrollToActiveField(activeFocusedFieldRef.current, activeFieldOffsetRef.current);
+        }, 50);
+        setTimeout(() => {
+          scrollToActiveField(activeFocusedFieldRef.current, activeFieldOffsetRef.current);
+        }, 150);
+        setTimeout(() => {
+          scrollToActiveField(activeFocusedFieldRef.current, activeFieldOffsetRef.current);
+        }, 300);
+      }
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+      activeFocusedFieldRef.current = null;
+      activeFieldOffsetRef.current = undefined;
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [scrollToActiveField]);
+
+  const handleFocusField = useCallback((fieldKey: string, innerOffset?: number) => {
+    activeFocusedFieldRef.current = fieldKey;
+    activeFieldOffsetRef.current = innerOffset;
+    scrollToActiveField(fieldKey, innerOffset);
+    setTimeout(() => scrollToActiveField(fieldKey, innerOffset), 60);
+    setTimeout(() => scrollToActiveField(fieldKey, innerOffset), 180);
+    setTimeout(() => scrollToActiveField(fieldKey, innerOffset), 320);
+  }, [scrollToActiveField]);
 
   // Validation rules (excluding serviceType per E1)
   const missingFieldList = useMemo(() => {
@@ -253,6 +345,28 @@ export const EditServiceScreen: React.FC = () => {
       discountRaw: numericOnly,
     }));
   };
+
+  const editDiscountPricing = useMemo(() => {
+    if (!workingCopy.discount || workingCopy.discount <= 0) return null;
+    return getServicePricing(workingCopy.price, workingCopy.discount);
+  }, [workingCopy.price, workingCopy.discount]);
+
+  const isEditDiscountExceeding = Boolean(
+    workingCopy.price && workingCopy.price > 0 && workingCopy.discount && workingCopy.discount >= workingCopy.price
+  );
+
+  const editDiscountPreviewText = useMemo(() => {
+    if (!workingCopy.discount || workingCopy.discount <= 0) return null;
+    if (workingCopy.price && workingCopy.price > 0) {
+      if (workingCopy.discount >= workingCopy.price) {
+        return `⚠️ Discount (${formatNaira(workingCopy.discount)}) cannot exceed service price (${formatNaira(workingCopy.price)})`;
+      }
+      if (editDiscountPricing?.hasDiscount) {
+        return `🎉 ${formatNaira(workingCopy.discount)} discount applied (${editDiscountPricing.percentOff}% OFF) • Client pays ${editDiscountPricing.displayPrice}`;
+      }
+    }
+    return `🏷️ ${formatNaira(workingCopy.discount)} discount will be applied to the service price`;
+  }, [workingCopy.discount, workingCopy.price, editDiscountPricing]);
 
   // Service image slot press
   const handleServiceSlotPress = (index: number) => {
@@ -404,7 +518,7 @@ export const EditServiceScreen: React.FC = () => {
     // Commit changes into shared draft context
     commitWorkingCopy(workingCopy);
     // Return to Review
-    router.back();
+    safeRouter.back();
   };
 
   const headerTitle = `Edit ${workingCopy.name.trim() || draft.name.trim() || 'Service'}`;
@@ -418,14 +532,17 @@ export const EditServiceScreen: React.FC = () => {
         {/* Header: "Edit {service name}" */}
         <EditHeader
           title={headerTitle}
-          onBack={() => router.back()}
-          onHelp={() => router.push('/guide/general' as any)}
+          onBack={() => safeRouter.back()}
+          onHelp={() => safeRouter.push('/guide/general' as any)}
         />
 
         <ScrollView
           ref={scrollViewRef}
           style={styles.scrollContainer}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: (keyboardHeight > 0 ? keyboardHeight : 340) + 160 },
+          ]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
@@ -437,25 +554,25 @@ export const EditServiceScreen: React.FC = () => {
           >
             <Text style={styles.sectionHeaderLabel}>Add service image</Text>
 
-            <View style={styles.imageGrid}>
-              {[0, 1, 2, 3, 4, 5].map((idx) => {
-                const imgUri = workingCopy.images[idx];
-
-                return (
-                  <DashedPhotoSlot
-                    key={idx}
-                    imageUri={imgUri}
-                    isError={hasAttemptedSave && workingCopy.images.length === 0}
-                    onPress={() => handleServiceSlotPress(idx)}
-                    accessibilityLabel={
-                      imgUri
-                        ? `Replace service photo ${idx + 1}`
-                        : `Add service photo slot ${idx + 1}`
-                    }
-                  />
-                );
-              })}
-            </View>
+            <ImageUploadGrid
+              images={workingCopy.images}
+              maxImages={6}
+              columns={3}
+              columnGap={24}
+              rowGap={16}
+              borderRadius={24}
+              cameraSize={24}
+              isError={hasAttemptedSave && workingCopy.images.length === 0}
+              showRemoveBadge={true}
+              onSlotPress={(idx) => handleServiceSlotPress(idx)}
+              onRemoveImage={(idx) =>
+                setWorkingCopy((prev) => ({
+                  ...prev,
+                  images: prev.images.filter((_, i) => i !== idx),
+                }))
+              }
+              accessibilityLabelPrefix="Service photo"
+            />
           </View>
 
           {/* ── 2. Service Category ⓘ ── */}
@@ -467,7 +584,7 @@ export const EditServiceScreen: React.FC = () => {
               <Text style={styles.fieldLabel}>Service Category</Text>
               <TouchableOpacity
                 activeOpacity={0.7}
-                onPress={() => router.push('/guide/general' as any)}
+                onPress={() => safeRouter.push('/guide/general' as any)}
                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 accessibilityLabel="Learn about service categories"
               >
@@ -509,7 +626,7 @@ export const EditServiceScreen: React.FC = () => {
               <Text style={styles.fieldLabel}>Service Name</Text>
               <TouchableOpacity
                 activeOpacity={0.7}
-                onPress={() => router.push('/guide/general' as any)}
+                onPress={() => safeRouter.push('/guide/general' as any)}
                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 accessibilityLabel="Learn about service name"
               >
@@ -526,6 +643,7 @@ export const EditServiceScreen: React.FC = () => {
               placeholderTextColor="rgba(192, 192, 204, 0.96)"
               value={workingCopy.name}
               onChangeText={(text) => handleUpdateField('name', text)}
+              onFocus={() => handleFocusField('name')}
               accessibilityLabel="Service name"
             />
             {/* 1:1 Helper below input per E1 */}
@@ -543,7 +661,7 @@ export const EditServiceScreen: React.FC = () => {
               <Text style={styles.fieldLabel}>Service Description</Text>
               <TouchableOpacity
                 activeOpacity={0.7}
-                onPress={() => router.push('/guide/general' as any)}
+                onPress={() => safeRouter.push('/guide/general' as any)}
                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 accessibilityLabel="Learn about service description"
               >
@@ -558,6 +676,7 @@ export const EditServiceScreen: React.FC = () => {
                 placeholderTextColor="rgba(192, 192, 204, 0.96)"
                 value={workingCopy.description}
                 onChangeText={(text) => handleUpdateField('description', text)}
+                onFocus={() => handleFocusField('description')}
                 multiline
                 textAlignVertical="top"
                 accessibilityLabel="Service description"
@@ -566,12 +685,12 @@ export const EditServiceScreen: React.FC = () => {
           </View>
 
           {/* ── 5. Discounts ⓘ ── */}
-          <View style={styles.fieldSection}>
+          <View style={styles.fieldSection} onLayout={setFieldLayout('discounts')}>
             <View style={styles.labelWithInfoRow}>
               <Text style={styles.fieldLabel}>Discounts</Text>
               <TouchableOpacity
                 activeOpacity={0.7}
-                onPress={() => router.push('/guide/general' as any)}
+                onPress={() => safeRouter.push('/guide/general' as any)}
                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 accessibilityLabel="Learn about discounts"
               >
@@ -587,10 +706,39 @@ export const EditServiceScreen: React.FC = () => {
                 placeholderTextColor="rgba(192, 192, 204, 0.96)"
                 value={workingCopy.discountRaw ? formatWithCommas(workingCopy.discountRaw) : ''}
                 onChangeText={handleDiscountChange}
+                onFocus={() => handleFocusField('discounts')}
                 keyboardType="numeric"
+                multiline={false}
+                numberOfLines={1}
+                scrollEnabled={true}
                 accessibilityLabel="Discount amount in Naira"
               />
             </View>
+
+            {/* Live Discount Calculation Feedback Pill */}
+            {editDiscountPreviewText ? (
+              <View
+                style={[
+                  styles.discountFeedbackPill,
+                  isEditDiscountExceeding
+                    ? styles.discountFeedbackPillWarning
+                    : styles.discountFeedbackPillSuccess,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.discountFeedbackText,
+                    isEditDiscountExceeding
+                      ? styles.discountFeedbackTextWarning
+                      : styles.discountFeedbackTextSuccess,
+                  ]}
+                  numberOfLines={2}
+                >
+                  {editDiscountPreviewText}
+                </Text>
+              </View>
+            ) : null}
+
             {/* 1:1 Helper per E1 */}
             <Text style={styles.discountHelperText}>Not compulsory</Text>
           </View>
@@ -659,7 +807,11 @@ export const EditServiceScreen: React.FC = () => {
                     placeholderTextColor="rgba(192, 192, 204, 0.96)"
                     value={workingCopy.priceRaw ? formatWithCommas(workingCopy.priceRaw) : ''}
                     onChangeText={handlePriceChange}
+                    onFocus={() => handleFocusField('price')}
                     keyboardType="numeric"
+                    multiline={false}
+                    numberOfLines={1}
+                    scrollEnabled={true}
                     accessibilityLabel="Service price in Naira"
                   />
                 </View>
@@ -697,7 +849,7 @@ export const EditServiceScreen: React.FC = () => {
           </View>
 
           {/* ── 8. Service Package (Reused PackageBlockList) ── */}
-          <View style={styles.fieldSection}>
+          <View style={styles.fieldSection} onLayout={setFieldLayout('package')}>
             <PackageBlockList
               packages={workingCopy.packages}
               mode="edit"
@@ -708,11 +860,13 @@ export const EditServiceScreen: React.FC = () => {
               onUpdatePackage={handleUpdatePackage}
               onSlotPress={handlePackageSlotPress}
               onRemoveImage={handleRemovePackageImage}
-              onOpenGuide={() => router.push('/guide/general' as any)}
+              onOpenGuide={() => safeRouter.push('/guide/general' as any)}
               onDurationPress={(pkgId) => {
                 setActiveDurationTarget(pkgId);
                 setIsDurationSheetVisible(true);
               }}
+              onFocusContents={(pkgId, offset) => handleFocusField('packageContents', offset)}
+              onFocusPrice={(pkgId, offset) => handleFocusField('packagePrice', offset)}
             />
           </View>
 
@@ -727,8 +881,6 @@ export const EditServiceScreen: React.FC = () => {
           showErrorToast={hasAttemptedSave && !isValid}
           saveLabel="Save changes"
         />
-
-        <NativeDockSpacer />
 
         {/* ── Modal Sheets ── */}
         <ServiceCategorySheet
@@ -937,9 +1089,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+    minWidth: 0,
   },
   discountTextInput: {
     flex: 1,
+    minWidth: 0,
     fontFamily: FONT_REGULAR,
     fontSize: 16,
     lineHeight: 24,
@@ -962,6 +1117,7 @@ const styles = StyleSheet.create({
   },
   columnItem: {
     flex: 1,
+    minWidth: 0,
   },
   subFieldLabel: {
     fontFamily: FONT_REGULAR,
@@ -973,6 +1129,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   priceInputField: {
+    width: '100%',
     height: 48,
     borderRadius: 24,
     borderWidth: 1,
@@ -981,11 +1138,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+    minWidth: 0,
   },
   currencyPrefixContainer: {
     justifyContent: 'center',
     alignItems: 'center',
     paddingRight: 6,
+    flexShrink: 0,
   },
   currencyPrefixText: {
     fontFamily: FONT_REGULAR,
@@ -1000,6 +1160,7 @@ const styles = StyleSheet.create({
     height: 24,
     backgroundColor: 'rgba(235, 235, 245, 0.96)',
     marginHorizontal: 4,
+    flexShrink: 0,
   },
   nairaSymbol: {
     fontFamily: FONT_REGULAR,
@@ -1009,9 +1170,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     color: 'rgba(0, 8, 20, 0.96)',
     marginRight: 2,
+    flexShrink: 0,
   },
   priceTextInput: {
     flex: 1,
+    minWidth: 0,
     fontFamily: FONT_MEDIUM,
     fontWeight: '500',
     fontSize: 16,
@@ -1023,6 +1186,34 @@ const styles = StyleSheet.create({
   inputErrorBorder: {
     borderColor: 'rgba(204, 41, 41, 0.9)',
     borderWidth: 1.5,
+  },
+  discountFeedbackPill: {
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 4,
+  },
+  discountFeedbackPillSuccess: {
+    backgroundColor: 'rgba(12, 121, 12, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(12, 121, 12, 0.25)',
+  },
+  discountFeedbackPillWarning: {
+    backgroundColor: 'rgba(204, 41, 41, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(204, 41, 41, 0.25)',
+  },
+  discountFeedbackText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 13,
+    lineHeight: 18,
+    letterSpacing: 0.2,
+  },
+  discountFeedbackTextSuccess: {
+    color: '#0C790C',
+  },
+  discountFeedbackTextWarning: {
+    color: '#CC2929',
   },
 });
 

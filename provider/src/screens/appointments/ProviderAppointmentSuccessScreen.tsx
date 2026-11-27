@@ -1,4 +1,5 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef } from 'react';
 import {
@@ -12,35 +13,14 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 
 const CONFETTI_IMAGE = require('../../../assets/images/appointments/booking_success_confetti.png');
 const CHARACTERS_IMAGE = require('../../../assets/images/appointments/booking_success_characters.png');
 
-// 1:1 Figma arrow-left-02 icon
-const ArrowLeft02Icon = ({ size = 24, color = '#141B34' }: { size?: number; color?: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M4.5 12H19.5"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <Path
-      d="M10 18C10 18 4.5 13.58 4.5 12C4.5 10.42 10 6 10 6"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
 export const ProviderAppointmentSuccessScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { height: screenHeight } = Dimensions.get('window');
 
   // ── Native 60fps Animation Drivers ──
@@ -117,7 +97,7 @@ export const ProviderAppointmentSuccessScreen: React.FC = () => {
         ]),
       ]),
 
-      // Action Button slide up
+      // Action Buttons slide up
       Animated.sequence([
         Animated.delay(350),
         Animated.parallel([
@@ -149,12 +129,8 @@ export const ProviderAppointmentSuccessScreen: React.FC = () => {
 
   const params = useLocalSearchParams<{ id?: string }>();
 
-  const handleBack = () => {
-    router.replace('/appointments');
-  };
-
   const handleCheckStatus = () => {
-    router.replace({
+    safeRouter.replace({
       pathname: '/appointment/[id]' as any,
       params: {
         id: (params.id as string) || 'awaiting-1',
@@ -163,32 +139,23 @@ export const ProviderAppointmentSuccessScreen: React.FC = () => {
     });
   };
 
+  const handleSeeMore = () => {
+    safeRouter.replace('/appointments');
+  };
+
   const scale = screenHeight / 844;
 
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
 
-      {/* ── Back Button (Figma: width 48, height 48, radius 8, left 16, top 68) ── */}
-      <TouchableOpacity
-        style={[
-          styles.backButton,
-          { top: Platform.OS === 'ios' ? Math.max(insets.top + 20, 68) : Math.max(insets.top + 12, 48) },
-        ]}
-        activeOpacity={0.7}
-        onPress={handleBack}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-      >
-        <ArrowLeft02Icon size={24} color="#141B34" />
-      </TouchableOpacity>
-
-      {/* ── Rectangle 297: Confetti (Figma: 466x308px, left: calc(50% - 466px/2 - 14px), top: 46px) ── */}
+      {/* ── Rectangle 297: Confetti (Figma: 466x308px, left: calc(50% - 466px/2), top: -4px) ── */}
       <Animated.View
         pointerEvents="none"
         style={[
           styles.confettiFrame,
           {
-            top: Math.round(46 * scale),
+            top: Math.round(-4 * scale),
             opacity: confettiOpacity,
             transform: [{ scale: confettiScale }],
           },
@@ -201,13 +168,13 @@ export const ProviderAppointmentSuccessScreen: React.FC = () => {
         />
       </Animated.View>
 
-      {/* ── Rectangle 296: Celebrating Characters (Figma: 213x153px, left: calc(50% - 213px/2 + 0.5px), top: 230px) ── */}
+      {/* ── Rectangle 296: Celebrating Characters (Figma: 234x168px, left: calc(50% - 234px/2), top: 177px) ── */}
       <Animated.View
         pointerEvents="none"
         style={[
           styles.charactersFrame,
           {
-            top: Math.round(230 * scale),
+            top: Math.round(177 * scale),
             opacity: charactersOpacity,
             transform: [
               { scale: charactersScale },
@@ -223,42 +190,76 @@ export const ProviderAppointmentSuccessScreen: React.FC = () => {
         />
       </Animated.View>
 
-      {/* ── Instruction Subtitle (Figma: 358x40px, left: calc(50% - 358px/2), top: 517px) ── */}
+      {/* ── Appointment Accepted Title (Figma: 358x28px, left: calc(50% - 358px/2), top: 401px) ── */}
       <Animated.View
         style={[
-          styles.instructionContainer,
+          styles.titleContainer,
           {
-            top: Math.round(517 * scale),
+            top: Math.round(401 * scale),
             opacity: textOpacity,
             transform: [{ translateY: textTranslateY }],
           },
         ]}
       >
-        <Text style={styles.instructionText}>
-          Go to <Text style={styles.instructionBold}>Category</Text> and select{' '}
-          <Text style={styles.instructionBold}>Waiting for Client</Text> to view the
-          appointment status.
+        <Text style={styles.congratulationTitle}>Appointment accepted</Text>
+      </Animated.View>
+
+      {/* ── Subtitle (Figma: 350x48px, left: calc(50% - 350px/2), top: 453px) ── */}
+      <Animated.View
+        style={[
+          styles.subtitleContainer,
+          {
+            top: Math.round(453 * scale),
+            opacity: textOpacity,
+            transform: [{ translateY: textTranslateY }],
+          },
+        ]}
+      >
+        <Text style={styles.congratulationSubtitle}>
+          Your staff will be notified on the accepted appointment
         </Text>
       </Animated.View>
 
-      {/* ── Filled Action Button (Figma: 358x48px, radius 24px, left: calc(50% - 358px/2), top: 698px) ── */}
+      {/* ── Primary Action Button: Check appointment status (Figma: 358x48px, left: calc(50% - 358px/2), top: 598px) ── */}
       <Animated.View
         style={[
-          styles.actionButtonContainer,
+          styles.primaryButtonContainer,
           {
-            top: Math.round(698 * scale),
+            top: Math.round(598 * scale),
             opacity: buttonOpacity,
             transform: [{ translateY: buttonTranslateY }],
           },
         ]}
       >
         <TouchableOpacity
-          style={styles.actionButton}
+          style={styles.primaryButton}
           activeOpacity={0.88}
           onPress={handleCheckStatus}
         >
-          <Text style={styles.actionButtonText} numberOfLines={1}>
-            Check Appointment Status
+          <Text style={styles.primaryButtonText} numberOfLines={1}>
+            Check appointment status
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
+
+      {/* ── Secondary Action Button: See more appointments (Figma: 358x48px, left: calc(50% - 358px/2), top: 686px) ── */}
+      <Animated.View
+        style={[
+          styles.secondaryButtonContainer,
+          {
+            top: Math.round(686 * scale),
+            opacity: buttonOpacity,
+            transform: [{ translateY: buttonTranslateY }],
+          },
+        ]}
+      >
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          activeOpacity={0.88}
+          onPress={handleSeeMore}
+        >
+          <Text style={styles.secondaryButtonText} numberOfLines={1}>
+            See more appointments
           </Text>
         </TouchableOpacity>
       </Animated.View>
@@ -280,25 +281,11 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
 
-  // ── Back Button (Figma: width 48, height 48, left 16, top 68, radius 8, padding 12, gap 10) ──
-  backButton: {
-    position: 'absolute',
-    left: 16,
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    padding: 12,
-    gap: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 20,
-  },
-
-  // ── Rectangle 297: Confetti (466x308px, left: calc(50% - 466px/2 - 14px), top: 46px) ──
+  // ── Rectangle 297: Confetti (466x308px, left: calc(50% - 466px/2), top: -4px) ──
   confettiFrame: {
     position: 'absolute',
     left: '50%',
-    marginLeft: -247, // -(466/2) - 14 = -233 - 14
+    marginLeft: -233, // -(466/2)
     width: 466,
     height: 308,
     justifyContent: 'center',
@@ -309,49 +296,65 @@ const styles = StyleSheet.create({
     height: 308,
   },
 
-  // ── Rectangle 296: Characters (213x153px, left: calc(50% - 213px/2 + 0.5px), top: 230px) ──
+  // ── Rectangle 296: Characters (234x168px, left: calc(50% - 234px/2), top: 177px) ──
   charactersFrame: {
     position: 'absolute',
     left: '50%',
-    marginLeft: -106, // -(213/2) + 0.5 = -106.5 + 0.5
-    width: 213,
-    height: 153,
+    marginLeft: -117, // -(234/2)
+    width: 234,
+    height: 168,
     justifyContent: 'center',
     alignItems: 'center',
   },
   charactersImage: {
-    width: 213,
-    height: 153,
+    width: 234,
+    height: 168,
   },
 
-  // ── Instruction Subtitle (358x40px, left: calc(50% - 358px/2), top: 517px) ──
-  instructionContainer: {
+  // ── Title Container (358x28px, left: calc(50% - 358px/2), top: 401px) ──
+  titleContainer: {
     position: 'absolute',
     left: '50%',
     marginLeft: -179,
     width: 358,
-    height: 40,
+    height: 28,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  instructionText: {
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
-    fontWeight: '400',
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 0.4,
+  congratulationTitle: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 20,
+    lineHeight: 28,
+    letterSpacing: 0.2,
     textAlign: 'center',
     color: '#000000',
     includeFontPadding: false,
   },
-  instructionBold: {
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_700Bold',
-    fontWeight: '700',
-    color: '#000000',
+
+  // ── Subtitle Container (350x48px, left: calc(50% - 350px/2), top: 453px) ──
+  subtitleContainer: {
+    position: 'absolute',
+    left: '50%',
+    marginLeft: -175,
+    width: 350,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  congratulationSubtitle: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.4,
+    textAlign: 'center',
+    color: 'rgba(96, 96, 102, 0.96)',
+    includeFontPadding: false,
   },
 
-  // ── Filled Action Button (358x48px, radius 24, left: calc(50% - 358px/2), top: 698px) ──
-  actionButtonContainer: {
+  // ── Primary Action Button (358x48px, radius 24, left: calc(50% - 358px/2), top: 598px) ──
+  primaryButtonContainer: {
     position: 'absolute',
     left: '50%',
     marginLeft: -179,
@@ -360,7 +363,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 10,
   },
-  actionButton: {
+  primaryButton: {
     width: 358,
     height: 48,
     borderRadius: 24,
@@ -369,19 +372,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    shadowColor: 'rgba(133, 139, 148, 0.08)',
+    shadowColor: 'rgba(133, 139, 148, 0.04)',
     shadowOffset: { width: 4, height: 10 },
-    shadowOpacity: 0.16,
+    shadowOpacity: 0.08,
     shadowRadius: 24,
-    elevation: 6,
+    elevation: 4,
   },
-  actionButtonText: {
+  primaryButtonText: {
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',
     fontWeight: '500',
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: 0.15,
     color: '#FFFFFF',
+    textAlign: 'center',
+    includeFontPadding: false,
+  },
+
+  // ── Secondary Action Button (358x48px, radius 24, left: calc(50% - 358px/2), top: 686px) ──
+  secondaryButtonContainer: {
+    position: 'absolute',
+    left: '50%',
+    marginLeft: -179,
+    width: 358,
+    height: 48,
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  secondaryButton: {
+    width: 358,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  secondaryButtonText: {
+    fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.15,
+    color: 'rgba(0, 8, 20, 0.96)',
     textAlign: 'center',
     includeFontPadding: false,
   },

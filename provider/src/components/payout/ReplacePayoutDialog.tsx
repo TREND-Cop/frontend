@@ -9,6 +9,7 @@ import {
   Image,
 } from 'react-native';
 import { fontFamilies } from '../../constants/theme';
+import { useSingleFlight } from '../../utils/safeNavigation';
 
 const WARNING_ICON = require('../../../assets/images/payout/warning_triangle.png');
 
@@ -33,19 +34,28 @@ export const ReplacePayoutDialog: React.FC<ReplacePayoutDialogProps> = ({
   onCancel,
   onConfirm,
 }) => {
+  const safeCancel = useSingleFlight(() => {
+    if (!visible) return;
+    onCancel();
+  });
+  const safeConfirm = useSingleFlight(() => {
+    if (!visible) return;
+    onConfirm();
+  });
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="fade"
       statusBarTranslucent
-      onRequestClose={onCancel}
+      onRequestClose={safeCancel}
     >
       <View style={styles.backdropOverlay}>
         <TouchableOpacity
           style={StyleSheet.absoluteFill}
           activeOpacity={1}
-          onPress={onCancel}
+          onPress={safeCancel}
         />
 
         {/* ── Dialog Card (326x232, radius 16) ── */}
@@ -61,9 +71,9 @@ export const ReplacePayoutDialog: React.FC<ReplacePayoutDialogProps> = ({
 
           {/* Description texts */}
           <View style={styles.textContainer}>
-            <Text style={styles.titleText}>Creating new payout method?</Text>
+            <Text style={styles.titleText}>Creating new Payout Wallet method?</Text>
             <Text style={styles.bodyText}>
-              Creating a new payout method will automatically delete the existing one
+              Creating a new payout wallet method will automatically delete the existing one
             </Text>
           </View>
 
@@ -73,7 +83,7 @@ export const ReplacePayoutDialog: React.FC<ReplacePayoutDialogProps> = ({
             <TouchableOpacity
               style={styles.yesButton}
               activeOpacity={0.8}
-              onPress={onConfirm}
+              onPress={safeConfirm}
             >
               <Text style={styles.yesButtonText}>Yes, Create</Text>
             </TouchableOpacity>
@@ -82,7 +92,7 @@ export const ReplacePayoutDialog: React.FC<ReplacePayoutDialogProps> = ({
             <TouchableOpacity
               style={styles.noButton}
               activeOpacity={0.8}
-              onPress={onCancel}
+              onPress={safeCancel}
             >
               <Text style={styles.noButtonText}>No,Cancel It.</Text>
             </TouchableOpacity>
@@ -105,10 +115,11 @@ const styles = StyleSheet.create({
   },
   dialogCard: {
     width: 326,
-    height: 232,
+    minHeight: 256,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 16,
+    gap: 16,
     alignItems: 'center',
     justifyContent: 'space-between',
     ...Platform.select({

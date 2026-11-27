@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ArrowLeft, Search, X } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { CategorySkeleton } from '../../components/ui/CategorySkeleton';
 import { useTabSkeleton } from '../../utils/tabSkeletonStore';
 import { colors, typography } from '../../constants/theme';
@@ -19,6 +19,7 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { MOCK_SERVICES_MEN, MOCK_SERVICES_WOMEN, getServiceNameById } from './mockServices';
 import { previewStore } from '../../utils/previewStore';
 import { useNativeDock } from '../../utils/useNativeDock';
+import { useLiveCatalog } from '../../hooks/useLiveCatalog';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CUSTOM ICONS
@@ -59,13 +60,14 @@ const SIDEBAR_CATEGORIES = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const CategoryScreen = ({ categoryId }: { categoryId?: string }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { hasDock, dockHeight } = useNativeDock();
   const tabBottomPadding = 58 + (hasDock ? dockHeight + 8 : 16) + 24;
   const isLoading = useTabSkeleton('category', 1100);
   const [selectedCategory, setSelectedCategory] = useState(categoryId || SIDEBAR_CATEGORIES[0].id);
   const [activeTab, setActiveTab] = useState<'Services' | 'Men' | 'Women'>('Men');
   const [searchQuery, setSearchQuery] = useState('');
+  const { services: liveServices } = useLiveCatalog();
 
   React.useEffect(() => {
     if (categoryId) {
@@ -77,8 +79,29 @@ export const CategoryScreen = ({ categoryId }: { categoryId?: string }) => {
 
   const displayedServices = useMemo(() => {
     const trimmed = searchQuery.trim().toLowerCase();
+    const liveMapped = liveServices
+      .filter((s) => {
+        if (trimmed) {
+          return (
+            s.name.toLowerCase().includes(trimmed) ||
+            (s.category || '').toLowerCase().includes(trimmed) ||
+            (s.business_name || '').toLowerCase().includes(trimmed)
+          );
+        }
+        return true;
+      })
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        image:
+          s.images[0] ||
+          'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=400&q=80',
+        catId: selectedCategory,
+      }));
+
     if (!trimmed) {
-      return activeDataSet[selectedCategory] || [];
+      const localList = activeDataSet[selectedCategory] || [];
+      return liveMapped.length > 0 ? [...liveMapped, ...localList] : localList;
     }
 
     // When searching, search across all categories in the active tab
@@ -86,10 +109,11 @@ export const CategoryScreen = ({ categoryId }: { categoryId?: string }) => {
       services.map((s) => ({ ...s, catId }))
     );
 
-    return allServices.filter((s) =>
+    const localFiltered = allServices.filter((s) =>
       s.name.replace(/\n/g, ' ').toLowerCase().includes(trimmed)
     );
-  }, [searchQuery, activeDataSet, selectedCategory]);
+    return liveMapped.length > 0 ? [...liveMapped, ...localFiltered] : localFiltered;
+  }, [searchQuery, activeDataSet, selectedCategory, liveServices]);
 
   if (isLoading) {
     return <CategorySkeleton />;
@@ -100,7 +124,7 @@ export const CategoryScreen = ({ categoryId }: { categoryId?: string }) => {
       {/* ── Header ── */}
       <View style={[styles.header, !categoryId && styles.headerCentered]}>
         {Boolean(categoryId) ? (
-          <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : router.replace('/home' as any))} style={styles.backButton}>
+          <TouchableOpacity onPress={() => (safeRouter.canGoBack() ? safeRouter.back() : safeRouter.replace('/home' as any))} style={styles.backButton}>
             <ArrowLeft size={24} color={colors.barberPrimary} />
           </TouchableOpacity>
         ) : null}
@@ -250,7 +274,7 @@ export const CategoryScreen = ({ categoryId }: { categoryId?: string }) => {
                           : getServiceNameById(targetCatId);
                       const cleanServiceName = service.name.replace(/\n/g, ' ');
 
-                      router.push({
+                      safeRouter.push({
                         pathname: `/salon-listing/${service.id}`,
                         params: {
                           id: service.id,

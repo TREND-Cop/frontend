@@ -44,6 +44,7 @@ example
 /android
 
 # dev tools & user temp folders
+backend-main/
 tools/
 .agents/
 .idea/

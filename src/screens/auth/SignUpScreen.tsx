@@ -10,17 +10,21 @@ import {
   Platform,
   Image,
   Keyboard,
+  BackHandler,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { Check, ChevronDown, X, Eye, EyeOff } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { SearchablePicker } from '../../components/SearchablePicker';
-import { supabase } from '../../lib/supabase';
+import { setPendingAuthDraft } from '../../api/trendApi';
+import { signInWithGoogle, consumeGoogleRedirectResult } from '../../api/firebaseAuth';
 import { isPhoneValid, isPasswordValid } from '../../constants/validation';
 import { useUserContext } from '../../store/UserContext';
 import { typography } from '../../constants/theme';
 import { GoogleIcon } from '../../components/GoogleIcon';
+import { WebMobileViewport } from '../../components/WebMobileViewport';
 
 // ── Country Data ──
 let CountryData: any;
@@ -42,16 +46,29 @@ try {
   };
 }
 
-// ── Apple SVG Icon (Figma: si:apple-fill 32x32) ──
-const AppleIcon = () => (
-  <Svg width={32} height={32} viewBox="0 0 24 24" fill="#000000">
-    <Path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.38c.62-.75 1.04-1.8 0.92-2.85-.9.04-1.99.6-2.64 1.35-.57.66-1.07 1.72-.94 2.74 1.01.08 2.04-.49 2.66-1.24z" />
-  </Svg>
-);
-
 export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
+
+  // Ensures skip (X) button never collides with status bar / dynamic island
+  const skipButtonTop = useMemo(() => {
+    const safeTop = Math.max(
+      insets.top,
+      Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) : 0,
+      36
+    );
+    return safeTop + 16;
+  }, [insets.top]);
+
+  // Hardware back press returns cleanly to role selection on web or root onboarding on native
+  useEffect(() => {
+    const onBackPress = () => {
+      safeRouter.replace((Platform.OS === 'web' ? '/role-selection' : '/onboarding') as any);
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [safeRouter]);
 
   // ── Form State ──
   const [phone, setPhone] = useState('');
@@ -129,37 +146,81 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
     setPhoneError(null);
     setPasswordError(null);
 
-    try {
-      await supabase.auth.signUp({
-        phone: `${selectedCountry.code}${phone}`,
-        password: password,
-      });
-    } catch (e) {
-      console.log('Signup info:', e);
-    }
+    setPendingAuthDraft({
+      phone: `${selectedCountry.code}${phone}`,
+      password,
+    });
 
     await updateProfile({ phone: formattedPhone, signupMethod: 'phone' });
 
-    router.push('/user-location');
-  }, [formValid, selectedCountry, phone, password, updateProfile, router]);
+    safeRouter.push('/user-location');
+  }, [formValid, selectedCountry, phone, password, updateProfile, safeRouter]);
 
-  const handleSkip = useCallback(() => {
-    router.replace('/home');
-  }, [router]);
+  const handleSkip = useCallback(async () => {
+    try {
+      await updateProfile({ isLoggedIn: false });
+    } catch {}
+    safeRouter.replace('/home');
+  }, [safeRouter, updateProfile]);
+
+  const finishGoogleSignUp = useCallback(
+    async (res: Awaited<ReturnType<typeof signInWithGoogle>>) => {
+      if (!res.ok) {
+        if (!res.cancelled && !res.redirecting && res.error) {
+          setPhoneTouched(true);
+          setPhoneError(res.error);
+        }
+        return;
+      }
+      const user = res.user || {};
+      await updateProfile({
+        isLoggedIn: true,
+        email: user.email || null,
+        fullName: user.name || null,
+        username: user.name || user.email?.split('@')[0] || 'User',
+        avatarUri: user.image || null,
+        signupMethod: 'email',
+      });
+      if (res.created) {
+        safeRouter.push('/user-location');
+      } else {
+        safeRouter.replace({ pathname: '/sign-in-success', params: { mode: 'sign-in' } } as any);
+      }
+    },
+    [safeRouter, updateProfile]
+  );
+
+  useEffect(() => {
+    consumeGoogleRedirectResult('client').then((res) => {
+      if (res) finishGoogleSignUp(res);
+    });
+  }, [finishGoogleSignUp]);
+
+  const handleGoogleSignUp = useCallback(async () => {
+    setPhoneError(null);
+    setPasswordError(null);
+    const res = await signInWithGoogle('client');
+    await finishGoogleSignUp(res);
+  }, [finishGoogleSignUp]);
+
+  const isWeb = Platform.OS === 'web';
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      {/* ── Top-Right Skip / X Button ── */}
-      <TouchableOpacity
-        style={styles.skipButton}
-        onPress={handleSkip}
-        activeOpacity={0.7}
-        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        accessibilityLabel="Skip Sign Up"
-        accessibilityRole="button"
-      >
-        <X size={20} color="#141A33" strokeWidth={1.8} />
-      </TouchableOpacity>
+    <WebMobileViewport>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+        {/* ── Top-Right Skip / X Button (hidden on web where Guest button handles guest mode) ── */}
+        {!isWeb && (
+          <TouchableOpacity
+            style={[styles.skipButton, { top: skipButtonTop }]}
+            onPress={handleSkip}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityLabel="Skip Sign Up"
+            accessibilityRole="button"
+          >
+            <X size={20} color="#141A33" strokeWidth={1.8} />
+          </TouchableOpacity>
+        )}
 
       <KeyboardAvoidingView
         style={styles.keyboardContainer}
@@ -180,7 +241,7 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
         >
           {/* ── Sign Up Header (Figma: width 278px, height 64px, gap 8px) ── */}
           <View style={styles.headerContainer}>
-            <Text style={styles.headerTitle}>Sign Up</Text>
+            <Text style={styles.headerTitle}>{isWeb ? 'Sign up' : 'Sign Up'}</Text>
             <Text style={styles.headerSubtitle}>
               Hello, welcome to <Text style={styles.brandBold}>TREND.</Text>
             </Text>
@@ -285,6 +346,7 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
           <TouchableOpacity
             style={[
               styles.actionButton,
+              isWeb ? styles.actionButtonWebSpacing : null,
               !formValid ? styles.actionButtonDisabled : null,
             ]}
             onPress={handleSignUp}
@@ -294,12 +356,26 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
             <Text
               style={[
                 styles.actionButtonText,
+                isWeb ? styles.actionButtonTextWeb : null,
                 !formValid ? styles.actionButtonTextDisabled : null,
               ]}
             >
-              Sign Up
+              {isWeb ? 'Sign up' : 'Sign Up'}
             </Text>
           </TouchableOpacity>
+
+          {/* ── Guest Button (Figma: 360x48px, top 499px, radius 24px, rgba(247, 247, 247, 0.96)) ── */}
+          {isWeb && (
+            <TouchableOpacity
+              style={styles.guestButton}
+              onPress={handleSkip}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Continue as Guest"
+            >
+              <Text style={styles.guestButtonText}>Guest</Text>
+            </TouchableOpacity>
+          )}
 
           {/* ── Divider: Sign up with (Figma: width 311px, gap 16px) ── */}
           <View style={styles.dividerRow}>
@@ -308,24 +384,17 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
             <View style={styles.dividerLine} />
           </View>
 
-          {/* ── Sign Up Options: Google & Apple (Figma: width 192px, height 56px, gap 80px) ── */}
+          {/* ── Sign Up Option: Centered Google Pill Button ── */}
           <View style={styles.socialRow}>
-            {/* Google Button */}
             <TouchableOpacity
-              style={styles.socialButton}
-              activeOpacity={0.7}
-              onPress={() => console.log('Google Sign Up')}
+              style={styles.googleButton}
+              activeOpacity={0.75}
+              onPress={handleGoogleSignUp}
+              accessibilityRole="button"
+              accessibilityLabel="Continue with Google"
             >
-              <GoogleIcon size={28} />
-            </TouchableOpacity>
-
-            {/* Apple Button */}
-            <TouchableOpacity
-              style={styles.socialButton}
-              activeOpacity={0.7}
-              onPress={() => console.log('Apple Sign Up')}
-            >
-              <AppleIcon />
+              <GoogleIcon size={22} />
+              <Text style={styles.googleButtonText}>Continue with Google</Text>
             </TouchableOpacity>
           </View>
 
@@ -337,7 +406,7 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
                 if (navigation?.navigate) {
                   navigation.navigate('SignInScreen');
                 } else {
-                  router.push('/sign-in');
+                  safeRouter.push('/sign-in');
                 }
               }}
               activeOpacity={0.7}
@@ -352,14 +421,14 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
             <Text style={styles.termsBaseText}>Application </Text>
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={() => router.push('/terms-policy')}
+              onPress={() => safeRouter.push('/terms-policy')}
             >
               <Text style={styles.termsLinkText}>Terms</Text>
             </TouchableOpacity>
             <Text style={styles.termsBaseText}> and </Text>
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={() => router.push('/terms-policy')}
+              onPress={() => safeRouter.push('/terms-policy')}
             >
               <Text style={styles.termsLinkText}>condition</Text>
             </TouchableOpacity>
@@ -397,6 +466,7 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
         onClose={() => setShowCountryPicker(false)}
       />
     </SafeAreaView>
+    </WebMobileViewport>
   );
 };
 
@@ -408,7 +478,7 @@ const styles = StyleSheet.create({
   },
   skipButton: {
     position: 'absolute',
-    top: 16,
+    top: 56,
     right: 16,
     width: 40,
     height: 40,
@@ -575,8 +645,32 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
     color: '#FFFFFF',
   },
+  actionButtonWebSpacing: {
+    marginBottom: 32,
+  },
+  actionButtonTextWeb: {
+    textTransform: 'none',
+  },
   actionButtonTextDisabled: {
     color: 'rgba(192, 192, 204, 0.96)',
+  },
+  guestButton: {
+    width: '100%',
+    maxWidth: 360,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(235, 235, 245, 0.96)',
+    borderStyle: 'solid',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+    marginBottom: 24,
+  },
+  guestButtonText: {
+    ...typography.button,
+    color: 'rgba(0, 8, 20, 0.96)',
   },
 
   // ── Divider Row (Figma: width 311px, height 20px, gap 16px) ──
@@ -586,7 +680,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    marginBottom: 32,
+    marginBottom: 20,
   },
   dividerLine: {
     flex: 1,
@@ -603,23 +697,35 @@ const styles = StyleSheet.create({
     color: 'rgba(96, 96, 102, 0.96)',
   },
 
-  // ── Social Row (Figma: width 192px, height 56px, gap 80px) ──
+  // ── Centered Google Auth Row ──
   socialRow: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 28,
+  },
+  googleButton: {
+    width: '100%',
+    maxWidth: 360,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(192, 192, 204, 0.96)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 80,
-    marginBottom: 32,
-  },
-  socialButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(192, 192, 204, 0.96)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',
+  },
+  googleButtonText: {
+    fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.15,
+    color: 'rgba(0, 8, 20, 0.96)',
+    includeFontPadding: false,
   },
 
   // ── Already have an account row (Figma: width 265px, height 48px, gap 8px) ──

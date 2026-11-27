@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import { StepProgressHeader } from '../../components/StepProgressHeader';
@@ -84,7 +85,7 @@ export const BusinessOwnerProfileScreen: React.FC<BusinessOwnerProfileScreenProp
   onNext,
   onBack,
 }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ phone?: string; countryCode?: string }>();
   const { setOwnerProfile } = useProviderOnboarding();
@@ -223,19 +224,19 @@ export const BusinessOwnerProfileScreen: React.FC<BusinessOwnerProfileScreenProp
         });
         setTimeout(() => {
           setIsLoading(false);
-          router.push('/business-name' as any);
+          safeRouter.push('/business-name' as any);
         }, 1000);
       }
     } catch {
       setIsLoading(false);
     }
-  }, [fullName, photoUri, params.phone, params.countryCode, onSaveBusinessProfile, onNext, setOwnerProfile, router]);
+  }, [fullName, photoUri, params.phone, params.countryCode, onSaveBusinessProfile, onNext, setOwnerProfile, safeRouter]);
 
   const handleBackPress = () => {
     if (onBack) {
       onBack();
     } else {
-      router.back();
+      safeRouter.back();
     }
   };
 

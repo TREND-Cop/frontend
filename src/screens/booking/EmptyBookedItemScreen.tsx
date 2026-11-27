@@ -7,7 +7,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
 import { typography } from '../../constants/theme';
 
@@ -86,14 +86,14 @@ export const EmptyBookedItemScreen: React.FC<EmptyBookedItemProps> = ({
   onGoBack,
   onExploreLocations,
 }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
 
   const handleGoBack = () => {
     if (onGoBack) {
       onGoBack();
     } else {
-      router.replace('/home/bookings' as any);
+      safeRouter.replace('/home/bookings' as any);
     }
   };
 
@@ -101,7 +101,7 @@ export const EmptyBookedItemScreen: React.FC<EmptyBookedItemProps> = ({
     if (onExploreLocations) {
       onExploreLocations();
     } else {
-      router.push('/home/explore' as any);
+      safeRouter.push('/home/explore' as any);
     }
   };
 

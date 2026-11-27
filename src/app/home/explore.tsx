@@ -1,4 +1,5 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 import {
   Accessibility,
@@ -482,7 +483,7 @@ const EXPLORE_PLACES: ExplorePlace[] = [
 ];
 
 export default function ExploreScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const isLoading = useTabSkeleton('explore', 1100);
   const params = useLocalSearchParams<{ filter?: string; q?: string }>();
   const insets = useSafeAreaInsets();
@@ -969,7 +970,7 @@ export default function ExploreScreen() {
           <TouchableOpacity
             style={styles.searchBar}
             activeOpacity={0.8}
-            onPress={() => router.push('/search')}
+            onPress={() => safeRouter.push('/search')}
           >
             <Search size={22} color="#000000" strokeWidth={1.5} />
             <Text style={styles.searchPlaceholder}>
@@ -1136,7 +1137,7 @@ export default function ExploreScreen() {
                 imageBorderRadius={place.imageBorderRadius}
                 titleSize={place.titleSize}
                 onPress={() =>
-                  router.push({
+                  safeRouter.push({
                     pathname: '/salon/[id]',
                     params: { id: place.id, name: place.title },
                   } as any)

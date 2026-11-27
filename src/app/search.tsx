@@ -1,4 +1,5 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../utils/safeNavigation';
 import {
   ArrowLeft,
   Check,
@@ -452,7 +453,7 @@ function computeSimilarity(query: string, candidate: string): number {
 }
 
 export default function SearchScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams<{ q?: string }>();
 
   // Dynamic search query state
@@ -482,11 +483,11 @@ export default function SearchScreen() {
   React.useEffect(() => {
     const q = (params.q || '').trim().toLowerCase();
     if (q === 'trending near you' || q === 'trending') {
-      router.replace({ pathname: '/home/explore', params: { filter: 'trending' } } as any);
+      safeRouter.replace({ pathname: '/home/explore', params: { filter: 'trending' } } as any);
     } else if (q === 'popular' || q === 'popular near you') {
-      router.replace({ pathname: '/home/explore', params: { filter: 'popular' } } as any);
+      safeRouter.replace({ pathname: '/home/explore', params: { filter: 'popular' } } as any);
     } else if (q === 'near you' || q === 'near me') {
-      router.replace({ pathname: '/home/explore', params: { filter: 'near_you' } } as any);
+      safeRouter.replace({ pathname: '/home/explore', params: { filter: 'near_you' } } as any);
     }
   }, [params.q]);
 
@@ -572,7 +573,7 @@ export default function SearchScreen() {
     searchHistoryStore.addSearch(item.id);
     if (item.type === 'service') {
       previewStore.setPreviewImages([item.image], item.title);
-      router.push({
+      safeRouter.push({
         pathname: '/professional/style-details',
         params: {
           title: item.title,
@@ -584,7 +585,7 @@ export default function SearchScreen() {
       } as any);
     } else {
       const cleanId = item.id.replace(/^(salon-|places-)/, '') || '1';
-      router.push({
+      safeRouter.push({
         pathname: '/salon/[id]',
         params: { id: cleanId, name: item.title },
       } as any);
@@ -635,10 +636,10 @@ export default function SearchScreen() {
       setIsSearchActive(false);
       inputRef.current?.blur();
     } else {
-      if (router.canGoBack()) {
-        router.back();
+      if (safeRouter.canGoBack()) {
+        safeRouter.back();
       } else {
-        router.replace('/(tabs)' as any);
+        safeRouter.replace('/(tabs)' as any);
       }
     }
   };
@@ -689,11 +690,11 @@ export default function SearchScreen() {
               onSubmitEditing={() => {
                 const q = searchQuery.trim().toLowerCase();
                 if (q === 'trending near you' || q === 'trending' || q === 'trend') {
-                  router.push({ pathname: '/home/explore', params: { filter: 'trending' } } as any);
+                  safeRouter.push({ pathname: '/home/explore', params: { filter: 'trending' } } as any);
                 } else if (q === 'popular' || q === 'popular near you' || q === 'popular places') {
-                  router.push({ pathname: '/home/explore', params: { filter: 'popular' } } as any);
+                  safeRouter.push({ pathname: '/home/explore', params: { filter: 'popular' } } as any);
                 } else if (q === 'near you' || q === 'near me' || q === 'places near you') {
-                  router.push({ pathname: '/home/explore', params: { filter: 'near_you' } } as any);
+                  safeRouter.push({ pathname: '/home/explore', params: { filter: 'near_you' } } as any);
                 }
               }}
             />
@@ -888,7 +889,7 @@ export default function SearchScreen() {
                 {/* Near You Option (Figma: near you button) */}
                 <TouchableOpacity
                   style={styles.optionContainer}
-                  onPress={() => router.push({ pathname: '/home/explore', params: { filter: 'near_you' } } as any)}
+                  onPress={() => safeRouter.push({ pathname: '/home/explore', params: { filter: 'near_you' } } as any)}
                   activeOpacity={0.7}
                 >
                   <View style={styles.iconContainer}>
@@ -903,7 +904,7 @@ export default function SearchScreen() {
                 {/* Trending Near You Option (Figma: iconamoon:trend-up-light) */}
                 <TouchableOpacity
                   style={styles.optionContainer}
-                  onPress={() => router.push({ pathname: '/home/explore', params: { filter: 'trending' } } as any)}
+                  onPress={() => safeRouter.push({ pathname: '/home/explore', params: { filter: 'trending' } } as any)}
                   activeOpacity={0.7}
                 >
                   <View style={styles.iconContainer}>
@@ -918,7 +919,7 @@ export default function SearchScreen() {
                 {/* Popular Option (Figma: star) */}
                 <TouchableOpacity
                   style={styles.optionContainer}
-                  onPress={() => router.push({ pathname: '/home/explore', params: { filter: 'popular' } } as any)}
+                  onPress={() => safeRouter.push({ pathname: '/home/explore', params: { filter: 'popular' } } as any)}
                   activeOpacity={0.7}
                 >
                   <View style={styles.iconContainer}>

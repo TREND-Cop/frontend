@@ -12,28 +12,41 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter, useSingleFlight } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 
 import { useWorkPhotos, WorkPhoto } from '../../context/WorkPhotosContext';
+import { useStaffWorkPhotos } from '../../context/StaffWorkPhotosContext';
 import { ProviderPhotoUploadSheet } from '../../components/ProviderPhotoUploadSheet';
 import { DeletePostDialog } from '../../components/DeletePostDialog';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 import { triggerLightHaptic } from '../../utils/haptics';
 
+import { markStaffSubScreenNavigation } from '../../hooks/useStaffDashboardSkeleton';
+import { STAFF_ROUTES } from '../../constants/staffRoutes';
+
 const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
 const FONT_REGULAR = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular';
 const FONT_BUTTON = Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium';
 
-// ── Back Arrow Icon (24x24) ──
-function BackArrowIcon({ size = 24, color = '#141B34' }: { size?: number; color?: string }) {
+// ── Back Arrow Icon (24x24 standard ArrowLeft02) ──
+function ArrowLeft02Icon({ size = 24, color = 'rgba(0, 8, 20, 0.96)' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M15 19l-7-7 7-7"
+        d="M9.57 5.93L3.5 12L9.57 18.07"
         stroke={color}
-        strokeWidth={1.8}
+        strokeWidth={1.5}
+        strokeMiterlimit={10}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M20.5 12H3.67"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeMiterlimit={10}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -94,9 +107,17 @@ function CheckMarkIcon({ size = 14, color = '#FFFFFF' }: { size?: number; color?
   );
 }
 
-export const PostWorkScreen: React.FC = () => {
-  const router = useRouter();
-  const { photos, deleteWorkPhotos } = useWorkPhotos();
+export interface PostWorkScreenProps {
+  isStaff?: boolean;
+}
+
+export const PostWorkScreen: React.FC<PostWorkScreenProps> = ({ isStaff = false }) => {
+  const safeRouter = useSafeRouter();
+  const ownerPhotos = useWorkPhotos();
+  const staffPhotos = useStaffWorkPhotos();
+
+  const photos = isStaff ? staffPhotos.photos : ownerPhotos.photos;
+  const deleteWorkPhotos = isStaff ? staffPhotos.deleteStaffWorkPhotos : ownerPhotos.deleteWorkPhotos;
   const { width: windowWidth } = useWindowDimensions();
 
   // Mode: 'view' | 'select'
@@ -118,12 +139,18 @@ export const PostWorkScreen: React.FC = () => {
         setSelectedIds([]);
         return true;
       }
-      return false;
+      if (isStaff) {
+        markStaffSubScreenNavigation();
+        safeRouter.replace(STAFF_ROUTES.HOME as any);
+      } else {
+        safeRouter.replace('/dashboard');
+      }
+      return true;
     };
 
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => sub.remove();
-  }, [mode]);
+  }, [mode, isStaff, safeRouter]);
 
   // Header Back Button handler
   const handleHeaderBack = () => {
@@ -132,8 +159,12 @@ export const PostWorkScreen: React.FC = () => {
       setMode('view');
       setSelectedIds([]);
     } else {
-      // TODO (Skeleton): Trigger global skeleton on dashboard return when prompt is implemented
-      router.back();
+      if (isStaff) {
+        markStaffSubScreenNavigation();
+        safeRouter.replace(STAFF_ROUTES.HOME as any);
+      } else {
+        safeRouter.replace('/dashboard');
+      }
     }
   };
 
@@ -170,25 +201,26 @@ export const PostWorkScreen: React.FC = () => {
   };
 
   // Confirm deletion from dialog (S3 -> S4)
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = useSingleFlight(async () => {
     triggerLightHaptic();
     setShowDeleteDialog(false);
     await deleteWorkPhotos(selectedIds);
     setSelectedIds([]);
     setMode('view');
-  };
+  });
 
   // Cancel deletion from dialog (keeps select mode and selection intact)
-  const handleCancelDeleteDialog = () => {
+  const handleCancelDeleteDialog = useSingleFlight(() => {
     triggerLightHaptic();
     setShowDeleteDialog(false);
-  };
+  });
 
   // Open upload sheet (U2)
-  const handleOpenUploadSheet = () => {
+  const handleOpenUploadSheet = useSingleFlight(() => {
+    if (showUploadSheet) return;
     triggerLightHaptic();
     setShowUploadSheet(true);
-  };
+  });
 
   // Camera Picker (Open Camera - Back camera)
   const handleOpenCamera = async () => {
@@ -209,8 +241,9 @@ export const PostWorkScreen: React.FC = () => {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const uri = result.assets[0].uri;
-        router.push({
-          pathname: '/post-work/preview',
+        const targetPreview = isStaff ? STAFF_ROUTES.POST_WORK_PREVIEW : '/post-work/preview';
+        safeRouter.push({
+          pathname: targetPreview,
           params: { uri },
         } as any);
       }
@@ -237,8 +270,9 @@ export const PostWorkScreen: React.FC = () => {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const uri = result.assets[0].uri;
-        router.push({
-          pathname: '/post-work/preview',
+        const targetPreview = isStaff ? STAFF_ROUTES.POST_WORK_PREVIEW : '/post-work/preview';
+        safeRouter.push({
+          pathname: targetPreview,
           params: { uri },
         } as any);
       }
@@ -268,7 +302,7 @@ export const PostWorkScreen: React.FC = () => {
           style={styles.headerButton}
           accessibilityLabel={isSelectMode ? 'Cancel selection and go back' : 'Go back to dashboard'}
         >
-          <BackArrowIcon size={24} color="#141B34" />
+          <ArrowLeft02Icon size={24} color="#000814" />
         </TouchableOpacity>
 
         {/* Center: Title */}
@@ -278,7 +312,7 @@ export const PostWorkScreen: React.FC = () => {
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={handleHeaderRightAction}
-          style={styles.headerButton}
+          style={styles.headerRightButton}
           accessibilityLabel={
             !isSelectMode
               ? 'Select photos to delete'
@@ -290,9 +324,13 @@ export const PostWorkScreen: React.FC = () => {
           {!isSelectMode ? (
             <TrashIcon size={24} color="#141B34" />
           ) : hasSelected ? (
-            <Text style={styles.deleteActionText}>Delete</Text>
+            <Text style={styles.deleteActionText} numberOfLines={1}>
+              Delete
+            </Text>
           ) : (
-            <Text style={styles.cancelActionText}>Cancel</Text>
+            <Text style={styles.cancelActionText} numberOfLines={1}>
+              Cancel
+            </Text>
           )}
         </TouchableOpacity>
       </View>
@@ -434,6 +472,13 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerRightButton: {
+    minWidth: 48,
+    height: 48,
+    paddingHorizontal: 8,
+    alignItems: 'flex-end',
     justifyContent: 'center',
   },
   headerTitle: {

@@ -3,17 +3,18 @@
  * 1:1 Figma Video Onboarding Screen.
  */
 
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../utils/safeNavigation';
 import { OnboardingScreen } from '../screens/onboarding/OnboardingScreen';
 
 export default function OnboardingScreenRoute() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   return (
     <OnboardingScreen
-      onSignUp={() => router.push('/sign-up')}
-      onSignIn={() => router.push('/sign-in')}
-      onDismiss={() => router.replace('/home')}
+      onSignUp={() => safeRouter.push('/sign-up')}
+      onSignIn={() => safeRouter.push('/sign-in')}
+      onDismiss={() => safeRouter.replace('/home')}
+      onGetStarted={() => safeRouter.push('/role-selection' as any)}
     />
   );
 }

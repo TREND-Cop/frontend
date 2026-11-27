@@ -7,7 +7,7 @@ import {
   KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../../utils/safeNavigation';
 
 import { useServiceDraft } from '../../../context/ServiceDraftContext';
 import { useStaff } from '../../../hooks/useStaff';
@@ -16,7 +16,6 @@ import { triggerLightHaptic } from '../../../utils/haptics';
 import { EditHeader } from '../../../components/wizard/EditHeader';
 import { EditFooter } from '../../../components/wizard/EditFooter';
 import { StaffSelectorList } from '../../../components/wizard/StaffSelectorList';
-import { NativeDockSpacer } from '../../../components/NativeDockSpacer';
 
 /**
  * 1:1 Figma Edit Staff Screen (Frames E5 & E6)
@@ -30,7 +29,7 @@ import { NativeDockSpacer } from '../../../components/NativeDockSpacer';
  * - Back button discards working copy and returns to Review
  */
 export const EditStaffScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   const { draft, commitStaffSelection } = useServiceDraft();
   const { staffList } = useStaff();
@@ -72,12 +71,12 @@ export const EditStaffScreen: React.FC = () => {
     // Commit selection to shared draft context
     commitStaffSelection(selectedStaffIds);
     // Return to Review
-    router.back();
+    safeRouter.back();
   };
 
   const handleAddStaffEmptyState = () => {
     triggerLightHaptic();
-    router.replace('/staffs' as any);
+    safeRouter.replace('/staffs' as any);
   };
 
   return (
@@ -89,8 +88,8 @@ export const EditStaffScreen: React.FC = () => {
         {/* Header: "Edit Staff" */}
         <EditHeader
           title="Edit Staff"
-          onBack={() => router.back()}
-          onHelp={() => router.push('/guide/general' as any)}
+          onBack={() => safeRouter.back()}
+          onHelp={() => safeRouter.push('/guide/general' as any)}
         />
 
         <ScrollView
@@ -122,8 +121,6 @@ export const EditStaffScreen: React.FC = () => {
             saveLabel="Save changes"
           />
         )}
-
-        <NativeDockSpacer />
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

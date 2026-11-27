@@ -16,7 +16,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getSafeBottomPadding } from '../../utils/safeArea';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import {
   ArrowLeft,
   Check,
@@ -45,7 +46,7 @@ const TIME_SLOT_ROWS = [
 ];
 
 export const BookingReviewScreen = ({ navigation }: { navigation?: any }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -260,10 +261,10 @@ export const BookingReviewScreen = ({ navigation }: { navigation?: any }) => {
   };
 
   const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
+    if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/appointment-specialist' as any);
+      safeRouter.replace('/appointment-specialist' as any);
     }
   };
 
@@ -273,7 +274,7 @@ export const BookingReviewScreen = ({ navigation }: { navigation?: any }) => {
 
   const handleAddMoreAddOn = () => {
     const selectedIds = bookingStore.getSelectedIds().join(',');
-    router.push({
+    safeRouter.push({
       pathname: '/add-one',
       params: { selectedIds },
     });
@@ -286,7 +287,7 @@ export const BookingReviewScreen = ({ navigation }: { navigation?: any }) => {
       return;
     }
     setSpecialistError(false);
-    router.push('/payment');
+    safeRouter.push('/payment');
   };
 
   return (
@@ -362,7 +363,7 @@ export const BookingReviewScreen = ({ navigation }: { navigation?: any }) => {
                 <TouchableOpacity
                   style={styles.addInlineButton}
                   activeOpacity={0.7}
-                  onPress={() => router.push({ pathname: '/change-specialist', params: { fromReview: 'true', mode: 'add' } } as any)}
+                  onPress={() => safeRouter.push({ pathname: '/change-specialist', params: { fromReview: 'true', mode: 'add' } } as any)}
                 >
                   <Plus size={16} color="rgba(26, 130, 255, 0.9)" strokeWidth={2.2} />
                   <Text style={styles.addInlineText} numberOfLines={1}>Add Specialist</Text>
@@ -418,7 +419,7 @@ export const BookingReviewScreen = ({ navigation }: { navigation?: any }) => {
                   <TouchableOpacity
                     style={styles.changePillButton}
                     activeOpacity={0.7}
-                    onPress={() => router.push({ pathname: '/change-specialist', params: { fromReview: 'true', mode: 'change', replacingId: spec.id } } as any)}
+                    onPress={() => safeRouter.push({ pathname: '/change-specialist', params: { fromReview: 'true', mode: 'change', replacingId: spec.id } } as any)}
                   >
                     <Text style={styles.changePillText}>Change</Text>
                   </TouchableOpacity>
@@ -465,7 +466,7 @@ export const BookingReviewScreen = ({ navigation }: { navigation?: any }) => {
                 <TouchableOpacity
                   style={styles.changePillButton}
                   activeOpacity={0.7}
-                  onPress={() => router.push({ pathname: '/change-specialist', params: { fromReview: 'true', mode: 'change', replacingId: selectedSpecialist?.id } } as any)}
+                  onPress={() => safeRouter.push({ pathname: '/change-specialist', params: { fromReview: 'true', mode: 'change', replacingId: selectedSpecialist?.id } } as any)}
                 >
                   <Text style={styles.changePillText}>Change</Text>
                 </TouchableOpacity>
@@ -491,7 +492,7 @@ export const BookingReviewScreen = ({ navigation }: { navigation?: any }) => {
                 <TouchableOpacity
                   style={styles.changePillButton}
                   activeOpacity={0.7}
-                  onPress={() => router.push({ pathname: '/appointment-day', params: { from: 'review' } } as any)}
+                  onPress={() => safeRouter.push({ pathname: '/appointment-day', params: { from: 'review' } } as any)}
                 >
                   <Text style={styles.changePillText}>Change</Text>
                 </TouchableOpacity>
@@ -597,7 +598,7 @@ export const BookingReviewScreen = ({ navigation }: { navigation?: any }) => {
                   <TouchableOpacity
                     style={styles.addInlineButton}
                     activeOpacity={0.7}
-                    onPress={() => router.push({ pathname: '/change-specialist', params: { isAddOn: 'true', fromReview: 'true', mode: 'add' } } as any)}
+                    onPress={() => safeRouter.push({ pathname: '/change-specialist', params: { isAddOn: 'true', fromReview: 'true', mode: 'add' } } as any)}
                   >
                     <Plus size={16} color="rgba(26, 130, 255, 0.9)" strokeWidth={2.2} />
                     <Text style={styles.addInlineText} numberOfLines={1}>Add Specialist</Text>
@@ -642,7 +643,7 @@ export const BookingReviewScreen = ({ navigation }: { navigation?: any }) => {
                   <TouchableOpacity
                     style={styles.changePillButton}
                     activeOpacity={0.7}
-                    onPress={() => router.push({ pathname: '/change-specialist', params: { isAddOn: 'true', fromReview: 'true', mode: 'change', replacingId: addOnSpecialist?.id } } as any)}
+                    onPress={() => safeRouter.push({ pathname: '/change-specialist', params: { isAddOn: 'true', fromReview: 'true', mode: 'change', replacingId: addOnSpecialist?.id } } as any)}
                   >
                     <Text style={styles.changePillText}>Change</Text>
                   </TouchableOpacity>
@@ -713,7 +714,7 @@ export const BookingReviewScreen = ({ navigation }: { navigation?: any }) => {
               <TouchableOpacity
                 style={styles.addInlineButton}
                 activeOpacity={0.7}
-                onPress={() => router.push('/service-package')}
+                onPress={() => safeRouter.push('/service-package')}
               >
                 <Plus size={16} color="rgba(26, 130, 255, 0.9)" strokeWidth={2.2} />
                 <Text style={styles.addInlineText} numberOfLines={1}>Add Package</Text>

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 import { useStaffAppointments } from '../../context/StaffAppointmentsContext';
@@ -86,7 +86,7 @@ function ProgressDashedSpinnerIcon({ size = 16 }: { size?: number }) {
  */
 export function StaffOngoingAppointmentsScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { appointments } = useStaffAppointments();
 
   // Filter in-progress appointments
@@ -97,7 +97,7 @@ export function StaffOngoingAppointmentsScreen() {
   const handleGoBack = () => {
     triggerLightHaptic();
     markStaffSubScreenNavigation();
-    router.replace(STAFF_ROUTES.HOME as any);
+    safeRouter.replace(STAFF_ROUTES.HOME as any);
   };
 
   return (
@@ -128,7 +128,7 @@ export function StaffOngoingAppointmentsScreen() {
             activeOpacity={0.7}
             onPress={() => {
               triggerLightHaptic();
-              router.push({
+              safeRouter.push({
                 pathname: STAFF_ROUTES.TUTORIAL_VIDEO as any,
                 params: { step: '2', title: 'In Progress' },
               });
@@ -165,7 +165,7 @@ export function StaffOngoingAppointmentsScreen() {
               activeOpacity={0.88}
               onPress={() => {
                 triggerLightHaptic();
-                router.push({
+                safeRouter.push({
                   pathname: STAFF_ROUTES.ONGOING_DETAIL as any,
                   params: { id: appointment.id },
                 });
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   // Card Outer wrapper (isolation: isolate)
   cardWrapper: {
     width: '100%',
-    marginBottom: 16,
+    marginBottom: 40,
     borderRadius: 24,
   },
 

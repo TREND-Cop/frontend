@@ -2,6 +2,7 @@ import React from 'react';
 import { View, TouchableOpacity, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { StepProgressBar } from './StepProgressBar';
+import { useSingleFlight } from '../utils/safeNavigation';
 
 export interface StepProgressHeaderProps {
   currentStep: number;
@@ -49,12 +50,13 @@ export const StepProgressHeader: React.FC<StepProgressHeaderProps> = ({
   style,
   marginBottom = 34,
 }) => {
+  const safeBack = useSingleFlight(onBack);
   return (
     <View style={[styles.container, { marginBottom }, style]}>
       <TouchableOpacity
         activeOpacity={0.7}
         style={styles.backButton}
-        onPress={onBack}
+        onPress={safeBack}
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
       >
         <ArrowLeftIcon size={24} color="#000814" />

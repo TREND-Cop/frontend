@@ -14,7 +14,8 @@ import {
   Animated,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import {
   ArrowLeft,
   Search,
@@ -39,6 +40,7 @@ import { bookingStore } from '../../utils/bookingStore';
 import { shareStore } from '../../utils/shareStore';
 import { useSkeletonCadence } from '../../hooks/useSkeletonCadence';
 import { TextSkeleton } from '../../components/ui/TextSkeleton';
+import { useLiveCatalog } from '../../hooks/useLiveCatalog';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -468,14 +470,20 @@ const SALON_GALLERY_IMAGES = [
 
 export const SalonDetailScreen = ({ salonId }: { salonId?: string }) => {
   const params = useLocalSearchParams();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { isSkeletonLoading } = useSkeletonCadence();
 
   const resolvedId = (salonId || params.id || 'salon2') as string;
+  const isMockSalonId = /^salon\d+$/i.test(resolvedId);
+  const { salons: liveSalons, services: liveBackendServices } = useLiveCatalog(
+    isMockSalonId ? undefined : { business_id: resolvedId }
+  );
 
-  // Resolve Salon info dynamically from MOCK_SALONS or fallback
+  // Resolve Salon info dynamically from live backend or MOCK_SALONS fallback
   const salon: SalonItem = useMemo(() => {
+    const liveMatch = liveSalons.find((s) => s.id === resolvedId);
+    if (liveMatch) return liveMatch;
     const found = MOCK_SALONS.find(
       (s) => s.id === resolvedId || (params.name && s.name.toLowerCase() === (params.name as string).toLowerCase())
     );
@@ -503,7 +511,7 @@ export const SalonDetailScreen = ({ salonId }: { salonId?: string }) => {
       isVerified: true,
       images: [],
     };
-  }, [resolvedId, params]);
+  }, [resolvedId, params, liveSalons]);
 
   const [activeCategory, setActiveCategory] = useState<SalonCategory>('Hair Cut');
   const [searchQuery, setSearchQuery] = useState('');
@@ -603,17 +611,39 @@ export const SalonDetailScreen = ({ salonId }: { salonId?: string }) => {
     return totalMin;
   };
 
+  const liveMappedServices: SalonServiceItem[] = useMemo(() => {
+    if (liveBackendServices.length === 0) return [];
+    return liveBackendServices.map((s) => ({
+      id: s.id,
+      name: s.name,
+      category: activeCategory,
+      price: `₦${Math.round(Number(s.price || 0)).toLocaleString()}.00`,
+      numericPrice: Number(s.price || 0),
+      originalPrice: `₦${Math.round(Number(s.price || 0)).toLocaleString()}`,
+      duration: s.duration >= 60 ? `${Math.round(s.duration / 60)}hr` : `${s.duration} min`,
+      rating: String(s.rating || '4.8'),
+      image: s.images[0] || require('../../../assets/images/profile/men_braids.jpg'),
+    }));
+  }, [liveBackendServices, activeCategory]);
+
   const categoryServices = useMemo(() => {
+    if (liveMappedServices.length > 0) return liveMappedServices;
     const rawServices = DEFAULT_SALON_SERVICES[resolvedId] || DEFAULT_SALON_SERVICES['salon2'];
     return rawServices.filter((s) => (searchQuery.trim() ? true : s.category === activeCategory));
-  }, [resolvedId, activeCategory, searchQuery]);
+  }, [resolvedId, activeCategory, searchQuery, liveMappedServices]);
 
   const servicesList = useMemo(() => {
-    const rawServices = DEFAULT_SALON_SERVICES[resolvedId] || DEFAULT_SALON_SERVICES['salon2'];
-    const all = rawServices.map((s) => ({
-      ...s,
-      id: resolvedId === 'salon2' ? s.id : `${resolvedId}_${s.id}`,
-    }));
+    const rawServices =
+      liveMappedServices.length > 0
+        ? liveMappedServices
+        : DEFAULT_SALON_SERVICES[resolvedId] || DEFAULT_SALON_SERVICES['salon2'];
+    const all =
+      liveMappedServices.length > 0
+        ? rawServices
+        : rawServices.map((s) => ({
+            ...s,
+            id: resolvedId === 'salon2' ? s.id : `${resolvedId}_${s.id}`,
+          }));
     return all.filter((s) => {
       // Search query filter
       if (searchQuery.trim()) {
@@ -656,7 +686,7 @@ export const SalonDetailScreen = ({ salonId }: { salonId?: string }) => {
 
       return true;
     });
-  }, [resolvedId, activeCategory, searchQuery, sortFilters]);
+  }, [resolvedId, activeCategory, searchQuery, sortFilters, liveMappedServices]);
 
   const handleShare = () => {
     shareStore.openShare({
@@ -669,10 +699,10 @@ export const SalonDetailScreen = ({ salonId }: { salonId?: string }) => {
   };
 
   const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
+    if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/(tabs)' as any);
+      safeRouter.replace('/(tabs)' as any);
     }
   };
 
@@ -685,7 +715,7 @@ export const SalonDetailScreen = ({ salonId }: { salonId?: string }) => {
     bookingStore.setDuration(service.duration);
     bookingStore.setRating(service.rating);
 
-    router.push({
+    safeRouter.push({
       pathname: '/professional/style-details',
       params: {
         id: service.id,
@@ -755,7 +785,7 @@ export const SalonDetailScreen = ({ salonId }: { salonId?: string }) => {
                     activeOpacity={0.85}
                     onPress={() => {
                       if (isLast) {
-                        router.push({
+                        safeRouter.push({
                           pathname: '/salon/gallery',
                           params: { salonId: salon.id, name: salon.name },
                         } as any);
@@ -774,7 +804,7 @@ export const SalonDetailScreen = ({ salonId }: { salonId?: string }) => {
                           topGalleryItems,
                           idx
                         );
-                        router.push({
+                        safeRouter.push({
                           pathname: '/professional/gallery-preview',
                           params: { index: idx, initialIndex: idx, source: 'salon', title: salon.name },
                         } as any);
@@ -845,7 +875,7 @@ export const SalonDetailScreen = ({ salonId }: { salonId?: string }) => {
               style={styles.aboutButton}
               activeOpacity={0.7}
               onPress={() =>
-                router.push({
+                safeRouter.push({
                   pathname: '/salon/about',
                   params: {
                     salonId: salon.id,
@@ -865,7 +895,7 @@ export const SalonDetailScreen = ({ salonId }: { salonId?: string }) => {
               style={styles.locationButton}
               activeOpacity={0.7}
               onPress={() =>
-                router.push({
+                safeRouter.push({
                   pathname: '/salon/location',
                   params: {
                     salonId: salon.id,
@@ -885,7 +915,7 @@ export const SalonDetailScreen = ({ salonId }: { salonId?: string }) => {
               style={styles.contactButton}
               activeOpacity={0.7}
               onPress={() =>
-                router.push({
+                safeRouter.push({
                   pathname: '/chat/[id]',
                   params: { id: salon.id, name: salon.name },
                 } as any)

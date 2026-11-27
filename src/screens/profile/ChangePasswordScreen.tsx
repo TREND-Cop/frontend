@@ -11,7 +11,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ArrowLeft, Check } from 'lucide-react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 
@@ -80,7 +80,7 @@ const EyeClosedIcon = ({
 );
 
 export const ChangePasswordScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   // Input states
   const [currentPassword, setCurrentPassword] = useState('');
@@ -129,10 +129,10 @@ export const ChangePasswordScreen: React.FC = () => {
     isConfirmPasswordMatching && isNewPasswordValid && !confirmPasswordError;
 
   const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
+    if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/profile' as any);
+      safeRouter.replace('/profile' as any);
     }
   };
 
@@ -181,7 +181,7 @@ export const ChangePasswordScreen: React.FC = () => {
     if (hasError) return;
 
     // Navigate to dedicated in-app profile verification method screen
-    router.push({
+    safeRouter.push({
       pathname: '/profile-verification-method',
       params: { type: 'password' },
     });

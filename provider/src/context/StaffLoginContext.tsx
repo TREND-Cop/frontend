@@ -11,8 +11,10 @@ export interface StaffLoginContextType {
   verifiedCode: string | null;
   fullName: string | null;
   businessName: string | null;
+  justSignedUp: boolean;
   setVerifiedCode: (code: string | null) => void;
   setStaffDetails: (fullName: string, businessName: string) => void;
+  setJustSignedUp: (justSignedUp: boolean) => void;
   clearStaffLogin: () => void;
 }
 
@@ -22,6 +24,7 @@ export const StaffLoginProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [verifiedCode, setVerifiedCode] = useState<string | null>(null);
   const [fullName, setFullName] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState<string | null>(null);
+  const [justSignedUp, setJustSignedUp] = useState<boolean>(false);
 
   const setStaffDetails = useCallback((name: string, business: string) => {
     setFullName(name);
@@ -32,6 +35,7 @@ export const StaffLoginProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setVerifiedCode(null);
     setFullName(null);
     setBusinessName(null);
+    setJustSignedUp(false);
   }, []);
 
   const value = useMemo(
@@ -39,11 +43,13 @@ export const StaffLoginProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       verifiedCode,
       fullName,
       businessName,
+      justSignedUp,
       setVerifiedCode,
       setStaffDetails,
+      setJustSignedUp,
       clearStaffLogin,
     }),
-    [verifiedCode, fullName, businessName, setStaffDetails, clearStaffLogin]
+    [verifiedCode, fullName, businessName, justSignedUp, setStaffDetails, clearStaffLogin]
   );
 
   return <StaffLoginContext.Provider value={value}>{children}</StaffLoginContext.Provider>;

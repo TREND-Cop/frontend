@@ -27,7 +27,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { Feather } from '@expo/vector-icons';
 import { colors, typography, radius, spacing } from '../../constants/theme';
 import { ProfileSetupHeader } from '../../components/ProfileSetupHeader';
@@ -175,17 +175,17 @@ export const UserProfileScreen = ({ navigation }: { navigation?: any }) => {
     if (navigation?.navigate) {
       navigation.navigate('UserGender');
     } else {
-      router.push('/user-gender');
+      safeRouter.push('/user-gender');
     }
   };
 
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   const handleBack = () => {
     if (navigation?.goBack) {
-      navigation.goBack();
+      safeRouter.back();
     } else {
-      router.back();
+      safeRouter.back();
     }
   };
 
@@ -240,7 +240,6 @@ export const UserProfileScreen = ({ navigation }: { navigation?: any }) => {
         title="Next"
         onPress={handleNext}
         disabled={false} // Photo is optional — button is always enabled
-        currentStep={2}
       />
 
       {/* ─── Photo Upload Bottom Sheet ────────────────────────────── */}

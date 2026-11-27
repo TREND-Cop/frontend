@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../utils/safeNavigation';
 import { useProviderOnboarding } from './ProviderOnboardingContext';
 import { businessStore, useBusinessStore } from '../store/businessStore';
 import {
@@ -35,7 +35,7 @@ export interface EditProfileDraftContextValue {
 const EditProfileDraftContext = createContext<EditProfileDraftContextValue | null>(null);
 
 export const EditProfileDraftProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const onboarding = useProviderOnboarding();
   const { business } = useBusinessStore();
 
@@ -166,7 +166,7 @@ export const EditProfileDraftProvider: React.FC<{ children: React.ReactNode }> =
       });
 
       // 3. Navigate to Successful screen
-      router.replace('/edit-business-profile/success' as any);
+      safeRouter.replace('/edit-business-profile/success' as any);
     } catch (e) {
       // TODO (Backend): handle failure
       console.warn('saveBusinessProfile failed:', e);
@@ -181,7 +181,7 @@ export const EditProfileDraftProvider: React.FC<{ children: React.ReactNode }> =
     savedProfile.nameChangedAt,
     workingCopy,
     onboarding,
-    router,
+    safeRouter,
   ]);
 
   return (

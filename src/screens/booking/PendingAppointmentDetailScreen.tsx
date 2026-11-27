@@ -10,7 +10,8 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { SafeImage } from '../../components/ui/SafeImage';
 import { bookingStore } from '../../utils/bookingStore';
@@ -276,7 +277,7 @@ const LaurelWreathRightIcon = ({ size = 24, color = '#FFFFFF' }: { size?: number
 );
 
 export const PendingAppointmentDetailScreen = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const bottomInset = Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16);
   const params = useLocalSearchParams();
@@ -301,8 +302,8 @@ export const PendingAppointmentDetailScreen = () => {
     return (
       <EmptyBookedItemScreen
         title="Appointments"
-        onGoBack={() => router.replace('/home/bookings' as any)}
-        onExploreLocations={() => router.replace('/home' as any)}
+        onGoBack={() => safeRouter.replace('/home/bookings' as any)}
+        onExploreLocations={() => safeRouter.replace('/home' as any)}
       />
     );
   }
@@ -371,15 +372,15 @@ export const PendingAppointmentDetailScreen = () => {
   const formattedTimer = `${Math.floor(secondsLeft / 60)}:${(secondsLeft % 60).toString().padStart(2, '0')}`;
 
   const handleGoBack = () => {
-    router.replace('/home/bookings' as any);
+    safeRouter.replace('/home/bookings' as any);
   };
 
   const handleContactSupport = () => {
-    router.push('/contact-support' as any);
+    safeRouter.push('/contact-support' as any);
   };
 
   const handleMessage = () => {
-    router.push({
+    safeRouter.push({
       pathname: '/chat/[id]',
       params: {
         id: salonId,
@@ -392,7 +393,7 @@ export const PendingAppointmentDetailScreen = () => {
     if (targetAppointment) {
       await updateAppointmentStatus(targetAppointment.id, 'ongoing');
     }
-    router.push({
+    safeRouter.push({
       pathname: '/ongoing-appointment',
       params: {
         id: targetAppointment?.id,
@@ -415,7 +416,7 @@ export const PendingAppointmentDetailScreen = () => {
       await cancelAppointment(targetAppointment.id, 'User cancelled');
     }
     // Transition to Cancelled Booking Detail Screen
-    router.replace({
+    safeRouter.replace({
       pathname: '/cancelled-booking',
       params: {
         id: targetAppointment?.id,
@@ -432,7 +433,7 @@ export const PendingAppointmentDetailScreen = () => {
   };
 
   const handleReviewAppointment = () => {
-    router.push({
+    safeRouter.push({
       pathname: '/review-appointment',
       params: {
         id: params.id,
@@ -451,7 +452,7 @@ export const PendingAppointmentDetailScreen = () => {
   };
 
   const handleLocationPress = () => {
-    router.push({
+    safeRouter.push({
       pathname: '/salon/location',
       params: {
         salonId: (params.salonId as string) || 'salon2',

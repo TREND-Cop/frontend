@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
 import { useProviderOnboarding } from '../../context/ProviderOnboardingContext';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
@@ -296,7 +296,7 @@ const AMENITY_CATEGORIES: AmenityCategory[] = [
 ];
 
 export const AmenitiesScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { salonDetails, setSalonDetails } = useProviderOnboarding();
 
@@ -329,7 +329,7 @@ export const AmenitiesScreen: React.FC = () => {
     }
     const val = all.join(', ');
     setSalonDetails({ amenities: val });
-    router.back();
+    safeRouter.back();
   };
 
   return (
@@ -344,7 +344,7 @@ export const AmenitiesScreen: React.FC = () => {
         <TouchableOpacity
           activeOpacity={0.7}
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => safeRouter.back()}
         >
           <ArrowLeftIcon size={24} color="#000814" />
         </TouchableOpacity>

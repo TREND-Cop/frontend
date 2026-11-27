@@ -24,12 +24,17 @@ import {
   Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { colors, spacing } from '../../constants/theme';
 import { ProfileSetupHeader } from '../../components/ProfileSetupHeader';
 import { FormInput } from '../../components/FormInput';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { useUserContext } from '../../store/UserContext';
+import {
+  trendApi,
+  getPendingAuthDraft,
+  clearPendingAuthDraft,
+} from '../../api/trendApi';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DUPLICATE USERNAME CHECK
@@ -64,7 +69,7 @@ const onCreateAccount = async (_username: string): Promise<boolean> => {
 
 export const UsernameScreen = ({ navigation }: { navigation?: any }) => {
   // ── State ───────────────────────────────────────────────────────────────
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { setUsername: setContextUsername, profileData } = useUserContext();
   const [username, setUsername] = useState('');
   const [usernameError, setUsernameError] = useState<string | null>(null);
@@ -129,22 +134,61 @@ export const UsernameScreen = ({ navigation }: { navigation?: any }) => {
       return;
     }
 
+    const draft = getPendingAuthDraft();
+    const rawPhone = (draft.phone || profileData?.phone || '').replace(/\s+/g, '');
+
+    if (draft.password && (rawPhone || draft.email || profileData?.email)) {
+      const registerRes = await trendApi.auth.register({
+        role: 'client',
+        name: trimmed,
+        phone: rawPhone || undefined,
+        email: draft.email || profileData?.email || undefined,
+        password: draft.password,
+      });
+
+      if (!registerRes.ok && registerRes.status === 409) {
+        setUsernameError(registerRes.error || 'Account already exists');
+        return;
+      }
+
+      if (registerRes.ok) {
+        clearPendingAuthDraft();
+        if (profileData?.avatarUri) {
+          trendApi.uploads
+            .uploadMedia(profileData.avatarUri, 'avatar.jpg')
+            .then((up) => {
+              const url = up.data?.url || up.data?.secure_url;
+              if (up.ok && url) {
+                return trendApi.profile.update({ name: trimmed, image: url });
+              }
+              return null;
+            })
+            .catch(() => {});
+        }
+      }
+    }
+
+    const target = rawPhone || profileData?.email || '';
+    if (target) {
+      trendApi.auth.otpSend({ target }).catch(() => {});
+    }
+
     const success = await onCreateAccount(trimmed);
 
     if (success) {
       setContextUsername(trimmed);
-      router.push({
+      safeRouter.push({
         pathname: '/phone-verification',
         params: { phone: profileData?.phone || '+234 8136567398' },
       } as any);
     }
-  }, [username, setContextUsername, profileData, router]);
+  }, [username, setContextUsername, profileData, safeRouter]);
 
   const handleBack = () => {
     if (navigation?.goBack) {
-      navigation.goBack();
+      safeRouter.back();
     } else {
-      router.back();
+      safeRouter.back();
     }
   };
 
@@ -201,7 +245,6 @@ export const UsernameScreen = ({ navigation }: { navigation?: any }) => {
             title="Create Account"
             onPress={handleCreateAccount}
             disabled={!usernameValid}
-            currentStep={4}
           />
         </ScrollView>
       </KeyboardAvoidingView>

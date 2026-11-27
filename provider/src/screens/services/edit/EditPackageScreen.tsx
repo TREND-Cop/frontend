@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,7 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../../utils/safeNavigation';
 import * as ImagePicker from 'expo-image-picker';
 
 import {
@@ -22,7 +22,6 @@ import { EditFooter } from '../../../components/wizard/EditFooter';
 import { PackageBlockList } from '../../../components/wizard/PackageBlockList';
 import { ServiceDurationSheet } from '../../../components/wizard/ServiceDurationSheet';
 import { ProviderPhotoUploadSheet } from '../../../components/ProviderPhotoUploadSheet';
-import { NativeDockSpacer } from '../../../components/NativeDockSpacer';
 
 /**
  * 1:1 Figma Edit Package Screen (Frames E2 & E3)
@@ -41,7 +40,7 @@ import { NativeDockSpacer } from '../../../components/NativeDockSpacer';
  * - Back button -> discards working copy, returns to Review
  */
 export const EditPackageScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   const { draft, commitWorkingCopy } = useServiceDraft();
 
@@ -217,7 +216,17 @@ export const EditPackageScreen: React.FC = () => {
     // Commit changes to draft
     commitWorkingCopy({ packages: workingPackages });
     // Return to Review
-    router.back();
+    safeRouter.back();
+  };
+
+  const scrollViewRef = useRef<ScrollView>(null);
+  const handleScrollToOffset = (offset?: number) => {
+    if (offset !== undefined) {
+      scrollViewRef.current?.scrollTo({
+        y: Math.max(0, offset - 20),
+        animated: true,
+      });
+    }
   };
 
   return (
@@ -229,11 +238,12 @@ export const EditPackageScreen: React.FC = () => {
         {/* Header: "Edit Package" */}
         <EditHeader
           title="Edit Package"
-          onBack={() => router.back()}
-          onHelp={() => router.push('/guide/general' as any)}
+          onBack={() => safeRouter.back()}
+          onHelp={() => safeRouter.push('/guide/general' as any)}
         />
 
         <ScrollView
+          ref={scrollViewRef}
           style={styles.scrollContainer}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
@@ -250,11 +260,13 @@ export const EditPackageScreen: React.FC = () => {
             onUpdatePackage={handleUpdatePackage}
             onSlotPress={handleSlotPress}
             onRemoveImage={handleRemoveImage}
-            onOpenGuide={() => router.push('/guide/general' as any)}
+            onOpenGuide={() => safeRouter.push('/guide/general' as any)}
             onDurationPress={(pkgId) => {
               setActiveDurationPkgId(pkgId);
               setIsDurationSheetVisible(true);
             }}
+            onFocusContents={(pkgId, offset) => handleScrollToOffset(offset)}
+            onFocusPrice={(pkgId, offset) => handleScrollToOffset(offset)}
           />
 
           <View style={{ height: 40 }} />
@@ -268,8 +280,6 @@ export const EditPackageScreen: React.FC = () => {
           showErrorToast={hasAttemptedSave && !isValid}
           saveLabel="Save changes"
         />
-
-        <NativeDockSpacer />
 
         {/* Modal Sheets */}
         <ServiceDurationSheet

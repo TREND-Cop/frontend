@@ -8,7 +8,8 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import { useServiceDetails } from '../../hooks/useServiceDetails';
@@ -53,25 +54,25 @@ export interface ServiceDetailsScreenProps {
  * - Explicit "Service not found" empty state for unknown IDs
  */
 export const ServiceDetailsScreen: React.FC<ServiceDetailsScreenProps> = (props) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const searchParams = useLocalSearchParams<{ id?: string; showSuccessBanner?: string }>();
 
   // Resolve service ID from prop or route params
   const serviceId = props.id || searchParams.id;
 
-  // Resolve success banner visibility (defaults to off unless param is 'true' or '1' or prop is true)
+  // Resolve success banner visibility (defaults to on per Figma Review frame unless explicitly false)
   const isBannerVisible =
     props.showSuccessBanner !== undefined
       ? props.showSuccessBanner
-      : searchParams.showSuccessBanner === 'true' || searchParams.showSuccessBanner === '1';
+      : searchParams.showSuccessBanner !== 'false';
 
   // Load service details from hook stub
   const { service, isNotFound } = useServiceDetails(serviceId);
 
   const handleBack = () => {
     triggerLightHaptic();
-    router.back();
+    safeRouter.back();
   };
 
   // ── 1. Not Found State ──────────────────────────────────────────────────────
@@ -142,6 +143,7 @@ export const ServiceDetailsScreen: React.FC<ServiceDetailsScreenProps> = (props)
           title="Added Service"
           name={service.name}
           imageUri={service.imageUri}
+          images={service.images}
           price={service.price}
           duration={service.duration}
           discount={service.discount}
@@ -153,7 +155,7 @@ export const ServiceDetailsScreen: React.FC<ServiceDetailsScreenProps> = (props)
         {/* ── 2. Add-ons Section (Only when service has add-ons) ── */}
         {service.addOns.length > 0 && (
           <ReviewAddOnsSection
-            title="Add-ons"
+            title="Add-One"
             addOns={service.addOns}
             readOnly={true}
           />

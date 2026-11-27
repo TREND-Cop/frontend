@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { trendApi, getAuthToken, clearAuthToken } from '../api/trendApi';
 
 const USER_STORAGE_KEY = '@trend_user_profile';
 
@@ -65,21 +66,49 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [profileData, setProfileData] = useState<UserProfileData>(DEFAULT_PROFILE);
 
-  // Load saved profile on startup
+  // Load saved profile on startup and hydrate from live backend when authenticated
   useEffect(() => {
     const loadProfile = async () => {
       try {
         const stored = await AsyncStorage.getItem(USER_STORAGE_KEY);
+        let initialProfile = DEFAULT_PROFILE;
         if (stored) {
           const parsed = JSON.parse(stored);
-          setProfileData({
+          initialProfile = {
             ...DEFAULT_PROFILE,
             ...parsed,
             notificationSettings: {
               ...DEFAULT_PROFILE.notificationSettings,
               ...(parsed.notificationSettings || {}),
             },
-          });
+          };
+          setProfileData(initialProfile);
+        }
+
+        const token = await getAuthToken();
+        if (token) {
+          const res = await trendApi.auth.me();
+          if (res.ok && res.data) {
+            const user = res.data.user || res.data;
+            const merged: UserProfileData = {
+              ...initialProfile,
+              fullName: user.name ?? initialProfile.fullName,
+              username: user.username ?? user.name ?? initialProfile.username,
+              phone: user.phone ?? initialProfile.phone,
+              email: user.email ?? initialProfile.email,
+              avatarUri: user.image ?? initialProfile.avatarUri,
+              isLoggedIn: true,
+              notificationSettings: {
+                ...initialProfile.notificationSettings,
+                ...(typeof user.settings?.sms === 'boolean' ? { push: user.settings.sms } : {}),
+                ...(typeof user.settings?.email === 'boolean' ? { email: user.settings.email } : {}),
+              },
+            };
+            setProfileData(merged);
+            AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(merged)).catch(() => {});
+          } else if (res.status === 401) {
+            await clearAuthToken();
+          }
         }
       } catch (err) {
         console.warn('Failed to load user profile from storage:', err);
@@ -89,13 +118,60 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const updateProfile = useCallback(async (updates: Partial<UserProfileData>) => {
+    let nextProfile: UserProfileData | null = null;
     setProfileData((prev) => {
       const updated = { ...prev, ...updates };
+      nextProfile = updated;
       AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updated)).catch((err) =>
         console.warn('Failed to save user profile:', err)
       );
       return updated;
     });
+
+    const hasRemoteFields =
+      updates.fullName !== undefined ||
+      updates.username !== undefined ||
+      updates.phone !== undefined ||
+      updates.email !== undefined ||
+      updates.avatarUri !== undefined ||
+      updates.notificationSettings !== undefined;
+
+    if (!hasRemoteFields) return;
+
+    try {
+      const token = await getAuthToken();
+      if (!token) return;
+
+      const payload: Record<string, any> = {};
+      if (updates.fullName !== undefined || updates.username !== undefined) {
+        payload.name = updates.fullName || updates.username || undefined;
+      }
+      if (updates.email !== undefined && updates.email) {
+        payload.email = updates.email;
+      }
+      if (updates.phone !== undefined && updates.phone) {
+        payload.phone = updates.phone;
+      }
+      if (updates.avatarUri) {
+        const uploadRes = await trendApi.uploads.uploadMedia(updates.avatarUri, 'avatar.jpg');
+        const uploadedUrl = uploadRes.data?.url || uploadRes.data?.secure_url;
+        if (uploadRes.ok && uploadedUrl) {
+          payload.image = uploadedUrl;
+        }
+      }
+      if (updates.notificationSettings) {
+        payload.settings = {
+          sms: updates.notificationSettings.push,
+          email: updates.notificationSettings.email,
+        };
+      }
+      if (Object.keys(payload).length > 0) {
+        await trendApi.profile.update(payload);
+      }
+    } catch {
+      // Keep local profile intact if offline
+    }
+    void nextProfile;
   }, []);
 
   const setAvatarUri = (uri: string) => {
@@ -134,6 +210,17 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updated)).catch((err) =>
         console.warn('Failed to save user profile:', err)
       );
+      getAuthToken()
+        .then((token) => {
+          if (token) {
+            return trendApi.settings.updateNotifications({
+              sms: updated.notificationSettings.push,
+              email: updated.notificationSettings.email,
+            });
+          }
+          return null;
+        })
+        .catch(() => {});
       return updated;
     });
   };
@@ -148,6 +235,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
+      await clearAuthToken();
       await AsyncStorage.removeItem(USER_STORAGE_KEY);
       setProfileData({ ...DEFAULT_PROFILE, isLoggedIn: false });
     } catch (err) {

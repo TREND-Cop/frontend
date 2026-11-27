@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,13 @@ import {
   ScrollView,
   Platform,
   KeyboardAvoidingView,
+  Modal,
+  Animated,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import {
@@ -21,9 +25,12 @@ import {
 } from '../../constants/payout.constants';
 import { verifyPayout } from '../../constants/payout.mock';
 import { useProviderOnboarding } from '../../context/ProviderOnboardingContext';
-import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { BankSelectionSheet } from '../../components/payout/BankSelectionSheet';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
+import { AnimatedHourglassLoader } from '../../components/ui/AnimatedHourglassLoader';
+import { trendApi, getAuthToken } from '../../api/trendApi';
+
+const RED_CROSS_BADGE = require('../../../assets/images/appointments/red_cross_failed_badge.png');
 
 // SVG Icons
 function ArrowLeftIcon() {
@@ -135,6 +142,58 @@ function EyeToggleIcon({ isVisible }: { isVisible: boolean }) {
   );
 }
 
+function ThreeDotsLoader() {
+  const dot1 = useRef(new Animated.Value(0.3)).current;
+  const dot2 = useRef(new Animated.Value(0.3)).current;
+  const dot3 = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    const createAnim = (anim: Animated.Value) =>
+      Animated.sequence([
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 350,
+          useNativeDriver: true,
+        }),
+        Animated.timing(anim, {
+          toValue: 0.3,
+          duration: 350,
+          useNativeDriver: true,
+        }),
+      ]);
+
+    const loop = Animated.loop(
+      Animated.stagger(150, [createAnim(dot1), createAnim(dot2), createAnim(dot3)])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [dot1, dot2, dot3]);
+
+  return (
+    <View style={styles.dotsRow}>
+      {[dot1, dot2, dot3].map((anim, idx) => (
+        <Animated.View
+          key={idx}
+          style={[
+            styles.dot,
+            {
+              opacity: anim,
+              transform: [
+                {
+                  scale: anim.interpolate({
+                    inputRange: [0.3, 1],
+                    outputRange: [0.85, 1.2],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
 /**
  * 1:1 Figma Payouts Form Screen
  * Figma Frame measurements:
@@ -147,9 +206,12 @@ function EyeToggleIcon({ isVisible }: { isVisible: boolean }) {
  * - Verify Button: 358px x 48px, top: 1045px (80px below Bank)
  */
 export const PayoutsFormScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
-  const { ownerProfile, setPayoutMethod } = useProviderOnboarding();
+  const params = useLocalSearchParams<{ fromDeleted?: string; fromOption?: string }>();
+  const { ownerProfile, setPayoutMethod, isPayoutDeleted } = useProviderOnboarding();
+  const isFromDeletedFlow = params.fromDeleted === 'true' || isPayoutDeleted;
+  const cameFromOption = params.fromOption === 'true';
 
   // Local state only — sensitive data NEVER logs or persists
   const [selfieUri, setSelfieUri] = useState<string | null>(null);
@@ -171,7 +233,18 @@ export const PayoutsFormScreen: React.FC = () => {
 
   // Loading state
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
+  const [isFailedModalOpen, setIsFailedModalOpen] = useState<boolean>(false);
   const [hasErrorsBeenReceived, setHasErrorsBeenReceived] = useState<boolean>(false);
+
+  // Resolved dummy account holder name
+  const dummyAccountName =
+    ownerProfile?.fullName && ownerProfile.fullName.trim().length > 0
+      ? ownerProfile.fullName.trim()
+      : 'Emmanuel Obinna';
+
+  const isAccountNumberValid =
+    accountNumber.trim().length === ACCOUNT_NUMBER_LENGTH &&
+    accountNumber.trim() !== '0000000000';
 
   // Cleanup on unmount for security
   useEffect(() => {
@@ -314,20 +387,36 @@ export const PayoutsFormScreen: React.FC = () => {
         setSelfieUri(null);
 
         // Keep ONLY what Payout Method screen needs: bank, account number, account name
+        const bankNameVal = selectedBank?.name || 'Zenith Bank';
+        const accountNameVal = result.accountName || ownerProfile.fullName || 'Emmanuel Obinna';
         setPayoutMethod({
-          bankName: selectedBank?.name || 'Zenith Bank',
+          bankName: bankNameVal,
           bankId: selectedBank?.id || 'zenith',
           accountNumber,
-          accountName: result.accountName || ownerProfile.fullName || 'Emmanuel Obinna',
+          accountName: accountNameVal,
           bankLogo: selectedBank?.logo,
           verified: true,
         });
 
+        try {
+          const token = await getAuthToken('business');
+          if (token) {
+            await trendApi.business.updatePayout({
+              bank_name: bankNameVal,
+              account_number: accountNumber,
+              account_name: accountNameVal,
+            });
+          }
+        } catch {
+          // Non-fatal backend sync fallback
+        }
+
         // Navigate cleanly to success screen
-        router.replace('/payout-success' as any);
+        safeRouter.replace('/payout-success' as any);
       } else {
         setErrors(result.errors || {});
         setHasErrorsBeenReceived(true);
+        setIsFailedModalOpen(true);
       }
     } catch {
       setIsVerifying(false);
@@ -335,8 +424,42 @@ export const PayoutsFormScreen: React.FC = () => {
         accountNumber: 'Verification failed, please try again.',
       });
       setHasErrorsBeenReceived(true);
+      setIsFailedModalOpen(true);
     }
   };
+
+  const handleBackPress = useCallback(() => {
+    if (isVerifying) return;
+    if (isFromDeletedFlow) {
+      if (cameFromOption && safeRouter.canGoBack()) {
+        safeRouter.back();
+      } else {
+        safeRouter.replace('/payout-option' as any);
+      }
+      return;
+    }
+    if (safeRouter.canGoBack()) {
+      safeRouter.back();
+    } else {
+      safeRouter.replace('/payout-option' as any);
+    }
+  }, [isVerifying, isFromDeletedFlow, cameFromOption, safeRouter]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android' || !isFromDeletedFlow) return undefined;
+      const onBackPress = () => {
+        if (isFailedModalOpen) {
+          setIsFailedModalOpen(false);
+          return true;
+        }
+        handleBackPress();
+        return true;
+      };
+      const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => sub.remove();
+    }, [isFromDeletedFlow, isFailedModalOpen, handleBackPress])
+  );
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
@@ -346,13 +469,13 @@ export const PayoutsFormScreen: React.FC = () => {
           <TouchableOpacity
             style={styles.headerBackButton}
             activeOpacity={0.7}
-            onPress={() => router.back()}
+            onPress={handleBackPress}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             <ArrowLeftIcon />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Payouts</Text>
+          <Text style={styles.headerTitle}>Payout Wallet</Text>
 
           {/* Invisible spacer balancing the 48px back button so title is perfectly centered */}
           <View style={styles.headerRightSpacer} />
@@ -367,7 +490,7 @@ export const PayoutsFormScreen: React.FC = () => {
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: Math.max(insets.bottom + 34, 48) },
+            { paddingBottom: Math.max(insets.bottom + 48, 64) },
           ]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -487,10 +610,38 @@ export const PayoutsFormScreen: React.FC = () => {
                 maxLength={ACCOUNT_NUMBER_LENGTH}
                 autoCapitalize="none"
               />
+              {isAccountNumberValid && !errors.accountNumber && (
+                <View style={styles.validCheckBadge}>
+                  <Svg width={12} height={10} viewBox="0 0 12 10" fill="none">
+                    <Path
+                      d="M1.5 5.2L4.2 8L10.5 1.8"
+                      stroke="#FFFFFF"
+                      strokeWidth={1.8}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                </View>
+              )}
             </View>
-            {errors.accountNumber && (
+            {errors.accountNumber ? (
               <Text style={styles.fieldErrorText}>{errors.accountNumber}</Text>
-            )}
+            ) : isAccountNumberValid ? (
+              <View style={styles.accountHolderRow}>
+                <View style={styles.accountHolderIconBadge}>
+                  <Svg width={10} height={8} viewBox="0 0 12 10" fill="none">
+                    <Path
+                      d="M1.5 5.2L4.2 8L10.5 1.8"
+                      stroke="#FFFFFF"
+                      strokeWidth={1.8}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                </View>
+                <Text style={styles.accountHolderText}>{dummyAccountName}</Text>
+              </View>
+            ) : null}
           </View>
 
           {/* ── Field 3: Enter Your Bank (358px x 88px, 40px below Account) ── */}
@@ -551,18 +702,59 @@ export const PayoutsFormScreen: React.FC = () => {
         onClose={() => setIsBankSheetOpen(false)}
       />
 
-      {/* ── Loading Overlay: 4-Dot Standard Animation (16px x 16px, gap 20px) ── */}
-      <LoadingOverlay
-        visible={isVerifying}
-        dotsCount={4}
-        paddingTop={429}
-        dotSize={16}
-        dotGap={20}
-        overlayOpacity={0.1}
-      />
+      {/* ── Verifying / Failed Modal Overlay (Figma 1:1) ── */}
+      <Modal
+        visible={isVerifying || isFailedModalOpen}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => {
+          if (isFailedModalOpen) setIsFailedModalOpen(false);
+        }}
+      >
+        <View style={styles.modalBackdrop}>
+          {isVerifying ? (
+            <View style={styles.verifyingPopupCard}>
+              <AnimatedHourglassLoader
+                width={88}
+                height={100}
+                style={styles.popupIllustration}
+              />
+              <Text style={styles.popupTitle}>Verifying account</Text>
+              <Text style={styles.popupSubtitle}>
+                We&apos;re verifying your bank details. This wont take long, please hang tight!
+              </Text>
+              <View style={styles.popupLoaderWrap}>
+                <ThreeDotsLoader />
+              </View>
+            </View>
+          ) : (
+            <View style={styles.failedPopupCard}>
+              <View style={styles.failedIconWrap}>
+                <Image
+                  source={RED_CROSS_BADGE}
+                  style={styles.failedBadgeImage}
+                  resizeMode="contain"
+                />
+              </View>
+              <Text style={styles.popupTitle}>Verification failed</Text>
+              <Text style={styles.popupSubtitle}>
+                We couldn&apos;t verify your account details. Please check your bank information and try again.
+              </Text>
+              <TouchableOpacity
+                style={styles.tryAgainButton}
+                activeOpacity={0.85}
+                onPress={() => setIsFailedModalOpen(false)}
+              >
+                <Text style={styles.tryAgainButtonText}>Try Again</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      </Modal>
 
       {/* Android System Navigation Dock Barrier */}
-      <NativeDockSpacer backgroundColor="#FFFFFF" />
+      <NativeDockSpacer backgroundColor="#FFFFFF" minHeight={56} />
     </SafeAreaView>
   );
 };
@@ -791,6 +983,37 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     includeFontPadding: false,
   },
+  validCheckBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(12, 121, 12, 0.96)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accountHolderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  accountHolderIconBadge: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: 'rgba(12, 121, 12, 0.96)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accountHolderText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 14,
+    color: 'rgba(12, 121, 12, 0.96)',
+    lineHeight: 20,
+    letterSpacing: 0.2,
+    includeFontPadding: false,
+  },
   bankFieldContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -838,5 +1061,115 @@ const styles = StyleSheet.create({
   },
   verifyTextEnabled: {
     color: '#FFFFFF',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(65, 63, 63, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  verifyingPopupCard: {
+    width: 326,
+    minHeight: 329,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    paddingTop: 32,
+    paddingBottom: 28,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 10,
+  },
+  failedPopupCard: {
+    width: 326,
+    minHeight: 377,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    paddingTop: 32,
+    paddingBottom: 28,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 10,
+  },
+  popupIllustration: {
+    marginBottom: 8,
+  },
+  failedIconWrap: {
+    width: 88,
+    height: 88,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  failedBadgeImage: {
+    width: 88,
+    height: 88,
+  },
+  popupTitle: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.2,
+    color: 'rgba(0, 8, 20, 0.96)',
+    textAlign: 'center',
+    marginTop: 18,
+    includeFontPadding: false,
+  },
+  popupSubtitle: {
+    width: 281,
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.4,
+    color: 'rgba(96, 96, 102, 0.96)',
+    textAlign: 'center',
+    marginTop: 8,
+    includeFontPadding: false,
+  },
+  popupLoaderWrap: {
+    marginTop: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: 'rgba(0, 8, 20, 0.96)',
+  },
+  tryAgainButton: {
+    width: 242,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(0, 8, 20, 0.96)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginTop: 28,
+  },
+  tryAgainButtonText: {
+    fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.15,
+    color: '#FFFFFF',
+    includeFontPadding: false,
   },
 });

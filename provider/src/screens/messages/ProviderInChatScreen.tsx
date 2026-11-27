@@ -1,23 +1,30 @@
-import React, { useState, useRef, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  TextInput,
-  Image,
-  ScrollView,
-  Platform,
-  KeyboardAvoidingView,
-  Keyboard,
-} from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter, useSingleFlight } from '../../utils/safeNavigation';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import {
+  Alert,
+  Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  BackHandler,
+} from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import Svg, { Path, Rect, Circle } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
+import { ProviderPhotoUploadSheet } from '../../components/ProviderPhotoUploadSheet';
+import { useMessagesStore } from '../../context/MessagesContext';
+import { useProviderMessagesStore } from '../../store/providerMessagesStore';
 import { previewStore } from '../../utils/previewStore';
-import { useProviderMessagesStore, providerMessagesStore, ChatMessage } from '../../store/providerMessagesStore';
+import { triggerLightHaptic } from '../../utils/haptics';
 
 // ── 1:1 Vector Icons ──────────────────────────────────────────────────────────
 
@@ -102,18 +109,21 @@ function ClockIcon({ size = 16, color = 'rgba(96, 96, 102, 0.96)' }: { size?: nu
   );
 }
 
-
 export function ProviderInChatScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams<{
     id?: string;
     name?: string;
     role?: string;
     recipientName?: string;
+    prefilledMessage?: string;
+    initialMessage?: string;
+    fromNewChat?: string;
   }>();
 
   const { getConversation, sendMessage, markAsRead } = useProviderMessagesStore();
+  const { updateLastMessage } = useMessagesStore();
   const targetName = params.name || params.recipientName;
   const targetId = params.id || targetName || '1';
   const conversation = getConversation(targetId, {
@@ -125,25 +135,126 @@ export function ProviderInChatScreen() {
   const avatarSource = conversation.avatar;
   const messages = conversation.messages;
 
+  const handleBack = useCallback(() => {
+    Keyboard.dismiss();
+    if (params.fromNewChat === 'true') {
+      safeRouter.replace('/messages' as any);
+    } else if (safeRouter.canGoBack?.()) {
+      safeRouter.back();
+    } else {
+      safeRouter.replace('/messages' as any);
+    }
+  }, [safeRouter, params.fromNewChat]);
+
+  const safeAvatarSource = useMemo(() => {
+    if (!avatarSource) return require('../../../assets/images/messages/lara_olapade.jpg');
+    if (typeof avatarSource === 'string') return { uri: avatarSource };
+    return avatarSource;
+  }, [avatarSource]);
+
   useEffect(() => {
     markAsRead(conversation.id);
   }, [conversation.id]);
 
-  const [inputText, setInputText] = useState('');
+  const [inputText, setInputText] = useState(params.prefilledMessage || params.initialMessage || '');
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [photoSheetVisible, setPhotoSheetVisible] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Hardware Back Button:
+  // - Closes photo sheet if open.
+  // - Otherwise, navigates back cleanly to conversation list.
+  useEffect(() => {
+    const onBackPress = () => {
+      if (photoSheetVisible) {
+        setPhotoSheetVisible(false);
+        return true;
+      }
+      safeRouter.back();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [photoSheetVisible, safeRouter]);
+
+  const handleOpenPhotoSheet = () => {
+    Keyboard.dismiss();
+    setPhotoSheetVisible(true);
+  };
+
+  const handleSendImage = (imageSource: any) => {
+    triggerLightHaptic();
+    sendMessage(conversation.id, '', 'image', imageSource);
+    updateLastMessage(conversation.id, 'Photo');
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 120);
+  };
+
+  const handleOpenCamera = async () => {
+    setPhotoSheetVisible(false);
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Denied', 'Camera permission is required to take photos.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.85,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        handleSendImage({ uri: result.assets[0].uri });
+      }
+    } catch (e) {
+      // Handled gracefully
+    }
+  };
+
+  const handleChoosePhotos = async () => {
+    setPhotoSheetVisible(false);
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Denied', 'Photo library permission is required to choose photos.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 0.85,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        handleSendImage({ uri: result.assets[0].uri });
+      }
+    } catch (e) {
+      // Handled gracefully
+    }
+  };
+
+  useEffect(() => {
+    if (params.prefilledMessage) {
+      setInputText(params.prefilledMessage);
+    }
+  }, [params.prefilledMessage]);
 
   useEffect(() => {
     const showSub = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      () => {
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
         setIsKeyboardVisible(true);
         setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 120);
       }
     );
     const hideSub = Keyboard.addListener(
       Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => setIsKeyboardVisible(false)
+      () => {
+        setKeyboardHeight(0);
+        setIsKeyboardVisible(false);
+      }
     );
     return () => {
       showSub.remove();
@@ -151,60 +262,30 @@ export function ProviderInChatScreen() {
     };
   }, []);
 
-  const handleSend = () => {
+  const handleSend = useSingleFlight(() => {
     const trimmed = inputText.trim();
     if (!trimmed) return;
     sendMessage(conversation.id, trimmed);
+    updateLastMessage(conversation.id, trimmed);
     setInputText('');
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
     }, 100);
-  };
+  });
 
-  const handlePromptClick = (text: string) => {
+  const handlePromptClick = useSingleFlight((text: string) => {
     const cleanText = text.replace(/[“”"]/g, '');
     sendMessage(conversation.id, cleanText);
+    updateLastMessage(conversation.id, cleanText);
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
     }, 100);
-  };
+  });
 
-  const handleHeaderProfilePress = () => {
-    if (conversation.id === '1' || clientName.toLowerCase().includes('godwin')) {
-      router.push({
-        pathname: '/staff-profile' as any,
-        params: {
-          id: 'staff-1',
-          staffName: clientName,
-        },
-      });
-    } else if (
-      conversation.id.startsWith('staff-') ||
-      params.role?.toLowerCase().includes('artist') ||
-      params.role?.toLowerCase().includes('specialist') ||
-      params.role?.toLowerCase().includes('stylist')
-    ) {
-      router.push({
-        pathname: '/staff-profile' as any,
-        params: {
-          id: conversation.id,
-          staffName: clientName,
-        },
-      });
-    } else if (conversation.id === 'jude' || clientName.toLowerCase().includes('jude')) {
-      router.push({
-        pathname: '/appointment-detail' as any,
-        params: {
-          id: 'jude',
-          clientName: clientName,
-        },
-      });
-    }
-  };
 
   const handleOpenPreview = (imageSource: any, title = 'Clove Pattern') => {
     previewStore.setPreviewImages([imageSource], title, undefined, 0);
-    router.push({
+    safeRouter.push({
       pathname: '/gallery-preview' as any,
       params: { index: 0, initialIndex: 0, title },
     });
@@ -223,21 +304,17 @@ export function ProviderInChatScreen() {
           <TouchableOpacity
             style={styles.backButton}
             activeOpacity={0.7}
-            onPress={() => router.back()}
+            onPress={handleBack}
             accessibilityLabel="Back to messages"
           >
             <ArrowLeft02Icon size={24} color="#141B34" />
           </TouchableOpacity>
 
-          {/* Profile and Name (Clickable -> Navigates to Staff or Client Profile) */}
-          <TouchableOpacity
-            style={styles.profileRow}
-            activeOpacity={0.7}
-            onPress={handleHeaderProfilePress}
-          >
+          {/* Profile and Name (Display Only) */}
+          <View style={styles.profileRow}>
             {/* Ellipse 194 (40x40px avatar) */}
             <Image
-              source={avatarSource}
+              source={safeAvatarSource}
               style={styles.avatarImage}
               resizeMode="cover"
             />
@@ -252,14 +329,14 @@ export function ProviderInChatScreen() {
                 <Text style={styles.profileRoleText}>Online</Text>
               </View>
             </View>
-          </TouchableOpacity>
+          </View>
         </View>
       </View>
 
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 60 : 0}
       >
 
         {/* ── Chat Body / Scroll Area ── */}
@@ -304,6 +381,14 @@ export function ProviderInChatScreen() {
 
                 // Image message
                 if (item.type === 'image' && item.image) {
+                  const imageSrc =
+                    typeof item.image === 'string'
+                      ? { uri: item.image }
+                      : item.image?.uri
+                      ? item.image
+                      : typeof item.image === 'object'
+                      ? item.image
+                      : { uri: String(item.image) };
                   return (
                     <View
                       key={item.id}
@@ -314,11 +399,11 @@ export function ProviderInChatScreen() {
                     >
                       <TouchableOpacity
                         activeOpacity={0.9}
-                        onPress={() => handleOpenPreview(item.image, 'Photo Reference')}
+                        onPress={() => handleOpenPreview(imageSrc, 'Photo Reference')}
                         style={styles.photoMessageWrapper}
                       >
                         <Image
-                          source={item.image}
+                          source={imageSrc}
                           style={styles.photoMessage}
                           resizeMode="cover"
                         />
@@ -420,7 +505,9 @@ export function ProviderInChatScreen() {
         <View
           style={[
             styles.inputBarContainer,
-            { paddingBottom: isKeyboardVisible ? 8 : Math.max(insets.bottom, 8) },
+            {
+              paddingBottom: isKeyboardVisible ? 8 : Math.max(insets.bottom, 12),
+            },
           ]}
         >
           <View style={styles.inputInnerRow}>
@@ -431,12 +518,7 @@ export function ProviderInChatScreen() {
                 style={styles.addImageButton}
                 activeOpacity={0.7}
                 accessibilityLabel="Attach photo"
-                onPress={() =>
-                  handleOpenPreview(
-                    require('../../../assets/images/profile/4538d4759870466dd05509849b26c4b0b111d827.jpg'),
-                    'Preview Attached Photo'
-                  )
-                }
+                onPress={handleOpenPhotoSheet}
               >
                 <Image03Icon size={24} color="#141B34" />
               </TouchableOpacity>
@@ -472,8 +554,18 @@ export function ProviderInChatScreen() {
         </View>
       </KeyboardAvoidingView>
 
-      {/* ── Android Native System Navigation Bar Barrier ── */}
-      <NativeDockSpacer backgroundColor="#FFFFFF" />
+      {/* ── Android Native System Navigation Bar Barrier (visible when keyboard is hidden) ── */}
+      {!isKeyboardVisible && <NativeDockSpacer backgroundColor="#FFFFFF" />}
+
+      {/* ── Photo Upload Action Sheet ── */}
+      <ProviderPhotoUploadSheet
+        visible={photoSheetVisible}
+        title="Send Photo"
+        onClose={() => setPhotoSheetVisible(false)}
+        onOpenCamera={handleOpenCamera}
+        onChoosePhotos={handleChoosePhotos}
+        onSelectFile={handleChoosePhotos}
+      />
     </View>
   );
 }
@@ -755,7 +847,7 @@ const styles = StyleSheet.create({
 
   /* ── Bottom Input Bar ── */
   inputBarContainer: {
-    height: 64,
+    minHeight: 64,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     paddingVertical: 12,

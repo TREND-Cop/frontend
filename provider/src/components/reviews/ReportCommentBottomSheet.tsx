@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Rect } from 'react-native-svg';
+import { useSingleFlight } from '../../utils/safeNavigation';
 
 const FONT_MEDIUM = Platform.select({
   ios: 'SF Pro',
@@ -98,6 +99,15 @@ export const ReportCommentBottomSheet: React.FC<ReportCommentBottomSheetProps> =
   onSelectReport,
 }) => {
   const insets = useSafeAreaInsets();
+  const safeClose = useSingleFlight(() => {
+    if (!visible) return;
+    onClose();
+  });
+  const safeSelectReport = useSingleFlight(() => {
+    if (!visible) return;
+    onClose();
+    onSelectReport();
+  });
 
   if (!visible) return null;
 
@@ -106,14 +116,14 @@ export const ReportCommentBottomSheet: React.FC<ReportCommentBottomSheetProps> =
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={safeClose}
       statusBarTranslucent
     >
       <View style={styles.modalRoot}>
         {/* Dimmed backdrop pressable to close */}
         <Pressable
           style={styles.backdrop}
-          onPress={onClose}
+          onPress={safeClose}
           accessibilityRole="button"
           accessibilityLabel="Dismiss report menu"
         />
@@ -122,7 +132,7 @@ export const ReportCommentBottomSheet: React.FC<ReportCommentBottomSheetProps> =
         <View
           style={[
             styles.sheetContainer,
-            { paddingBottom: Math.max(insets.bottom, 24) },
+            { paddingBottom: insets.bottom + 16 },
           ]}
         >
           {/* Header Bar (72px) */}
@@ -134,7 +144,7 @@ export const ReportCommentBottomSheet: React.FC<ReportCommentBottomSheetProps> =
             <TouchableOpacity
               style={styles.closeButton}
               activeOpacity={0.7}
-              onPress={onClose}
+              onPress={safeClose}
               accessibilityRole="button"
               accessibilityLabel="Close report menu"
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -149,10 +159,7 @@ export const ReportCommentBottomSheet: React.FC<ReportCommentBottomSheetProps> =
             <TouchableOpacity
               style={styles.optionRow}
               activeOpacity={0.8}
-              onPress={() => {
-                onClose();
-                onSelectReport();
-              }}
+              onPress={safeSelectReport}
               accessibilityRole="button"
               accessibilityLabel="Report this comment. Report any abusive comment towards your service or business."
             >

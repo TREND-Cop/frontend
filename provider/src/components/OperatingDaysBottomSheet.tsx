@@ -40,6 +40,21 @@ const ORDERED_DAYS = [
   'Everyday',
 ];
 
+const DAY_PAIRS: Array<[string, string]> = [
+  ['Monday', 'Tuesday'],
+  ['Wednesday', 'Thursday'],
+  ['Friday', 'Saturday'],
+  ['Sunday', 'Everyday'],
+];
+
+function chunkIntoPairs<T>(array: T[]): Array<[T, T | undefined]> {
+  const pairs: Array<[T, T | undefined]> = [];
+  for (let i = 0; i < array.length; i += 2) {
+    pairs.push([array[i], array[i + 1]]);
+  }
+  return pairs;
+}
+
 // ── Close Icon (cancel-01: 24x24, stroke 1.5px #141B34) ──
 function CloseIcon({ size = 24 }: { size?: number }) {
   return (
@@ -169,7 +184,9 @@ export const OperatingDaysBottomSheet: React.FC<OperatingDaysBottomSheetProps> =
   const formatDaysString = (): string => {
     if (selected.length === 0) return '';
     const allSelected = ALL_WEEKDAYS.every((d) => selected.includes(d));
-    if (allSelected) return 'Mondays & Sundays';
+    if (allSelected) {
+      return 'Monday, Tuesday, Wednesday, Thursday, Friday, Saturday and Sunday';
+    }
 
     // Sort according to weekday order
     const sorted = [...selected].sort(
@@ -177,7 +194,7 @@ export const OperatingDaysBottomSheet: React.FC<OperatingDaysBottomSheetProps> =
     );
 
     if (sorted.length === 2 && sorted.includes('Monday') && sorted.includes('Sunday')) {
-      return 'Mondays & Sundays';
+      return 'Monday & Sunday';
     }
 
     // Check if contiguous range
@@ -214,14 +231,7 @@ export const OperatingDaysBottomSheet: React.FC<OperatingDaysBottomSheetProps> =
       <View style={styles.modalOverlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
 
-        <View
-          style={[
-            styles.sheetContainer,
-            {
-              paddingBottom: Math.max(insets.bottom, 20),
-            },
-          ]}
-        >
+        <View style={styles.sheetContainer}>
           {/* ── Filter Header (height: 62px) ── */}
           <View style={styles.filterHeader}>
             <View style={styles.headerTitleWrapper}>
@@ -242,6 +252,7 @@ export const OperatingDaysBottomSheet: React.FC<OperatingDaysBottomSheetProps> =
             style={styles.scrollArea}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
+            bounces={false}
           >
             {/* ── Subtitle (height: 48px, top: 86px) ── */}
             <Text style={styles.subtitleText}>
@@ -254,16 +265,32 @@ export const OperatingDaysBottomSheet: React.FC<OperatingDaysBottomSheetProps> =
                 <Text style={styles.selectedSectionTitle}>Selected Option</Text>
 
                 <View style={styles.selectedGrid}>
-                  {selected.map((day) => (
-                    <TouchableOpacity
-                      key={day}
-                      activeOpacity={0.8}
-                      style={styles.selectedDayPill}
-                      onPress={() => handleRemoveSelected(day)}
-                    >
-                      <Text style={styles.selectedDayText}>{day}</Text>
-                      <CircleRemoveIcon size={24} />
-                    </TouchableOpacity>
+                  {chunkIntoPairs(selected).map((pair, idx) => (
+                    <View key={`selected-pair-${idx}`} style={styles.gridRow}>
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        style={styles.selectedDayPill}
+                        onPress={() => handleRemoveSelected(pair[0])}
+                      >
+                        <Text style={styles.selectedDayText} numberOfLines={1}>{pair[0]}</Text>
+                        <CircleRemoveIcon size={24} />
+                      </TouchableOpacity>
+
+                      {pair[1] != null ? (
+                        <TouchableOpacity
+                          activeOpacity={0.8}
+                          style={styles.selectedDayPill}
+                          onPress={() => {
+                            if (pair[1]) handleRemoveSelected(pair[1]);
+                          }}
+                        >
+                          <Text style={styles.selectedDayText} numberOfLines={1}>{pair[1]}</Text>
+                          <CircleRemoveIcon size={24} />
+                        </TouchableOpacity>
+                      ) : (
+                        <View style={styles.emptyPillPlaceholder} />
+                      )}
+                    </View>
                   ))}
                 </View>
               </View>
@@ -276,25 +303,43 @@ export const OperatingDaysBottomSheet: React.FC<OperatingDaysBottomSheetProps> =
               )}
 
               <View style={styles.optionsGrid}>
-                {ORDERED_DAYS.map((day) => {
-                  const active = isDaySelected(day);
+                {DAY_PAIRS.map(([dayA, dayB]) => {
+                  const activeA = isDaySelected(dayA);
+                  const activeB = isDaySelected(dayB);
                   return (
-                    <TouchableOpacity
-                      key={day}
-                      activeOpacity={0.8}
-                      style={[
-                        styles.optionPill,
-                        active ? styles.optionPillActive : styles.optionPillInactive,
-                      ]}
-                      onPress={() => handleToggleDay(day)}
-                    >
-                      <Text style={styles.optionText}>{day}</Text>
-                      {active ? (
-                        <SelectedCheckmarkCircle size={24} />
-                      ) : (
-                        <UnselectedRadioCircle size={24} />
-                      )}
-                    </TouchableOpacity>
+                    <View key={`${dayA}-${dayB}`} style={styles.gridRow}>
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        style={[
+                          styles.optionPill,
+                          activeA ? styles.optionPillActive : styles.optionPillInactive,
+                        ]}
+                        onPress={() => handleToggleDay(dayA)}
+                      >
+                        <Text style={styles.optionText} numberOfLines={1}>{dayA}</Text>
+                        {activeA ? (
+                          <SelectedCheckmarkCircle size={24} />
+                        ) : (
+                          <UnselectedRadioCircle size={24} />
+                        )}
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        style={[
+                          styles.optionPill,
+                          activeB ? styles.optionPillActive : styles.optionPillInactive,
+                        ]}
+                        onPress={() => handleToggleDay(dayB)}
+                      >
+                        <Text style={styles.optionText} numberOfLines={1}>{dayB}</Text>
+                        {activeB ? (
+                          <SelectedCheckmarkCircle size={24} />
+                        ) : (
+                          <UnselectedRadioCircle size={24} />
+                        )}
+                      </TouchableOpacity>
+                    </View>
                   );
                 })}
               </View>
@@ -302,7 +347,17 @@ export const OperatingDaysBottomSheet: React.FC<OperatingDaysBottomSheetProps> =
           </ScrollView>
 
           {/* ── Bottom Confirm Action Button (358x48px, radius 24px) ── */}
-          <View style={styles.bottomButtonContainer}>
+          <View
+            style={[
+              styles.bottomButtonContainer,
+              {
+                paddingBottom:
+                  Platform.OS === 'android'
+                    ? Math.max(insets.bottom, 24) + 12
+                    : Math.max(insets.bottom, 16) + 4,
+              },
+            ]}
+          >
             <TouchableOpacity
               activeOpacity={0.85}
               disabled={!hasSelections}
@@ -389,11 +444,11 @@ const styles = StyleSheet.create({
   /* Scroll Area */
   scrollArea: {
     flexGrow: 0,
-    maxHeight: 620,
+    maxHeight: 560,
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 24,
+    paddingTop: 20,
     paddingBottom: 24,
     alignItems: 'center',
   },
@@ -408,16 +463,16 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
-    marginBottom: 40,
+    marginBottom: 20,
     includeFontPadding: false,
   },
 
-  /* Selected Option Section (current work day: gap: 24px, marginBottom: 40px) */
+  /* Selected Option Section (current work day: gap: 16px, marginBottom: 24px) */
   selectedSection: {
     width: '100%',
     maxWidth: 358,
-    gap: 24,
-    marginBottom: 40,
+    gap: 16,
+    marginBottom: 24,
   },
   selectedSectionTitle: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
@@ -429,15 +484,12 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   selectedGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-    rowGap: 16,
-    columnGap: 24,
+    width: '100%',
+    gap: 12,
   },
   selectedDayPill: {
-    width: 167,
-    height: 48.25,
+    flex: 1,
+    height: 48,
     backgroundColor: 'rgba(247, 247, 247, 0.96)',
     borderWidth: 1,
     borderStyle: 'solid',
@@ -463,7 +515,7 @@ const styles = StyleSheet.create({
   optionsSection: {
     width: '100%',
     maxWidth: 358,
-    gap: 24,
+    gap: 16,
   },
   optionsSectionTitle: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
@@ -475,14 +527,22 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   optionsGrid: {
+    width: '100%',
+    gap: 12,
+  },
+  gridRow: {
+    width: '100%',
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-    rowGap: 16,
-    columnGap: 24,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  emptyPillPlaceholder: {
+    flex: 1,
+    height: 48,
   },
   optionPill: {
-    width: 167,
+    flex: 1,
     height: 48,
     backgroundColor: 'rgba(247, 247, 247, 0.96)',
     borderRadius: 24,
@@ -517,9 +577,10 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 16,
+    paddingTop: 12,
     backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(235, 235, 245, 0.96)',
   },
   confirmButton: {
     width: '100%',

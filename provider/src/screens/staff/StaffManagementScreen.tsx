@@ -10,10 +10,11 @@ import {
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 
 import { useStaffStore, useStaffLoading, StaffMember } from '../../context/StaffContext';
 import { useProviderOnboarding } from '../../context/ProviderOnboardingContext';
+import { useProviderProfile } from '../../context/ProviderProfileContext';
 import { useServiceDraft } from '../../context/ServiceDraftContext';
 import { STAFF_SKELETON_MS } from '../../constants/staff.config';
 import { triggerLightHaptic } from '../../utils/haptics';
@@ -39,13 +40,22 @@ const FONT_BUTTON = Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium';
  * 4. M3: Staff members list with "Add staff" pill and interactive cards
  */
 export const StaffManagementScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   // Shared app-level stores
   const { staff, ownerIsProvider, setOwnerIsProvider } = useStaffStore();
   const { ownerProfile } = useProviderOnboarding();
+  const { ownerName, ownerPhoto } = useProviderProfile();
   const { resetDraft } = useServiceDraft();
   const isBackendLoading = useStaffLoading();
+
+  const resolvedOwnerName =
+    ownerProfile?.fullName && ownerProfile.fullName.trim().length > 0
+      ? ownerProfile.fullName.trim()
+      : ownerName && ownerName.trim().length > 0
+        ? ownerName.trim()
+        : 'James Kalba';
+  const resolvedOwnerPhoto = ownerProfile?.photoUri || ownerPhoto || null;
 
   // Skeleton display state (initial load delay to eliminate real-content flash)
   const [isSkeletonVisible, setIsSkeletonVisible] = useState<boolean>(true);
@@ -70,18 +80,16 @@ export const StaffManagementScreen: React.FC = () => {
     };
   }, [fadeAnim]);
 
-  // Back button handler: Always returns to dashboard and restarts wizard draft
+  // Back button handler: Always returns directly to main dashboard (never loops back to celebration or duplicate screens)
   const handleBack = useCallback(() => {
     triggerLightHaptic();
     // Restart wizard draft if active
     resetDraft();
-    // TODO (Skeleton): Route through global dashboard-entry mechanism when skeleton prompt is implemented
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/dashboard' as any);
+    if (safeRouter.canDismiss()) {
+      safeRouter.dismissAll();
     }
-  }, [resetDraft, router]);
+    safeRouter.replace('/dashboard' as any);
+  }, [resetDraft, safeRouter]);
 
   // Android hardware back button handler
   useEffect(() => {
@@ -97,7 +105,7 @@ export const StaffManagementScreen: React.FC = () => {
   // "Add staff" handler (navigates to Prompt 2 placeholder)
   const handleAddStaffPress = () => {
     triggerLightHaptic();
-    router.push('/staff/add' as any);
+    safeRouter.push('/staff/add' as any);
   };
 
   // "I don't have staff" handler (sets ownerIsProvider = true, transitioning M1 -> M2)
@@ -109,7 +117,7 @@ export const StaffManagementScreen: React.FC = () => {
   // Staff card tap handler (navigates to Prompt 3 placeholder)
   const handleStaffCardPress = (staffMember: StaffMember) => {
     triggerLightHaptic();
-    router.push({
+    safeRouter.push({
       pathname: '/staff/[id]',
       params: { id: staffMember.id },
     } as any);
@@ -150,8 +158,8 @@ export const StaffManagementScreen: React.FC = () => {
           <Animated.View style={[styles.mainContent, { opacity: fadeAnim }]}>
             {/* ── Admin Section ── */}
             <AdminRow
-              fullName={ownerProfile?.fullName}
-              photoUri={ownerProfile?.photoUri}
+              fullName={resolvedOwnerName}
+              photoUri={resolvedOwnerPhoto}
             />
 
             {/* ── Staff Section ── */}
@@ -299,9 +307,9 @@ const styles = StyleSheet.create({
   },
   staffLabelSmall: {
     fontFamily: FONT_MEDIUM,
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: Platform.OS === 'ios' ? 0.5 : 0.2,
+    fontSize: 20,
+    lineHeight: 28,
+    letterSpacing: 0.2,
     color: 'rgba(0, 8, 20, 0.96)',
   },
   emptyStateBody: {

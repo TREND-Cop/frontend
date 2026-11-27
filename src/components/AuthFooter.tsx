@@ -17,6 +17,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { colors, typography } from '../constants/theme';
+import { useSingleFlight } from '../utils/safeNavigation';
 
 interface AuthFooterProps {
   /** The static text before the tappable link (e.g. "Don't have an account? ") */
@@ -38,12 +39,15 @@ export const AuthFooter: React.FC<AuthFooterProps> = ({
   onLinkPress,
   onTermsPress,
 }) => {
+  const safeLinkPress = useSingleFlight(onLinkPress);
+  const safeTermsPress = useSingleFlight(onTermsPress);
+
   return (
     <>
       {/* ─── Account Switch Link ──────────────────────────────────── */}
       <View style={styles.switchRow}>
         <Text style={styles.switchText}>{promptText}</Text>
-        <TouchableOpacity onPress={onLinkPress}>
+        <TouchableOpacity onPress={safeLinkPress}>
           <Text style={styles.switchLink}>{linkText}</Text>
         </TouchableOpacity>
       </View>
@@ -53,7 +57,7 @@ export const AuthFooter: React.FC<AuthFooterProps> = ({
         <Text style={styles.termsText}>
           By continuing, you agree to our Application{' '}
         </Text>
-        <TouchableOpacity onPress={onTermsPress}>
+        <TouchableOpacity onPress={safeTermsPress}>
           <Text style={styles.termsLink}>Terms and Condition</Text>
         </TouchableOpacity>
       </View>

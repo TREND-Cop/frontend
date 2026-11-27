@@ -65,30 +65,38 @@ export const SuccessToast: React.FC<SuccessToastProps> = ({
 }) => {
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const translateYAnim = useRef(new Animated.Value(-10)).current;
+  const isShowingRef = useRef(false);
+  const lastShownMessageRef = useRef('');
 
   useEffect(() => {
     let dismissTimer: NodeJS.Timeout | null = null;
 
     if (visible) {
-      // Screen reader announcement on iOS & Android
-      AccessibilityInfo.announceForAccessibility(message);
+      // Idempotent toast guard: do not re-trigger entrance animation if already showing same message
+      if (!isShowingRef.current || lastShownMessageRef.current !== message) {
+        isShowingRef.current = true;
+        lastShownMessageRef.current = message;
+        // Screen reader announcement on iOS & Android
+        AccessibilityInfo.announceForAccessibility(message);
 
-      // Fade & slide in
-      Animated.parallel([
-        Animated.timing(opacityAnim, {
-          toValue: 1,
-          duration: 220,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateYAnim, {
-          toValue: 0,
-          duration: 220,
-          useNativeDriver: true,
-        }),
-      ]).start();
+        // Fade & slide in
+        Animated.parallel([
+          Animated.timing(opacityAnim, {
+            toValue: 1,
+            duration: 220,
+            useNativeDriver: true,
+          }),
+          Animated.timing(translateYAnim, {
+            toValue: 0,
+            duration: 220,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }
 
       // Auto dismiss timer
       dismissTimer = setTimeout(() => {
+        isShowingRef.current = false;
         Animated.parallel([
           Animated.timing(opacityAnim, {
             toValue: 0,
@@ -105,6 +113,7 @@ export const SuccessToast: React.FC<SuccessToastProps> = ({
         });
       }, duration);
     } else {
+      isShowingRef.current = false;
       opacityAnim.setValue(0);
       translateYAnim.setValue(-10);
     }

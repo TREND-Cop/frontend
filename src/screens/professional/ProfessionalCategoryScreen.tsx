@@ -10,7 +10,8 @@ import {
   Share,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ArrowLeft, Search, X, Clock, Star } from 'lucide-react-native';
 import { SafeImage } from '../../components/ui/SafeImage';
 import { ShareIcon } from '../../components/ShareIcon';
@@ -83,7 +84,7 @@ const BISOLA_SKILL_CATEGORIES: ProfessionalSkillCategory[] = [
 ];
 
 export const ProfessionalCategoryScreen = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
 
@@ -121,7 +122,7 @@ export const ProfessionalCategoryScreen = () => {
     bookingStore.setRating(item.rating);
 
     // Route to style details for all items in the professional's category
-    router.push({
+    safeRouter.push({
       pathname: '/professional/style-details',
       params: {
         id: item.id,
@@ -143,7 +144,7 @@ export const ProfessionalCategoryScreen = () => {
       {/* ── Header (Figma: height 64px, padding 8px 16px, borderBottom) ── */}
       <View style={styles.headerRow}>
         <TouchableOpacity
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/home'))}
+          onPress={() => (safeRouter.canGoBack() ? safeRouter.back() : safeRouter.replace('/home'))}
           style={styles.iconButton}
           activeOpacity={0.7}
         >

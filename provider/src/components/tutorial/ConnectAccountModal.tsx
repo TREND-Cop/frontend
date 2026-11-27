@@ -10,25 +10,31 @@ import {
 } from 'react-native';
 import { colors, fontFamilies } from '../../constants/theme';
 
-const CELEBRATION_ILLUSTRATION = require('../../../assets/images/dashboard/tutorial_celebration_characters.png');
+const BARBER_ILLUSTRATION = require('../../../assets/images/dashboard/payout_wallet_barber_illustration.png');
 
 interface ConnectAccountModalProps {
   visible: boolean;
+  ownerName?: string;
   onConnectAccount: () => void;
   onMaybeLater: () => void;
 }
 
 /**
- * 1:1 Figma Pop up 2 ("Amazing") — Connect Account Prompt
- * Frame: 358px x 499px, borderRadius: 24px, background: #FFFFFF
+ * 1:1 Figma Pop up — Add Payout Wallet Prompt
+ * Frame: 358px x 542px, borderRadius: 24px, background: #FFFFFF
  */
 export const ConnectAccountModal: React.FC<ConnectAccountModalProps> = ({
   visible,
+  ownerName,
   onConnectAccount,
   onMaybeLater,
 }) => {
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  const trimmed = ownerName?.trim() || '';
+  const firstName = trimmed.length > 0 ? trimmed.split(' ')[0] : '';
+  const greeting = firstName ? `Hi, ${firstName}.` : 'Hi there.';
 
   useEffect(() => {
     if (visible) {
@@ -48,7 +54,7 @@ export const ConnectAccountModal: React.FC<ConnectAccountModalProps> = ({
         }),
       ]).start();
     }
-  }, [visible]);
+  }, [visible, opacityAnim, scaleAnim]);
 
   if (!visible) return null;
 
@@ -63,31 +69,38 @@ export const ConnectAccountModal: React.FC<ConnectAccountModalProps> = ({
           },
         ]}
       >
-        {/* ── Illustration (Celebration Characters + Confetti: 260px x 150px) ── */}
+        {/* ── Illustration (Barber in blue apron waving with balloons & confetti: 198px x 147px) ── */}
         <View style={styles.illustrationWrapper}>
           <Image
-            source={CELEBRATION_ILLUSTRATION}
+            source={BARBER_ILLUSTRATION}
             style={styles.illustrationImage}
             resizeMode="contain"
           />
         </View>
 
-        {/* ── Title ("Amazing", 20px Medium, lineHeight: 28px) ── */}
-        <Text style={styles.titleText}>Amazing</Text>
+        {/* ── Title ("Hi, {firstName}." or "Hi there.", 20px Medium, lineHeight: 28px, letterSpacing: 0.2px) ── */}
+        <Text style={styles.titleText}>{greeting}</Text>
 
-        {/* ── Subtitle (331px x 72px, 16px Regular, lineHeight: 24px) ── */}
+        {/* ── Subtitle (331px, 16px Regular, lineHeight: 24px, letterSpacing: 0.4px) ── */}
         <Text style={styles.subtitleText}>
-          Lastly, let’s connect an account to your business. It’s free, secure,
-          and you can start using Trend right away.
+          Finish Setting up your account by adding a payout wallet this will help you will receive payments client made through bank transfer or card. It’s free, safe, and easy to set up.
         </Text>
 
-        {/* ── Primary Button: "Connect account" (266px x 48px, radius: 24px) ── */}
+        {/* ── Primary Button: "Add payout wallet" (minWidth: 266px, height: 48px, radius: 24px) ── */}
         <TouchableOpacity
           activeOpacity={0.85}
           style={styles.connectButton}
           onPress={onConnectAccount}
+          accessibilityLabel="Add payout wallet"
         >
-          <Text style={styles.connectButtonText}>Connect account</Text>
+          <Text
+            style={styles.connectButtonText}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+          >
+            Add payout wallet
+          </Text>
         </TouchableOpacity>
 
         {/* ── Secondary Button: "Maybe later" (210px x 48px) ── */}
@@ -114,7 +127,7 @@ const styles = StyleSheet.create({
   },
   cardContainer: {
     width: 358,
-    height: 499,
+    height: 542,
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     alignItems: 'center',
@@ -125,53 +138,63 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   illustrationWrapper: {
-    width: 260,
-    height: 150,
-    marginTop: 20,
+    width: 198,
+    height: 147,
+    marginTop: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
   illustrationImage: {
-    width: '100%',
-    height: '100%',
+    width: 198,
+    height: 147,
   },
   titleText: {
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontFamily: fontFamilies.bodyMedium,
     fontWeight: '500',
     fontSize: 20,
     lineHeight: 28,
+    letterSpacing: 0.2,
     color: '#000000',
     textAlign: 'center',
     includeFontPadding: false,
-    marginTop: 20,
+    marginTop: 24,
   },
   subtitleText: {
     width: 331,
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontFamily: fontFamilies.body,
     fontWeight: '400',
     fontSize: 16,
     lineHeight: 24,
+    letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
     textAlign: 'center',
     includeFontPadding: false,
     marginTop: 12,
   },
   connectButton: {
-    width: 266,
+    minWidth: 266,
+    paddingHorizontal: 20,
     height: 48,
     borderRadius: 24,
     backgroundColor: colors.barberPrimary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 36,
+    marginTop: 40,
+    shadowColor: 'rgba(133, 139, 148, 0.12)',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 4,
   },
   connectButtonText: {
     fontFamily: fontFamilies.button,
     fontWeight: '500',
     fontSize: 16,
     lineHeight: 24,
+    letterSpacing: 0.15,
     color: '#FFFFFF',
     includeFontPadding: false,
+    textAlign: 'center',
   },
   maybeLaterButton: {
     width: 210,
@@ -185,7 +208,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontSize: 16,
     lineHeight: 24,
+    letterSpacing: 0.15,
     color: 'rgba(96, 96, 102, 0.96)',
+    textAlign: 'center',
     includeFontPadding: false,
   },
 });

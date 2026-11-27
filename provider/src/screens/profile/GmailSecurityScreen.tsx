@@ -10,8 +10,8 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import Svg, { Path } from 'react-native-svg';
+import { useSafeRouter } from '../../utils/safeNavigation';
+import Svg, { Path, Circle } from 'react-native-svg';
 
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 import { useProviderProfile } from '../../context/ProviderProfileContext';
@@ -38,15 +38,11 @@ function ArrowLeftIcon({ size = 24 }: { size?: number }) {
 function ShareIcon({ size = 24 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="18" cy="5" r="3" stroke="#141B34" strokeWidth="1.5" />
+      <Circle cx="6" cy="12" r="3" stroke="#141B34" strokeWidth="1.5" />
+      <Circle cx="18" cy="19" r="3" stroke="#141B34" strokeWidth="1.5" />
       <Path
-        d="M12 3v11M12 3l-4 4M12 3l4 4"
-        stroke="#141B34"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7"
+        d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"
         stroke="#141B34"
         strokeWidth="1.5"
         strokeLinecap="round"
@@ -88,7 +84,7 @@ function GoogleMailIcon({ size = 24 }: { size?: number }) {
 }
 
 export const GmailSecurityScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { ownerEmail } = useProviderProfile();
 
@@ -106,15 +102,15 @@ export const GmailSecurityScreen: React.FC = () => {
 
   const handleAddGmailPress = () => {
     // Follow design literally (Choice A3): opens Add Google Account
-    router.push('/add-google-account' as any);
+    safeRouter.push('/add-google-account' as any);
   };
 
   const handleUpdateGmailPress = () => {
     // If email on file, open update form; otherwise, open empty state
     if (hasEmailOnFile) {
-      router.push('/gmail-update' as any);
+      safeRouter.push('/gmail-update' as any);
     } else {
-      router.push('/gmail-update?empty=true' as any);
+      safeRouter.push('/gmail-update?empty=true' as any);
     }
   };
 
@@ -129,7 +125,7 @@ export const GmailSecurityScreen: React.FC = () => {
           <TouchableOpacity
             activeOpacity={0.7}
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => safeRouter.back()}
             accessibilityLabel="Back to Profile"
           >
             <ArrowLeftIcon size={24} />
@@ -154,36 +150,31 @@ export const GmailSecurityScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Grey Menu Card */}
-        <View style={styles.menuCard}>
-          {/* Row 1: Add Gmail Account */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={handleAddGmailPress}
-            style={styles.menuRow}
-          >
-            <View style={styles.menuRowLeft}>
-              <GoogleMailIcon size={24} />
-              <Text style={styles.menuRowLabel}>Add Gmail Account</Text>
-            </View>
-            <ChevronRightIcon size={24} />
-          </TouchableOpacity>
+        {/* Card 1: Add Gmail Account */}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={handleAddGmailPress}
+          style={styles.menuCard}
+        >
+          <View style={styles.menuRowLeft}>
+            <GoogleMailIcon size={24} />
+            <Text style={styles.menuRowLabel}>Add Gmail Account</Text>
+          </View>
+          <ChevronRightIcon size={24} />
+        </TouchableOpacity>
 
-          <View style={styles.cardDivider} />
-
-          {/* Row 2: Update Existing Gmail Account */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={handleUpdateGmailPress}
-            style={styles.menuRow}
-          >
-            <View style={styles.menuRowLeft}>
-              <GoogleMailIcon size={24} />
-              <Text style={styles.menuRowLabel}>Update Existing Gmail Account</Text>
-            </View>
-            <ChevronRightIcon size={24} />
-          </TouchableOpacity>
-        </View>
+        {/* Card 2: Update Existing Gmail Account */}
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={handleUpdateGmailPress}
+          style={styles.menuCard}
+        >
+          <View style={styles.menuRowLeft}>
+            <GoogleMailIcon size={24} />
+            <Text style={styles.menuRowLabel}>Update Existing Gmail Account</Text>
+          </View>
+          <ChevronRightIcon size={24} />
+        </TouchableOpacity>
       </ScrollView>
 
       <NativeDockSpacer />
@@ -239,21 +230,19 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 40,
     paddingBottom: 40,
+    gap: 40,
   },
   menuCard: {
     width: '100%',
+    height: 56,
     backgroundColor: '#F7F7F7',
     borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
   },
   menuRowLeft: {
     flexDirection: 'row',
@@ -267,10 +256,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     color: '#000814',
-  },
-  cardDivider: {
-    width: '100%',
-    height: 1,
-    backgroundColor: '#EBEBF5',
   },
 });

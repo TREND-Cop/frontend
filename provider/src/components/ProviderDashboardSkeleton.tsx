@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useBottomInset } from '../utils/bottomInset';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -147,6 +148,8 @@ export const SkeletonBox: React.FC<SkeletonBoxProps> = ({
 export const ProviderDashboardSkeleton: React.FC = () => {
   const insets = useSafeAreaInsets();
 
+  const { tabScrollPadding } = useBottomInset();
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -155,11 +158,7 @@ export const ProviderDashboardSkeleton: React.FC = () => {
           styles.scrollContent,
           {
             paddingTop: Math.max(insets.top + 16, 56),
-            paddingBottom:
-              160 +
-              (Platform.OS === 'android'
-                ? Math.max(insets.bottom, 56)
-                : Math.max(insets.bottom, 16)),
+            paddingBottom: tabScrollPadding,
           },
         ]}
         showsVerticalScrollIndicator={false}

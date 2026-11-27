@@ -8,7 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
 import { SafeImage } from '../../components/ui/SafeImage';
 import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
@@ -138,7 +138,7 @@ interface EmptyWishlistScreenProps {
 export const EmptyWishlistScreen: React.FC<EmptyWishlistScreenProps> = ({
   onExploreServices,
 }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { isFavorite, toggleFavorite: toggleContextFavorite } = useFavoritesContext();
 
@@ -156,19 +156,19 @@ export const EmptyWishlistScreen: React.FC<EmptyWishlistScreenProps> = ({
   };
 
   const handleGoBack = () => {
-    router.replace('/home/bookings' as any);
+    safeRouter.replace('/home/bookings' as any);
   };
 
   const handleExplorePress = () => {
     if (onExploreServices) {
       onExploreServices();
     } else {
-      router.push('/home/explore' as any);
+      safeRouter.push('/home/explore' as any);
     }
   };
 
   const handleCardPress = (item: (typeof YOU_MIGHT_LIKE_ITEMS)[0]) => {
-    router.push({
+    safeRouter.push({
       pathname: '/professional/style-details',
       params: {
         id: item.id,

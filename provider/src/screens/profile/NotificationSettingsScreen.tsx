@@ -11,8 +11,8 @@ import {
   Share,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import Svg, { Path } from 'react-native-svg';
+import { useSafeRouter } from '../../utils/safeNavigation';
+import Svg, { Path, Circle } from 'react-native-svg';
 
 import { useProviderProfile } from '../../context/ProviderProfileContext';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
@@ -21,8 +21,8 @@ function ArrowLeftIcon({ size = 24 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M15 18l-6-6 6-6"
-        stroke="#141B34"
+        d="M19 12H5M11 6l-6 6 6 6"
+        stroke="#000814"
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -34,12 +34,14 @@ function ArrowLeftIcon({ size = 24 }: { size?: number }) {
 function ShareIcon({ size = 24 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="18" cy="5" r="3" stroke="#141B34" strokeWidth="1.5" />
+      <Circle cx="6" cy="12" r="3" stroke="#141B34" strokeWidth="1.5" />
+      <Circle cx="18" cy="19" r="3" stroke="#141B34" strokeWidth="1.5" />
       <Path
-        d="M18 8a3 3 0 100-6 3 3 0 000 6zM6 15a3 3 0 100-6 3 3 0 000 6zM18 22a3 3 0 100-6 3 3 0 000 6zM8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"
+        d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"
         stroke="#141B34"
         strokeWidth="1.5"
         strokeLinecap="round"
-        strokeLinejoin="round"
       />
     </Svg>
   );
@@ -127,7 +129,7 @@ const CustomToggleSwitch: React.FC<ToggleSwitchProps> = ({ value, onValueChange 
 };
 
 export function ProviderNotificationSettingsScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { pushNotificationsEnabled, emailNotificationsEnabled, updateNotificationSettings } = useProviderProfile();
 
@@ -179,7 +181,7 @@ export function ProviderNotificationSettingsScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           activeOpacity={0.8}
-          onPress={() => router.back()}
+          onPress={() => safeRouter.back()}
           style={styles.headerButton}
         >
           <ArrowLeftIcon size={24} />
@@ -250,7 +252,7 @@ export function ProviderNotificationSettingsScreen() {
       )}
 
       {/* ── Bottom Sticky Save Button Container ── */}
-      <View style={[styles.bottomContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <View style={[styles.bottomContainer, { paddingBottom: insets.bottom + 16 }]}>
         <TouchableOpacity
           activeOpacity={hasChanges ? 0.85 : 1}
           disabled={!hasChanges}
@@ -287,18 +289,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(235, 235, 245, 0.96)',
   },
   headerButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(235, 235, 245, 0.96)',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
   },
   headerTitle: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
@@ -315,15 +313,13 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 24,
-    paddingBottom: 100,
+    paddingBottom: 40,
     gap: 16,
   },
   settingCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(235, 235, 245, 0.96)',
+    backgroundColor: '#F7F7F7',
+    borderRadius: 16,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -403,10 +399,8 @@ const styles = StyleSheet.create({
   // ── Bottom Button Container ──
   bottomContainer: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 40,
     backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(235, 235, 245, 0.96)',
   },
   saveButton: {
     width: '100%',

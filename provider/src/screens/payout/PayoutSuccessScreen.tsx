@@ -11,19 +11,19 @@ import {
   Easing,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { useProviderOnboarding } from '../../context/ProviderOnboardingContext';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 
-const CONFETTI_IMAGE = require('../../../assets/images/custom/booking_success_confetti.png');
-const CHARACTERS_IMAGE = require('../../../assets/images/custom/booking_success_characters.png');
+const CONFETTI_IMAGE = require('../../../assets/images/appointments/booking_success_confetti.png');
+const SUCCESS_BADGE_IMAGE = require('../../../assets/images/appointments/glossy_green_success_badge.png');
 
 /**
  * 1:1 Figma Payouts Successful Screen
  * Frame: booking successful screen (width: 390px, height: 844px, background: #ffffff)
  */
 export const PayoutSuccessScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { setShowDashboardOverlayAfterPayout } = useProviderOnboarding();
 
@@ -144,43 +144,20 @@ export const PayoutSuccessScreen: React.FC = () => {
   const handleGoToDashboard = () => {
     // Show one-time 4-dot dimmed overlay on dashboard
     setShowDashboardOverlayAfterPayout(true);
-    router.replace('/dashboard' as any);
+    safeRouter.replace('/dashboard' as any);
   };
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
       <View style={styles.container}>
-        {/* ── Confetti Background with Continuous Floating Sway ── */}
-        <Animated.View
-          style={[
-            styles.confettiContainer,
-            {
-              transform: [
-                {
-                  translateY: confettiSway.interpolate({
-                    inputRange: [-1, 1],
-                    outputRange: [-6, 6],
-                  }),
-                },
-                {
-                  scale: confettiSway.interpolate({
-                    inputRange: [-1, 0, 1],
-                    outputRange: [1.02, 1, 1.02],
-                  }),
-                },
-              ],
-            },
-          ]}
-          pointerEvents="none"
-        >
-          <Image
-            source={CONFETTI_IMAGE}
-            style={styles.confettiImage}
-            resizeMode="cover"
-          />
-        </Animated.View>
+        {/* ── Confetti Background ── */}
+        <Image
+          source={CONFETTI_IMAGE}
+          style={styles.confettiImage}
+          resizeMode="contain"
+        />
 
-        {/* ── Dancing Characters with Continuous Dance Bounce & Tilt ── */}
+        {/* ── 3D Glossy Green Checkmark Badge with Gentle Bounce ── */}
         <Animated.View
           style={[
             styles.charactersWrapper,
@@ -200,7 +177,7 @@ export const PayoutSuccessScreen: React.FC = () => {
           ]}
         >
           <Image
-            source={CHARACTERS_IMAGE}
+            source={SUCCESS_BADGE_IMAGE}
             style={styles.charactersImage}
             resizeMode="contain"
           />
@@ -208,9 +185,9 @@ export const PayoutSuccessScreen: React.FC = () => {
 
         {/* ── Congratulation Text (width: 358px, gap: 16px) ── */}
         <View style={styles.textContainer}>
-          <Text style={styles.titleText}>Payouts Successful</Text>
+          <Text style={styles.titleText}>Payout wallet successfully added</Text>
           <Text style={styles.subtitleText}>
-            You can now use Trend on your business
+            You can now use Trend for your business
           </Text>
         </View>
 
@@ -245,27 +222,24 @@ const styles = StyleSheet.create({
     position: 'relative',
     paddingHorizontal: 16,
   },
-  confettiContainer: {
+  confettiImage: {
     position: 'absolute',
-    top: 46,
-    left: -38,
+    top: 27,
     width: 466,
     height: 308,
-  },
-  confettiImage: {
-    width: '100%',
-    height: '100%',
+    alignSelf: 'center',
+    zIndex: 0,
   },
   charactersWrapper: {
-    width: 213,
-    height: 153,
-    marginTop: 150,
+    width: 150,
+    height: 150,
+    marginTop: 143,
     justifyContent: 'center',
     alignItems: 'center',
   },
   charactersImage: {
-    width: '100%',
-    height: '100%',
+    width: 150,
+    height: 150,
   },
   textContainer: {
     width: 358,

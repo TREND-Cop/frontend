@@ -1,25 +1,25 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
+import { StatusBar } from 'expo-status-bar';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
   Image,
-  Platform,
-  Alert,
   Keyboard,
   KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
-import { NativeDockSpacer } from '../../components/NativeDockSpacer';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { AcceptAppointmentLoader } from '../../components/AcceptAppointmentLoader';
 import { CancelAppointmentWarningModal } from '../../components/CancelAppointmentWarningModal';
+import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 import { appointmentStore, awaitingAppointmentStore, ongoingAppointmentStore } from '../../store/appointmentStore';
 
 // ── 1:1 Vector Icons ──────────────────────────────────────────────────────────
@@ -64,6 +64,15 @@ function CheckmarkCircleGreenIcon({ size = 24 }: { size?: number }) {
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" fill="rgba(12, 121, 12, 0.96)" stroke="rgba(12, 121, 12, 0.96)" strokeWidth={1.5} />
       <Path d="M8 12.2l2.8 2.8L16 9.5" stroke="#FFFFFF" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function Cancel01RedIcon({ size = 24 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" fill="rgba(248, 239, 239, 0.96)" stroke="#CC2929" strokeWidth={1.5} />
+      <Path d="M15 9l-6 6M9 9l6 6" stroke="#CC2929" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -371,10 +380,10 @@ function OpayIcon({ size = 24 }: { size?: number }) {
 // ── Default Mock / Figma Data ────────────────────────────────────────────────
 
 const DEFAULT_APPOINTMENT_DATA = {
-  headerTitle: 'Ayobami Isaac',
+  headerTitle: 'All Back Dreadlock',
   client: {
     name: 'Jude Fabulous',
-    badge: 'Non Client',
+    badge: 'New Client',
     avatar: require('../../../assets/images/appointments/jude_fabulous.png'),
     gender: 'Male',
     badgeStatus: 'Men',
@@ -422,7 +431,7 @@ const DEFAULT_APPOINTMENT_DATA = {
     ],
   },
   note: {
-    text: 'I would love for you to go gentle on my scalp',
+    text: 'leave a note for the staff',
     count: '1/100',
   },
   package: {
@@ -435,8 +444,7 @@ const DEFAULT_APPOINTMENT_DATA = {
     items: ['Hair Washing', 'Conditioning & Wash', 'Manicure'],
   },
   summary: {
-    appointmentCost: '₦52,700',
-    trendPoints: '-₦2,700',
+    appointmentCost: '₦50,000',
     paymentType: 'Opay (Transfer)',
     ticketNumber: '#3654376',
     total: '₦50,000',
@@ -447,8 +455,8 @@ const DEFAULT_APPOINTMENT_DATA = {
 
 export const ProviderAppointmentDetailScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const bottomInset = Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16);
-  const router = useRouter();
+  const bottomInset = insets.bottom + 16;
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams<{
     id?: string;
     title?: string;
@@ -460,6 +468,7 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
     price?: string;
     duration?: string;
     rating?: string;
+    serviceName?: string;
     staff?: string;
     specialist?: string;
     specialistRole?: string;
@@ -472,7 +481,6 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
     paymentType?: string;
     paymentMethod?: string;
     appointmentCost?: string;
-    trendPoints?: string;
     ticketNumber?: string;
     appointmentTicket?: string;
     packagePrice?: string;
@@ -487,12 +495,12 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
     isUpfront
       ? 'upfront'
       : params.status === 'awaiting'
-      ? 'awaiting'
-      : params.status === 'cancelled'
-      ? 'cancelled'
-      : params.status === 'completed'
-      ? 'completed'
-      : 'request';
+        ? 'awaiting'
+        : params.status === 'cancelled'
+          ? 'cancelled'
+          : params.status === 'completed'
+            ? 'completed'
+            : 'request';
   const isAwaiting = appointmentStatus === 'awaiting';
   const isRequest = appointmentStatus === 'request';
 
@@ -501,29 +509,28 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
     isAwaiting
       ? 'Jude Fabulous'
       : isRequest
-      ? (params.clientName || DEFAULT_APPOINTMENT_DATA.client.name)
-      : params.clientName ||
+        ? (params.clientName || DEFAULT_APPOINTMENT_DATA.client.name)
+        : params.clientName ||
         (params.title && params.serviceTitle ? params.title : undefined) ||
         appointment?.clientName ||
         (isUpfront ? 'Samuel Akunne' : DEFAULT_APPOINTMENT_DATA.client.name);
 
-  const headerTitle =
-    isAwaiting
-      ? (params.clientName || 'Ayobami Isaac')
-      : isRequest
-      ? (params.title || DEFAULT_APPOINTMENT_DATA.headerTitle)
-      : isUpfront
-      ? (params.clientName || 'Samuel Akunne')
-      : (params.title && !params.serviceTitle ? params.title : undefined) ||
-        clientName ||
-        DEFAULT_APPOINTMENT_DATA.headerTitle;
+  const serviceName =
+    params.serviceTitle ||
+    params.serviceName ||
+    (params.title && params.title !== clientName ? params.title : undefined) ||
+    appointment?.title ||
+    (isAwaiting ? (params.title || 'Nail art') : isUpfront ? 'Men Brade' : DEFAULT_APPOINTMENT_DATA.service.title);
+
+  // All screens like this MUST have the service name at the header, not staff or client
+  const headerTitle = serviceName;
 
   const clientStatus =
     isAwaiting
       ? 'Returning Client'
       : isRequest
-      ? (params.clientStatus || DEFAULT_APPOINTMENT_DATA.client.badge)
-      : params.clientStatus ||
+        ? (params.clientStatus || DEFAULT_APPOINTMENT_DATA.client.badge)
+        : params.clientStatus ||
         appointment?.clientStatus ||
         (isUpfront ? 'Returning Client' : DEFAULT_APPOINTMENT_DATA.client.badge);
 
@@ -531,8 +538,8 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
     isAwaiting
       ? 'Male'
       : isRequest
-      ? (params.gender || DEFAULT_APPOINTMENT_DATA.client.gender)
-      : params.gender ||
+        ? (params.gender || DEFAULT_APPOINTMENT_DATA.client.gender)
+        : params.gender ||
         appointment?.gender ||
         DEFAULT_APPOINTMENT_DATA.client.gender;
 
@@ -540,39 +547,31 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
     isAwaiting
       ? '5 Days ago'
       : isRequest
-      ? (params.membership || DEFAULT_APPOINTMENT_DATA.client.membership)
-      : params.membership ||
+        ? (params.membership || DEFAULT_APPOINTMENT_DATA.client.membership)
+        : params.membership ||
         appointment?.membership ||
         DEFAULT_APPOINTMENT_DATA.client.membership;
-
-  const serviceName =
-    isRequest
-      ? (params.serviceTitle || DEFAULT_APPOINTMENT_DATA.service.title)
-      : params.serviceTitle ||
-        (params.title && !params.clientName ? params.title : undefined) ||
-        appointment?.title ||
-        (isAwaiting || isUpfront ? 'Men Brade' : DEFAULT_APPOINTMENT_DATA.service.title);
 
   const appointmentPrice =
     isRequest
       ? (params.price || DEFAULT_APPOINTMENT_DATA.service.price)
       : params.price ||
-        appointment?.price ||
-        (isAwaiting ? '₦14,200' : DEFAULT_APPOINTMENT_DATA.service.price);
+      appointment?.price ||
+      (isAwaiting ? '₦14,200' : DEFAULT_APPOINTMENT_DATA.service.price);
 
   const appointmentDuration =
     isRequest
       ? (params.duration || DEFAULT_APPOINTMENT_DATA.service.duration)
       : params.duration ||
-        appointment?.duration ||
-        (isAwaiting ? '1hr' : DEFAULT_APPOINTMENT_DATA.service.duration);
+      appointment?.duration ||
+      (isAwaiting ? '1hr' : DEFAULT_APPOINTMENT_DATA.service.duration);
 
   const appointmentRating =
     isRequest
       ? (params.rating || DEFAULT_APPOINTMENT_DATA.service.rating)
       : params.rating ||
-        appointment?.rating ||
-        (isAwaiting ? '3.6' : DEFAULT_APPOINTMENT_DATA.service.rating);
+      appointment?.rating ||
+      (isAwaiting ? '3.6' : DEFAULT_APPOINTMENT_DATA.service.rating);
 
   const serviceImage =
     appointment?.image || DEFAULT_APPOINTMENT_DATA.service.image;
@@ -605,8 +604,8 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
     rawAppointmentType?.toLowerCase() === 'in-person' || rawAppointmentType?.toLowerCase() === 'in person'
       ? 'In-Person'
       : rawAppointmentType?.toLowerCase() === 'home-service' || rawAppointmentType?.toLowerCase() === 'home service'
-      ? 'Home Service'
-      : rawAppointmentType;
+        ? 'Home Service'
+        : rawAppointmentType;
 
   // Dynamic Payment Type & Summary routing (1:1 Figma Design Specifications)
   const rawPaymentType =
@@ -616,38 +615,33 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
     (appointment?.paymentMethod === 'cash'
       ? 'Cash Payment'
       : appointment?.paymentMethod === 'transfer'
-      ? 'Opay (Transfer)'
-      : undefined) ||
+        ? 'Opay (Transfer)'
+        : undefined) ||
     (isAwaiting ? 'Opay (Transfer)' : DEFAULT_APPOINTMENT_DATA.summary.paymentType);
 
   const paymentType =
     rawPaymentType === 'Opay (Transfer)' ||
-    rawPaymentType?.toLowerCase().includes('opay') ||
-    rawPaymentType === 'Inter-Bank Transfer' ||
-    rawPaymentType === 'Bank Transfer' ||
-    rawPaymentType === 'transfer' ||
-    rawPaymentType?.toLowerCase() === 'inter - bank transfer'
+      rawPaymentType?.toLowerCase().includes('opay') ||
+      rawPaymentType === 'Inter-Bank Transfer' ||
+      rawPaymentType === 'Bank Transfer' ||
+      rawPaymentType === 'transfer' ||
+      rawPaymentType?.toLowerCase() === 'inter - bank transfer'
       ? 'Opay (Transfer)'
       : rawPaymentType === 'cash' ||
         rawPaymentType === 'Cash' ||
         rawPaymentType?.toLowerCase() === 'cash payment'
-      ? 'Cash Payment'
-      : rawPaymentType === 'card' ||
-        rawPaymentType === 'Card' ||
-        rawPaymentType === 'Card (POS)' ||
-        rawPaymentType?.toLowerCase() === 'card payment'
-      ? 'Card Payment'
-      : rawPaymentType;
+        ? 'Cash Payment'
+        : rawPaymentType === 'card' ||
+          rawPaymentType === 'Card' ||
+          rawPaymentType === 'Card (POS)' ||
+          rawPaymentType?.toLowerCase() === 'card payment'
+          ? 'Card Payment'
+          : rawPaymentType;
 
   const appointmentCost =
     params.appointmentCost ||
     appointment?.appointmentCost ||
-    (isAwaiting ? '₦52,700' : DEFAULT_APPOINTMENT_DATA.summary.appointmentCost);
-
-  const trendPoints =
-    params.trendPoints ||
-    appointment?.trendPoints ||
-    (isAwaiting ? '-₦2,700' : DEFAULT_APPOINTMENT_DATA.summary.trendPoints);
+    (isAwaiting ? '₦50,000' : DEFAULT_APPOINTMENT_DATA.summary.appointmentCost);
 
   const ticketNumber =
     params.ticketNumber ||
@@ -684,10 +678,11 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
   const [isAccepted, setIsAccepted] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelStep, setCancelStep] = useState<1 | 2>(1);
   const [countdownSeconds, setCountdownSeconds] = useState(
     (params as any).timerUp === 'true' ||
-    (params as any).isTimerUp === 'true' ||
-    (params as any).countdown === '0'
+      (params as any).isTimerUp === 'true' ||
+      (params as any).countdown === '0'
       ? 0
       : 300
   );
@@ -751,7 +746,12 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
   }, [scrollNoteIntoView]);
 
   const handleCancel = () => {
+    setCancelStep(1);
     setShowCancelModal(true);
+  };
+
+  const handleProceedToStep2 = () => {
+    setCancelStep(2);
   };
 
   const handleConfirmCancel = () => {
@@ -766,12 +766,17 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
     }
     setTimeout(() => {
       setIsCancelling(false);
-      if (isAwaiting) {
-        router.replace('/awaiting-client-arrival');
-      } else {
-        router.back();
-      }
-    }, 1400);
+      // Direct in-chat retention screen with 1:1 Figma prefilled support message
+      safeRouter.push({
+        pathname: '/chat' as any,
+        params: {
+          id: (params.id as string) || '1',
+          name: clientName || 'Damson Otuola',
+          role: 'Customer',
+          prefilledMessage: 'Hello Damson, this is luminous Lux we are contacting you in regards to the cancellation of of your hair cut, we would love to know why and how we could be of assistance.',
+        },
+      });
+    }, 1000);
   };
 
   const handleAccept = () => {
@@ -779,7 +784,7 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
     setTimeout(() => {
       setIsLoading(false);
       setIsAccepted(true);
-      router.push({
+      safeRouter.push({
         pathname: '/appointment-success' as any,
         params: { id: (params.id as string) || 'awaiting-1' },
       });
@@ -808,7 +813,7 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
       specialistRole: specialistRole || 'Hair Stylist',
       staff: specialistName || 'Bisola Olarewaju',
     });
-    router.push('/ongoing-appointments');
+    safeRouter.push('/ongoing-appointments');
   };
 
   return (
@@ -822,7 +827,13 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
           <TouchableOpacity
             style={styles.headerIconButton}
             activeOpacity={0.7}
-            onPress={() => router.back()}
+            onPress={() => {
+              if (isAwaiting) {
+                safeRouter.replace('/category');
+              } else {
+                safeRouter.back();
+              }
+            }}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <ArrowLeft02Icon size={24} color="rgba(0, 8, 20, 0.96)" />
@@ -837,7 +848,7 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
           <TouchableOpacity
             style={[styles.headerIconButtonRight, (isAwaiting || isRequest) && { opacity: 0 }]}
             activeOpacity={0.7}
-            onPress={() => {}}
+            onPress={() => { }}
             disabled={isAwaiting || isRequest}
           >
             <Download02Icon size={24} color="#141B34" />
@@ -858,9 +869,9 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
             {
               paddingBottom: isKeyboardVisible
                 ? keyboardHeight + 60
-                : isCompleted
-                ? bottomInset + 40
-                : 130 + bottomInset,
+                : (isCompleted || appointmentStatus === 'cancelled')
+                  ? bottomInset + 40
+                  : 130 + bottomInset,
             },
           ]}
           showsVerticalScrollIndicator={false}
@@ -868,467 +879,436 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
           keyboardDismissMode="interactive"
           automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
         >
-        {/* ── Ongoing Service Indicator / Upfront Banner (358x102px, 1:1 Figma) ── */}
-        {isUpfront && !isCompleted && appointmentStatus !== 'cancelled' && !isAwaiting && (
-          <View style={styles.upfrontAppointmentBanner}>
-            <View style={styles.upfrontBannerIconCircle}>
-              <Calendar03Icon size={24} color="rgba(96, 96, 102, 0.96)" />
-            </View>
-            <View style={styles.upfrontBannerTextGroup}>
-              <Text style={styles.upfrontBannerTitle}>Upfront Appointment</Text>
-              <Text style={styles.upfrontBannerSubtitle}>
-                {params.date
-                  ? `This appointment is set to begin on ${params.date}`
-                  : 'This appointment is set to begin on October 7th, 2026'}
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* ── Completed Status Banner (ongoing service timer: 358x86px, 1:1 Figma) ── */}
-        {isCompleted && (
-          <View style={styles.completedServiceBanner}>
-            <View style={styles.completedBannerIconCircle}>
-              <CheckmarkCircleGreenIcon size={24} />
-            </View>
-            <View style={styles.completedBannerTextGroup}>
-              <Text style={styles.completedBannerTimerText}>00:00:00</Text>
-              <Text style={styles.completedBannerStatusText}>Completed</Text>
-            </View>
-          </View>
-        )}
-
-        {/* ── Section 1: User Profile Card (358x224px, 1:1 Figma) ── */}
-        <LinearGradient
-          colors={
-            isReturningClient
-              ? ['rgba(209, 164, 230, 0.9216)', 'rgba(255, 255, 255, 0.96)']
-              : ['rgba(203, 230, 164, 0.9216)', 'rgba(255, 255, 255, 0.96)']
-          }
-          locations={[0, 0.82]}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-          style={[
-            styles.userProfileCard,
-            { borderColor: isReturningClient ? '#D1A4E6' : '#CBE6A4' },
-          ]}
-        >
-          {/* Top Row: User Details (326x64px, gap: 24px) */}
-          <View style={styles.userDetailsRow}>
-            {/* Image frame (64x64px, radius 56px, border 1px solid #FFFFFF) with badge */}
-            <View style={styles.avatarContainer}>
-              <View style={styles.avatarFrame}>
-                <Image
-                  source={
-                    typeof DEFAULT_APPOINTMENT_DATA.client.avatar === 'string'
-                      ? { uri: DEFAULT_APPOINTMENT_DATA.client.avatar }
-                      : DEFAULT_APPOINTMENT_DATA.client.avatar
-                  }
-                  style={styles.avatarImage}
-                  resizeMode="cover"
-                />
+          {/* ── Ongoing Service Indicator / Upfront Banner (358x102px, 1:1 Figma) ── */}
+          {isUpfront && !isCompleted && appointmentStatus !== 'cancelled' && !isAwaiting && (
+            <View style={styles.upfrontAppointmentBanner}>
+              <View style={styles.upfrontBannerIconCircle}>
+                <Calendar03Icon size={24} color="rgba(96, 96, 102, 0.96)" />
               </View>
-              {/* checkmark-badge-02: 24x24 at bottom-right (Only visible for Returning Client) */}
-              {isReturningClient && (
-                <View style={styles.avatarBadgePosition}>
-                  <CheckmarkBadgeBlueIcon size={24} />
-                </View>
-              )}
+              <View style={styles.upfrontBannerTextGroup}>
+                <Text style={styles.upfrontBannerTitle}>Upfront Appointment</Text>
+                <Text style={styles.upfrontBannerSubtitle}>
+                  {params.date
+                    ? `This appointment is set to begin on ${params.date}`
+                    : 'This appointment is set to begin on October 7th, 2026'}
+                </Text>
+              </View>
             </View>
+          )}
 
-            {/* Staff name and profession (238x60px, gap: 8px) */}
-            <View style={styles.clientInfoBlock}>
-              <Text style={styles.clientNameText}>{clientName}</Text>
-              <View style={styles.clientBadgeRow}>
-                {isReturningClient ? (
-                  <>
-                    <HeartHandshakeIcon size={20} color="rgba(97, 21, 132, 0.96)" />
-                    <Text style={[styles.clientBadgeText, { color: 'rgba(97, 21, 132, 0.96)' }]}>
-                      {clientStatus && clientStatus.toLowerCase().includes('returning') ? clientStatus : 'Returning Client'}
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <AddMaleIcon size={20} color="rgba(10, 95, 10, 0.8)" />
-                    <Text style={[styles.clientBadgeText, { color: 'rgba(10, 95, 10, 0.8)' }]}>
-                      {clientStatus && !clientStatus.toLowerCase().includes('returning') ? clientStatus : 'Non Client'}
-                    </Text>
-                  </>
+          {/* ── Cancelled Status Banner (358x86px, matching Completed banner architecture) ── */}
+          {appointmentStatus === 'cancelled' && (
+            <View style={styles.cancelledServiceBanner}>
+              <View style={styles.cancelledBannerIconCircle}>
+                <Cancel01RedIcon size={24} />
+              </View>
+              <View style={styles.cancelledBannerTextGroup}>
+                <Text style={styles.cancelledBannerTitleText}>Appointment Cancelled</Text>
+                <Text style={styles.cancelledBannerStatusText}>
+                  {params.date ? `Cancelled on ${params.date}` : 'Cancelled by client'}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* ── Completed Status Banner (ongoing service timer: 358x86px, 1:1 Figma) ── */}
+          {isCompleted && (
+            <View style={styles.completedServiceBanner}>
+              <View style={styles.completedBannerIconCircle}>
+                <CheckmarkCircleGreenIcon size={24} />
+              </View>
+              <View style={styles.completedBannerTextGroup}>
+                <Text style={styles.completedBannerTimerText}>00:00:00</Text>
+                <Text style={styles.completedBannerStatusText}>Completed</Text>
+              </View>
+            </View>
+          )}
+
+          {/* ── Section 1: User Profile Card (358x224px, 1:1 Figma) ── */}
+          <LinearGradient
+            colors={
+              isReturningClient
+                ? ['rgba(209, 164, 230, 0.9216)', 'rgba(255, 255, 255, 0.96)']
+                : ['rgba(203, 230, 164, 0.9216)', 'rgba(255, 255, 255, 0.96)']
+            }
+            locations={[0, 0.82]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={[
+              styles.userProfileCard,
+              { borderColor: isReturningClient ? '#D1A4E6' : '#CBE6A4' },
+            ]}
+          >
+            {/* Top Row: User Details (326x64px, gap: 24px) */}
+            <View style={styles.userDetailsRow}>
+              {/* Image frame (64x64px, radius 56px, border 1px solid #FFFFFF) with badge */}
+              <View style={styles.avatarContainer}>
+                <View style={styles.avatarFrame}>
+                  <Image
+                    source={
+                      typeof DEFAULT_APPOINTMENT_DATA.client.avatar === 'string'
+                        ? { uri: DEFAULT_APPOINTMENT_DATA.client.avatar }
+                        : DEFAULT_APPOINTMENT_DATA.client.avatar
+                    }
+                    style={styles.avatarImage}
+                    resizeMode="cover"
+                  />
+                </View>
+                {/* checkmark-badge-02: 24x24 at bottom-right (Only visible for Returning Client) */}
+                {isReturningClient && (
+                  <View style={styles.avatarBadgePosition}>
+                    <CheckmarkBadgeBlueIcon size={24} />
+                  </View>
                 )}
               </View>
-            </View>
-          </View>
 
-          {/* Bottom Activities Row (326x104px, 3 stat columns, gap: 5px) */}
-          <View style={styles.activitiesRow}>
-            {/* Col 1: Gender (sign up duration: 80x104px, padding: 8px 10px, gap: 8px) */}
-            <View style={styles.activityColumnCol1}>
-              <View style={styles.activityIconCircle}>
-                <VenusAndMarsIcon size={20} color="#141B34" />
-              </View>
-              <View style={styles.activityTextGroupCol1}>
-                <Text style={styles.activityLabel}>Gender</Text>
-                <Text style={styles.activityValueGender}>{clientGender}</Text>
-              </View>
-            </View>
-
-            {/* Vertical Divider: Line 183 (56px) */}
-            <View style={styles.verticalDivider} />
-
-            {/* Col 2: Badge (Total points: 58x104px, padding: 8px 10px, gap: 8px) */}
-            <View style={styles.activityColumnCol2}>
-              <View style={styles.activityIconCircle}>
-                <CheckmarkBadgeBlueIcon size={20} />
-              </View>
-              <View style={styles.activityTextGroupCol2}>
-                <Text style={styles.activityLabel}>Badge</Text>
-                <Text style={styles.activityValueBadge}>
-                  {(params as any).badgeStatus || (isReturningClient ? 'Subscriber' : 'Men')}
-                </Text>
-              </View>
-            </View>
-
-            {/* Vertical Divider: Line 182 (56px) */}
-            <View style={styles.verticalDivider} />
-
-            {/* Col 3: Membership (Total appointments: 97x104px, padding: 8px 10px, gap: 8px) */}
-            <View style={styles.activityColumnCol3}>
-              <View style={styles.activityIconCircle}>
-                <User03Icon size={20} color="#141B34" />
-              </View>
-              <View style={styles.activityTextGroupCol3}>
-                <Text style={styles.activityLabel}>Membership</Text>
-                <Text style={styles.activityValueMembership}>{clientMembership}</Text>
-              </View>
-            </View>
-          </View>
-        </LinearGradient>
-
-        {/* ── Awaiting Client Arrival Note Block (1:1 Figma) ── */}
-        {isAwaiting && (
-          <TouchableOpacity
-            style={styles.awaitingNoteBlock}
-            activeOpacity={0.85}
-            onPress={() => setCountdownSeconds(300)}
-          >
-            <Text style={styles.awaitingNoteTitle}>Note</Text>
-            <Text style={styles.awaitingNoteDesc}>
-              Waiting for client to arrive at your location to begin the appointment
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* ── Section 2: Service (358x332px) ── */}
-        <View style={styles.sectionBlock}>
-          <Text style={styles.sectionHeading}>Service</Text>
-          <View style={styles.serviceSectionCard}>
-            {/* Main Service Item */}
-            <View style={styles.serviceItemRow}>
-              {/* Image holder (88x88 white with shadow, 80x80 inner image) */}
-              <View style={styles.serviceImageHolder}>
-                <Image
-                  source={serviceImage}
-                  style={styles.serviceThumbnail}
-                  resizeMode="cover"
-                />
-              </View>
-
-              {/* Service Info */}
-              <View style={styles.serviceInfoGroup}>
-                <Text style={styles.serviceItemTitle}>{serviceName}</Text>
-                <Text style={styles.serviceItemPrice}>{appointmentPrice}</Text>
-                <View style={styles.serviceMetaRow}>
-                  <View style={styles.metaBadge}>
-                    <Time04Icon size={18} color="rgba(96, 96, 102, 0.96)" />
-                    <Text style={styles.metaBadgeText}>{appointmentDuration}</Text>
-                  </View>
-                  <View style={styles.metaBadge}>
-                    <StarGoldIcon size={16} color="rgba(248, 155, 24, 0.96)" />
-                    <Text style={styles.metaBadgeText}>{appointmentRating}</Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-
-            {/* Sub-header & Specialist: Spaced out paragraph block */}
-            <View style={styles.specialistSectionWrapper}>
-              <Text style={styles.specialistSubHeading}>Specialist</Text>
-
-              {/* Specialist Row */}
-              <View style={styles.specialistRow}>
-                <Image
-                  source={{ uri: DEFAULT_APPOINTMENT_DATA.service.specialist.avatar }}
-                  style={styles.specialistAvatar}
-                  resizeMode="cover"
-                />
-                <View style={styles.specialistInfoGroup}>
-                  <Text style={styles.specialistNameText}>
-                    {specialistName}
-                  </Text>
-                  <Text style={styles.specialistRoleText}>
-                    {specialistRole}
-                  </Text>
-                  <View style={styles.specialistRatingRow}>
-                    <StarGoldIcon size={16} color="rgba(248, 155, 24, 0.96)" />
-                    <Text style={styles.metaBadgeText}>
-                      {DEFAULT_APPOINTMENT_DATA.service.specialist.rating}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* ── Section 3: Appointment Information (358x372px) ── */}
-        <View style={styles.sectionBlock}>
-          <Text style={styles.sectionHeading}>Appointment Information</Text>
-          <View style={styles.appointmentInfoCard}>
-            {/* Row 1: Appointment Date */}
-            <View style={styles.infoFieldBlock}>
-              <Text style={styles.infoFieldLabel}>Appointment Date</Text>
-              <View style={styles.infoFieldValueRow}>
-                <View style={styles.infoIconCircle}>
-                  <Calendar03Icon size={24} color="rgba(0, 8, 20, 0.96)" />
-                </View>
-                <Text style={styles.infoFieldValueText}>
-                  {appointmentDate}
-                </Text>
-              </View>
-            </View>
-
-            {/* Row 2: Appointment Time */}
-            <View style={styles.infoFieldBlock}>
-              <Text style={styles.infoFieldLabel}>Appointment Time</Text>
-              <View style={styles.infoFieldValueRow}>
-                <View style={styles.infoIconCircle}>
-                  <Clock3Icon size={24} color="rgba(0, 8, 20, 0.96)" />
-                </View>
-                <Text style={styles.infoFieldValueText}>
-                  {appointmentTime}
-                </Text>
-              </View>
-            </View>
-
-            {/* Row 3: Appointment Type */}
-            <View style={styles.infoFieldBlock}>
-              <Text style={styles.infoFieldLabel}>Appointment Type</Text>
-              <View style={styles.infoFieldValueRow}>
-                <View style={styles.infoIconCircle}>
-                  {appointmentType?.toLowerCase().includes('person') ? (
-                    <WalkingPersonIcon size={24} color="rgba(0, 8, 20, 0.96)" />
+              {/* Staff name and profession (238x60px, gap: 8px) */}
+              <View style={styles.clientInfoBlock}>
+                <Text style={styles.clientNameText}>{clientName}</Text>
+                <View style={styles.clientBadgeRow}>
+                  {isReturningClient ? (
+                    <>
+                      <HeartHandshakeIcon size={20} color="rgba(97, 21, 132, 0.96)" />
+                      <Text style={[styles.clientBadgeText, { color: 'rgba(97, 21, 132, 0.96)' }]}>
+                        {clientStatus && clientStatus.toLowerCase().includes('returning') ? clientStatus : 'Returning Client'}
+                      </Text>
+                    </>
                   ) : (
-                    <Home11Icon size={24} color="rgba(0, 8, 20, 0.96)" />
+                    <>
+                      <AddMaleIcon size={20} color="rgba(10, 95, 10, 0.8)" />
+                      <Text style={[styles.clientBadgeText, { color: 'rgba(10, 95, 10, 0.8)' }]}>
+                        {clientStatus && !clientStatus.toLowerCase().includes('returning') ? clientStatus : 'New Client'}
+                      </Text>
+                    </>
                   )}
                 </View>
-                <Text style={styles.infoFieldValueText}>
-                  {appointmentType}
-                </Text>
               </View>
             </View>
-          </View>
-        </View>
 
-        {/* ── Section 4: Add-One (358x476px, 1:1 Figma) ── */}
-        <View style={styles.addOneSectionBlock}>
-          <Text style={styles.sectionHeadingDark}>Add-One</Text>
-          <View style={styles.addOnsContentCard}>
-            {/* Top item: add one package (358x116px, radius 24px, #F8F9FA, padding 16px) */}
-            <View style={styles.addOnPackageCard}>
-              <Image
-                source={DEFAULT_APPOINTMENT_DATA.addOn.image}
-                style={styles.addOnImage}
-                resizeMode="cover"
-              />
-              <View style={styles.serviceInfoGroup}>
-                <Text style={styles.serviceItemTitle}>{DEFAULT_APPOINTMENT_DATA.addOn.title}</Text>
-                <Text style={styles.serviceItemPrice}>{DEFAULT_APPOINTMENT_DATA.addOn.price}</Text>
-                <View style={styles.serviceMetaRow}>
-                  <View style={styles.metaBadge}>
-                    <Time04Icon size={18} color="rgba(96, 96, 102, 0.96)" />
-                    <Text style={styles.metaBadgeText}>{DEFAULT_APPOINTMENT_DATA.addOn.duration}</Text>
+            {/* Bottom Activities Row (326x104px, 3 stat columns, gap: 5px) */}
+            <View style={styles.activitiesRow}>
+              {/* Col 1: Gender (sign up duration: 80x104px, padding: 8px 10px, gap: 8px) */}
+              <View style={styles.activityColumnCol1}>
+                <View style={styles.activityIconCircle}>
+                  <VenusAndMarsIcon size={20} color="#141B34" />
+                </View>
+                <View style={styles.activityTextGroupCol1}>
+                  <Text style={styles.activityLabel}>Gender</Text>
+                  <Text style={styles.activityValueGender}>{clientGender}</Text>
+                </View>
+              </View>
+
+              {/* Vertical Divider: Line 183 (56px) */}
+              <View style={styles.verticalDivider} />
+
+              {/* Col 2: Badge (Total points: 58x104px, padding: 8px 10px, gap: 8px) */}
+              <View style={styles.activityColumnCol2}>
+                <View style={styles.activityIconCircle}>
+                  <CheckmarkBadgeBlueIcon size={20} />
+                </View>
+                <View style={styles.activityTextGroupCol2}>
+                  <Text style={styles.activityLabel}>Badge</Text>
+                  <Text style={styles.activityValueBadge}>
+                    {(params as any).badgeStatus || (isReturningClient ? 'Subscriber' : 'Men')}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Vertical Divider: Line 182 (56px) */}
+              <View style={styles.verticalDivider} />
+
+              {/* Col 3: Membership (Total appointments: 97x104px, padding: 8px 10px, gap: 8px) */}
+              <View style={styles.activityColumnCol3}>
+                <View style={styles.activityIconCircle}>
+                  <User03Icon size={20} color="#141B34" />
+                </View>
+                <View style={styles.activityTextGroupCol3}>
+                  <Text style={styles.activityLabel}>Membership</Text>
+                  <Text style={styles.activityValueMembership}>{clientMembership}</Text>
+                </View>
+              </View>
+            </View>
+          </LinearGradient>
+
+          {/* ── Awaiting Client Arrival Note Block (1:1 Figma) ── */}
+          {isAwaiting && (
+            <TouchableOpacity
+              style={styles.awaitingNoteBlock}
+              activeOpacity={0.85}
+              onPress={() => setCountdownSeconds(300)}
+            >
+              <Text style={styles.awaitingNoteTitle}>Note</Text>
+              <Text style={styles.awaitingNoteDesc}>
+                Waiting for client to arrive at your location to begin the appointment
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* ── Section 2: Service (358x332px) ── */}
+          <View style={styles.sectionBlock}>
+            <Text style={styles.sectionHeading}>Service</Text>
+            <View style={styles.serviceSectionCard}>
+              {/* Main Service Item */}
+              <View style={styles.serviceItemRow}>
+                {/* Image holder (88x88 white with shadow, 80x80 inner image) */}
+                <View style={styles.serviceImageHolder}>
+                  <Image
+                    source={serviceImage}
+                    style={styles.serviceThumbnail}
+                    resizeMode="cover"
+                  />
+                </View>
+
+                {/* Service Info */}
+                <View style={styles.serviceInfoGroup}>
+                  <Text style={styles.serviceItemTitle}>{serviceName}</Text>
+                  <Text style={styles.serviceItemPrice}>{appointmentPrice}</Text>
+                  <View style={styles.serviceMetaRow}>
+                    <View style={styles.metaBadge}>
+                      <Time04Icon size={18} color="rgba(96, 96, 102, 0.96)" />
+                      <Text style={styles.metaBadgeText}>{appointmentDuration}</Text>
+                    </View>
+                    <View style={styles.metaBadge}>
+                      <StarGoldIcon size={16} color="rgba(248, 155, 24, 0.96)" />
+                      <Text style={styles.metaBadgeText}>{appointmentRating}</Text>
+                    </View>
                   </View>
-                  <View style={styles.metaBadge}>
-                    <StarGoldIcon size={16} color="rgba(248, 155, 24, 0.96)" />
-                    <Text style={styles.metaBadgeText}>{DEFAULT_APPOINTMENT_DATA.addOn.rating}</Text>
+                </View>
+              </View>
+
+              {/* Sub-header & Specialist: Spaced out paragraph block */}
+              <View style={styles.specialistSectionWrapper}>
+                <Text style={styles.specialistSubHeading}>Specialist</Text>
+
+                {/* Specialist Row */}
+                <View style={styles.specialistRow}>
+                  <Image
+                    source={{ uri: DEFAULT_APPOINTMENT_DATA.service.specialist.avatar }}
+                    style={styles.specialistAvatar}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.specialistInfoGroup}>
+                    <Text style={styles.specialistNameText}>
+                      {specialistName}
+                    </Text>
+                    <Text style={styles.specialistRoleText}>
+                      {specialistRole}
+                    </Text>
+                    <View style={styles.specialistRatingRow}>
+                      <StarGoldIcon size={16} color="rgba(248, 155, 24, 0.96)" />
+                      <Text style={styles.metaBadgeText}>
+                        {DEFAULT_APPOINTMENT_DATA.service.specialist.rating}
+                      </Text>
+                    </View>
                   </View>
                 </View>
               </View>
             </View>
+          </View>
 
-            {/* Specialist sub-section inside Add-One (1:1 Figma) */}
-            <View style={styles.addOnSpecialistsContainer}>
-              <Text style={styles.addOnSpecialistTitle}>Specialist</Text>
-              <View style={styles.specialistsListContainer}>
-                {DEFAULT_APPOINTMENT_DATA.addOn.specialists.map((spec) => (
-                  <View key={spec.id} style={styles.addOnPackageCard}>
-                    <Image
-                      source={{ uri: spec.avatar }}
-                      style={styles.addOnImage}
-                      resizeMode="cover"
-                    />
-                    <View style={styles.serviceInfoGroup}>
-                      <Text style={styles.serviceItemTitle}>
-                        {spec.name}
-                      </Text>
-                      <Text style={styles.serviceItemPrice}>
-                        {spec.role}
-                      </Text>
-                      <View style={styles.serviceMetaRow}>
-                        <View style={styles.metaBadge}>
-                          <StarGoldIcon size={16} color="rgba(248, 155, 24, 0.96)" />
-                          <Text style={styles.metaBadgeText}>
-                            {spec.rating}
-                          </Text>
+          {/* ── Section 3: Appointment Information (358x372px) ── */}
+          <View style={styles.sectionBlock}>
+            <Text style={styles.sectionHeading}>Appointment Information</Text>
+            <View style={styles.appointmentInfoCard}>
+              {/* Row 1: Appointment Date */}
+              <View style={styles.infoFieldBlock}>
+                <Text style={styles.infoFieldLabel}>Appointment Date</Text>
+                <View style={styles.infoFieldValueRow}>
+                  <View style={styles.infoIconCircle}>
+                    <Calendar03Icon size={24} color="rgba(0, 8, 20, 0.96)" />
+                  </View>
+                  <Text style={styles.infoFieldValueText}>
+                    {appointmentDate}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Row 2: Appointment Time */}
+              <View style={styles.infoFieldBlock}>
+                <Text style={styles.infoFieldLabel}>Appointment Time</Text>
+                <View style={styles.infoFieldValueRow}>
+                  <View style={styles.infoIconCircle}>
+                    <Clock3Icon size={24} color="rgba(0, 8, 20, 0.96)" />
+                  </View>
+                  <Text style={styles.infoFieldValueText}>
+                    {appointmentTime}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Row 3: Appointment Type */}
+              <View style={styles.infoFieldBlock}>
+                <Text style={styles.infoFieldLabel}>Appointment Type</Text>
+                <View style={styles.infoFieldValueRow}>
+                  <View style={styles.infoIconCircle}>
+                    {appointmentType?.toLowerCase().includes('person') ? (
+                      <WalkingPersonIcon size={24} color="rgba(0, 8, 20, 0.96)" />
+                    ) : (
+                      <Home11Icon size={24} color="rgba(0, 8, 20, 0.96)" />
+                    )}
+                  </View>
+                  <Text style={styles.infoFieldValueText}>
+                    {appointmentType}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* ── Section 4: Add-One (358x476px, 1:1 Figma) ── */}
+          <View style={styles.addOneSectionBlock}>
+            <Text style={styles.sectionHeadingDark}>Add-One</Text>
+            <View style={styles.addOnsContentCard}>
+              {/* Top item: add one package (358x116px, radius 24px, #F8F9FA, padding 16px) */}
+              <View style={styles.addOnPackageCard}>
+                <Image
+                  source={DEFAULT_APPOINTMENT_DATA.addOn.image}
+                  style={styles.addOnImage}
+                  resizeMode="cover"
+                />
+                <View style={styles.serviceInfoGroup}>
+                  <Text style={styles.serviceItemTitle}>{DEFAULT_APPOINTMENT_DATA.addOn.title}</Text>
+                  <Text style={styles.serviceItemPrice}>{DEFAULT_APPOINTMENT_DATA.addOn.price}</Text>
+                  <View style={styles.serviceMetaRow}>
+                    <View style={styles.metaBadge}>
+                      <Time04Icon size={18} color="rgba(96, 96, 102, 0.96)" />
+                      <Text style={styles.metaBadgeText}>{DEFAULT_APPOINTMENT_DATA.addOn.duration}</Text>
+                    </View>
+                    <View style={styles.metaBadge}>
+                      <StarGoldIcon size={16} color="rgba(248, 155, 24, 0.96)" />
+                      <Text style={styles.metaBadgeText}>{DEFAULT_APPOINTMENT_DATA.addOn.rating}</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {/* Specialist sub-section inside Add-One (1:1 Figma) */}
+              <View style={styles.addOnSpecialistsContainer}>
+                <Text style={styles.addOnSpecialistTitle}>Specialist</Text>
+                <View style={styles.specialistsListContainer}>
+                  {DEFAULT_APPOINTMENT_DATA.addOn.specialists.map((spec) => (
+                    <View key={spec.id} style={styles.addOnPackageCard}>
+                      <Image
+                        source={{ uri: spec.avatar }}
+                        style={styles.addOnImage}
+                        resizeMode="cover"
+                      />
+                      <View style={styles.serviceInfoGroup}>
+                        <Text style={styles.serviceItemTitle}>
+                          {spec.name}
+                        </Text>
+                        <Text style={styles.serviceItemPrice}>
+                          {spec.role}
+                        </Text>
+                        <View style={styles.serviceMetaRow}>
+                          <View style={styles.metaBadge}>
+                            <StarGoldIcon size={16} color="rgba(248, 155, 24, 0.96)" />
+                            <Text style={styles.metaBadgeText}>
+                              {spec.rating}
+                            </Text>
+                          </View>
                         </View>
                       </View>
                     </View>
+                  ))}
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* ── Section 5: Note (358x108px, inactive per Figma) ── */}
+          <View style={styles.sectionBlock}>
+            <Text style={styles.sectionHeading}>Note</Text>
+            <View style={styles.noteBox}>
+              <Text style={styles.noteInactiveText}>leave a note for the staff</Text>
+            </View>
+          </View>
+
+          {/* ── Section 6: Package (358x586px) ── */}
+          <View style={styles.sectionBlock}>
+            <Text style={styles.sectionHeadingDark}>Package</Text>
+            <View style={styles.sectionCard}>
+              {/* Images Grid (3 images, 140x140 each, radius 16px) */}
+              <View style={styles.packageImagesGrid}>
+                <View style={styles.packageImageRow}>
+                  <Image
+                    source={DEFAULT_APPOINTMENT_DATA.package.images[0]}
+                    style={styles.packageGridImage}
+                    resizeMode="cover"
+                  />
+                  <Image
+                    source={DEFAULT_APPOINTMENT_DATA.package.images[1]}
+                    style={styles.packageGridImage}
+                    resizeMode="cover"
+                  />
+                </View>
+                <Image
+                  source={DEFAULT_APPOINTMENT_DATA.package.images[2]}
+                  style={styles.packageGridImage}
+                  resizeMode="cover"
+                />
+              </View>
+
+              {/* Package Price (24px 500) */}
+              <Text style={styles.packagePriceText}>{packagePrice}</Text>
+
+              {/* Checklist items */}
+              <View style={styles.packageChecklist}>
+                {DEFAULT_APPOINTMENT_DATA.package.items.map((item, idx) => (
+                  <View key={idx} style={styles.checklistItemRow}>
+                    <CheckmarkCircle02Icon size={20} />
+                    <Text style={styles.checklistItemText}>{item}</Text>
                   </View>
                 ))}
               </View>
             </View>
           </View>
-        </View>
 
-        {/* ── Section 5: Note (358x108px) ── */}
-        <View
-          style={styles.sectionBlock}
-          onLayout={(e) => {
-            noteSectionYRef.current = e.nativeEvent.layout.y;
-          }}
-        >
-          <Text style={styles.sectionHeading}>Note</Text>
-          <TouchableOpacity
-            style={styles.noteBox}
-            activeOpacity={1}
-            onLayout={(e) => {
-              noteBoxYRef.current = e.nativeEvent.layout.y;
-            }}
-            onPress={() => noteInputRef.current?.focus()}
-          >
-            <TextInput
-              ref={noteInputRef}
-              style={styles.noteInput}
-              value={noteText}
-              onChangeText={setNoteText}
-              placeholder="Leave a note..."
-              placeholderTextColor="rgba(96, 96, 102, 0.6)"
-              multiline
-              maxLength={120}
-              textAlignVertical="top"
-              scrollEnabled={false}
-              onFocus={scrollNoteIntoView}
-            />
-            <View style={styles.noteCounterRow}>
-              <Text style={styles.noteCounterText}>{isUpfront ? '1/76' : (noteText === 'I would love for you to go gentle on my scalp' ? '1/100' : `${noteText.length}/100`)}</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── Section 6: Package (358x586px) ── */}
-        <View style={styles.sectionBlock}>
-          <Text style={styles.sectionHeadingDark}>Package</Text>
-          <View style={styles.sectionCard}>
-            {/* Images Grid (3 images, 140x140 each, radius 16px) */}
-            <View style={styles.packageImagesGrid}>
-              <View style={styles.packageImageRow}>
-                <Image
-                  source={DEFAULT_APPOINTMENT_DATA.package.images[0]}
-                  style={styles.packageGridImage}
-                  resizeMode="cover"
-                />
-                <Image
-                  source={DEFAULT_APPOINTMENT_DATA.package.images[1]}
-                  style={styles.packageGridImage}
-                  resizeMode="cover"
-                />
-              </View>
-              <Image
-                source={DEFAULT_APPOINTMENT_DATA.package.images[2]}
-                style={styles.packageGridImage}
-                resizeMode="cover"
-              />
-            </View>
-
-            {/* Package Price (24px 500) */}
-            <Text style={styles.packagePriceText}>{packagePrice}</Text>
-
-            {/* Checklist items */}
-            <View style={styles.packageChecklist}>
-              {DEFAULT_APPOINTMENT_DATA.package.items.map((item, idx) => (
-                <View key={idx} style={styles.checklistItemRow}>
-                  <CheckmarkCircle02Icon size={20} />
-                  <Text style={styles.checklistItemText}>{item}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        </View>
-
-        {/* ── Section 7: Summary (358x236px) ── */}
-        <View style={styles.sectionBlock}>
-          <Text style={styles.sectionHeadingDark}>Summary</Text>
-          <View style={styles.summaryCard}>
-            {/* Appointment cost */}
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Appointment cost</Text>
-              <Text style={styles.summaryValueBlack}>
-                {appointmentCost}
-              </Text>
-            </View>
-
-            {/* Trend points */}
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Trend points</Text>
-              <Text style={styles.summaryValueOrange}>
-                {trendPoints}
-              </Text>
-            </View>
-
-            {/* Payment type (1:1 Figma Design Specifications) */}
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Payment type</Text>
-              <View style={styles.paymentTypeRow}>
-                {paymentType?.toLowerCase().includes('opay') && <OpayIcon size={24} />}
-                <Text style={styles.paymentTypeText}>{paymentType}</Text>
-              </View>
-            </View>
-
-            {/* Appointment Ticket */}
-            {!isAwaiting && (
+          {/* ── Section 7: Summary (358x236px) ── */}
+          <View style={styles.sectionBlock}>
+            <Text style={styles.sectionHeadingDark}>Summary</Text>
+            <View style={styles.summaryCard}>
+              {/* Appointment cost */}
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Appointment Ticket</Text>
-                <Text style={styles.ticketNumberText}>
-                  {ticketNumber}
+                <Text style={styles.summaryLabel}>Appointment cost</Text>
+                <Text style={styles.summaryValueBlack}>
+                  {appointmentCost}
                 </Text>
               </View>
-            )}
 
-            {/* Total */}
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Total</Text>
-              <Text style={styles.summaryValueBlack}>
-                {totalAmount}
-              </Text>
+              {/* Payment type (1:1 Figma Design Specifications) */}
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Payment type</Text>
+                <View style={styles.paymentTypeRow}>
+                  {paymentType?.toLowerCase().includes('opay') && <OpayIcon size={24} />}
+                  <Text style={styles.paymentTypeText}>{paymentType}</Text>
+                </View>
+              </View>
+
+              {/* Appointment Ticket */}
+              {!isAwaiting && (
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Appointment Ticket</Text>
+                  <Text style={styles.ticketNumberText}>
+                    {ticketNumber}
+                  </Text>
+                </View>
+              )}
+
+              {/* Total */}
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Total</Text>
+                <Text style={styles.summaryValueBlack}>
+                  {totalAmount}
+                </Text>
+              </View>
             </View>
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
       </KeyboardAvoidingView>
 
       {/* ── Fixed Bottom Action Bar (1:1 Figma) ── */}
-      {isCompleted ? null : appointmentStatus === 'cancelled' ? (
-        <View
-          style={[
-            styles.bottomActionBar,
-            { paddingBottom: bottomInset },
-          ]}
-        >
-          <View style={styles.statusCancelledBadge}>
-            <Text style={styles.statusCancelledText}>Appointment Cancelled</Text>
-          </View>
-        </View>
-      ) : isUpfront ? (
+      {isCompleted || appointmentStatus === 'cancelled' ? null : isUpfront ? (
         <View
           style={[
             styles.bottomActionBar,
@@ -1339,7 +1319,7 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
             style={styles.messageClientFullButton}
             activeOpacity={0.88}
             onPress={() => {
-              router.push({
+              safeRouter.push({
                 pathname: '/chat' as any,
                 params: {
                   id: (params.id as string) || '1',
@@ -1363,15 +1343,11 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
           ]}
         >
           {countdownSeconds > 0 ? (
-            <TouchableOpacity
-              style={styles.waitingForCustomerButton}
-              activeOpacity={0.85}
-              onPress={() => setCountdownSeconds(0)}
-            >
+            <View style={styles.waitingForCustomerButton}>
               <Text style={styles.waitingForCustomerButtonText}>
                 Waiting for customer to start  {countdownFormatted}
               </Text>
-            </TouchableOpacity>
+            </View>
           ) : (
             <View style={styles.awaitingActionButtonsRow}>
               <TouchableOpacity
@@ -1386,7 +1362,7 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
                 style={styles.messageButton}
                 activeOpacity={0.88}
                 onPress={() => {
-                  router.push({
+                  safeRouter.push({
                     pathname: '/chat' as any,
                     params: {
                       id: (params.id as string) || '1',
@@ -1434,10 +1410,12 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
       {/* ── 1:1 Figma 4-Dot Animated Loader (Accept or Cancel transition) ── */}
       <AcceptAppointmentLoader visible={isLoading || isCancelling} />
 
-      {/* ── 1:1 Figma Delete Warning Popup (358x218px) ── */}
+      {/* ── 1:1 Figma 2-Step Cancel Warning Flow ── */}
       <CancelAppointmentWarningModal
         visible={showCancelModal}
+        step={cancelStep}
         onDiscard={() => setShowCancelModal(false)}
+        onProceedToStep2={handleProceedToStep2}
         onConfirmCancel={handleConfirmCancel}
       />
     </View>
@@ -1587,6 +1565,51 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 
+  // ── Cancelled Status Banner (358x86px, matching Completed banner architecture) ──
+  cancelledServiceBanner: {
+    width: '100%',
+    maxWidth: 358,
+    minHeight: 86,
+    backgroundColor: 'rgba(248, 239, 239, 0.96)',
+    borderRadius: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 16,
+    alignSelf: 'center',
+  },
+  cancelledBannerIconCircle: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  cancelledBannerTextGroup: {
+    flex: 1,
+    gap: 6,
+  },
+  cancelledBannerTitleText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.4,
+    color: '#CC2929',
+    includeFontPadding: false,
+  },
+  cancelledBannerStatusText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.2,
+    color: 'rgba(96, 96, 102, 0.96)',
+    includeFontPadding: false,
+  },
+
   // ── Scrollable Body (40px gap between sections, 1:1 Figma) ──
   scrollView: {
     flex: 1,
@@ -1677,19 +1700,19 @@ const styles = StyleSheet.create({
   activitiesRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: 326,
+    justifyContent: 'space-between',
+    width: '100%',
     height: 104,
   },
   activityColumnCol1: {
-    width: 80,
+    flex: 1,
     height: 104,
     paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 4,
     gap: 8,
     borderRadius: 16,
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 23,
   },
   verticalDivider: {
     width: 1,
@@ -1698,27 +1721,24 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   activityColumnCol2: {
-    width: 58,
+    flex: 1,
     height: 104,
     paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 4,
     gap: 8,
     borderRadius: 16,
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 23,
-    marginRight: 23,
   },
   activityColumnCol3: {
-    width: 97,
+    flex: 1,
     height: 104,
     paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 4,
     gap: 8,
     borderRadius: 16,
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 23,
   },
   activityIconCircle: {
     width: 36,
@@ -1729,22 +1749,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   activityTextGroupCol1: {
-    width: 44,
-    height: 44,
-    gap: 8,
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
   activityTextGroupCol2: {
-    width: 38,
-    height: 44,
-    gap: 8,
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
   activityTextGroupCol3: {
-    width: 77,
-    height: 44,
-    gap: 8,
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    width: '100%',
   },
   activityLabel: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
@@ -1753,7 +1771,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
-    height: 16,
+    textAlign: 'center',
   },
   activityValueGender: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
@@ -1762,7 +1780,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     letterSpacing: 0.4,
     color: '#000000',
-    height: 20,
+    textAlign: 'center',
   },
   activityValueBadge: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
@@ -1771,16 +1789,16 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     letterSpacing: 0.4,
     color: 'rgba(0, 8, 20, 0.96)',
-    height: 20,
+    textAlign: 'center',
   },
   activityValueMembership: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
     fontWeight: '400',
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 0.4,
+    fontSize: 13,
+    lineHeight: 18,
+    letterSpacing: 0.2,
     color: 'rgba(0, 8, 20, 0.96)',
-    height: 20,
+    textAlign: 'center',
   },
 
   // ── Universal Section Block ──
@@ -2050,6 +2068,14 @@ const styles = StyleSheet.create({
     padding: 16,
     justifyContent: 'space-between',
   },
+  noteInactiveText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.4,
+    color: 'rgba(96, 96, 102, 0.6)',
+  },
   noteInput: {
     width: '100%',
     minHeight: 52,
@@ -2144,14 +2170,6 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: Platform.OS === 'ios' ? 0.5 : 0.2,
     color: 'rgba(0, 8, 20, 0.96)',
-  },
-  summaryValueOrange: {
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
-    fontWeight: '500',
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: Platform.OS === 'ios' ? 0.5 : 0.2,
-    color: 'rgba(248, 155, 24, 0.96)',
   },
   paymentTypeRow: {
     flexDirection: 'row',
@@ -2306,8 +2324,8 @@ const styles = StyleSheet.create({
     maxWidth: 358,
     alignSelf: 'center',
     gap: 8,
-    marginTop: 40,
-    marginBottom: 40,
+    marginTop: -16, // Combined with scrollContent gap: 40 results in exact 24px spacing
+    marginBottom: -16, // Combined with scrollContent gap: 40 results in exact 24px spacing
   },
   awaitingNoteTitle: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',

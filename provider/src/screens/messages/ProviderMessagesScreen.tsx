@@ -14,7 +14,8 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Rect, Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useStaffStore } from '../../context/StaffContext';
@@ -25,6 +26,10 @@ import {
   SearchIcon,
   ArrowLeftCircleButton,
 } from '../../components/messages/MessageIcons';
+import { useBottomInset } from '../../utils/bottomInset';
+import { useMessagesSkeleton } from '../../hooks/useMessagesSkeleton';
+import { ProviderMessagesSkeleton } from '../../components/ProviderMessagesSkeleton';
+import { useNativeBackExitGuard } from '../../utils/exitAppGuard';
 
 const EMPTY_MESSAGES_WAVING = require('../../../assets/images/messages/empty_messages_waving.png');
 const DEFAULT_AVATAR = require('../../../assets/images/messages/lara_olapade.jpg');
@@ -120,7 +125,8 @@ function ProfileNavIcon({ size = 24, active = false }: { size?: number; active?:
 
 export function ProviderMessagesScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const { tabBottomOffset, tabScrollPadding, fabBottomOffset, bottomFadeHeight } = useBottomInset();
+  const safeRouter = useSafeRouter();
   const { staff } = useStaffStore();
   const { conversations, markConversationRead } = useMessagesStore();
 
@@ -136,15 +142,24 @@ export function ProviderMessagesScreen() {
   }, [staff]);
 
   const handleOpenNewChat = useCallback(() => {
-    router.push('/new-chat' as any);
-  }, [router]);
+    safeRouter.push('/new-chat' as any);
+  }, [safeRouter]);
 
   const handleConversationPress = useCallback(
     (conv: Conversation) => {
       markConversationRead(conv.id);
-      // TODO (Messages prompt 2): navigate to chat
+      const member = staff.find((s) => s.id === conv.staffId);
+      safeRouter.push({
+        pathname: '/chat' as any,
+        params: {
+          id: conv.id,
+          name: member?.name || 'Staff Member',
+          role: member?.role || (member?.roles && member?.roles[0]) || 'Staff',
+          recipientName: member?.name,
+        },
+      });
     },
-    [markConversationRead]
+    [markConversationRead, staff, safeRouter]
   );
 
   const handleEnterSearch = useCallback(() => {
@@ -160,25 +175,27 @@ export function ProviderMessagesScreen() {
     Keyboard.dismiss();
   }, []);
 
-  // Handle hardware back press on Android to exit search mode cleanly
-  useEffect(() => {
-    if (!isSearchMode) return;
-    const backAction = () => {
-      handleExitSearch();
-      return true;
-    };
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
-    return () => backHandler.remove();
-  }, [isSearchMode, handleExitSearch]);
+  // Android Native Back Button Guard:
+  // - If search mode is active, exits search mode cleanly.
+  // - Otherwise, prompts user with in-built Exit Confirmation Dialog; NEVER pops to login/auth!
+  useNativeBackExitGuard({
+    closeActiveModal: () => {
+      if (isSearchMode) {
+        handleExitSearch();
+        return true;
+      }
+      return false;
+    },
+  });
 
   // Tab navigation handlers
   const handleDashboardPress = useCallback(() => {
-    router.replace('/dashboard' as any);
-  }, [router]);
+    safeRouter.replace('/dashboard' as any);
+  }, [safeRouter]);
 
   const handleProfilePress = useCallback(() => {
-    router.replace('/profile' as any);
-  }, [router]);
+    safeRouter.replace('/profile' as any);
+  }, [safeRouter]);
 
   // Filter conversations in search mode by staff member name (case-insensitive word prefix)
   const filteredConversations = useMemo(() => {
@@ -227,6 +244,7 @@ export function ProviderMessagesScreen() {
   );
 
   const isConversationsEmpty = conversations.length === 0;
+  const { isLoading: isMessagesLoading } = useMessagesSkeleton(900);
 
   return (
     <KeyboardAvoidingView
@@ -236,7 +254,11 @@ export function ProviderMessagesScreen() {
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <StatusBar style="dark" />
 
-        {/* ── Top Header Area ── */}
+        {!isSearchMode && isMessagesLoading ? (
+          <ProviderMessagesSkeleton />
+        ) : (
+          <>
+            {/* ── Top Header Area ── */}
         {!isSearchMode ? (
           /* Normal Mode: "Message" Title + Search Field */
           <View style={styles.headerContainer}>
@@ -317,8 +339,8 @@ export function ProviderMessagesScreen() {
               styles.scrollContent,
               {
                 paddingBottom: isSearchMode
-                  ? Math.max(insets.bottom, 24) + 16
-                  : 140 + Math.max(insets.bottom, 24),
+                  ? insets.bottom + 16
+                  : tabScrollPadding,
               },
             ]}
             showsVerticalScrollIndicator={false}
@@ -328,9 +350,9 @@ export function ProviderMessagesScreen() {
               const staffMember = staffMap.get(conv.staffId);
               const displayName = staffMember?.name || 'Staff Member';
               const avatarSource = staffMember?.photoUri
-                ? { uri: staffMember.photoUri }
+                ? (typeof staffMember.photoUri === 'string' ? { uri: staffMember.photoUri } : staffMember.photoUri)
                 : staffMember?.avatarUri
-                ? { uri: staffMember.avatarUri }
+                ? (typeof staffMember.avatarUri === 'string' ? { uri: staffMember.avatarUri } : staffMember.avatarUri)
                 : DEFAULT_AVATAR;
 
               return (
@@ -396,13 +418,15 @@ export function ProviderMessagesScreen() {
             })}
           </ScrollView>
         )}
+          </>
+        )}
 
         {/* ── Floating "New Chat" Button (Hidden in Search Mode) ── */}
         {!isSearchMode && (
           <TouchableOpacity
             style={[
               styles.floatingNewChatButton,
-              { bottom: 96 + Math.max(insets.bottom, 16) },
+              { bottom: fabBottomOffset },
             ]}
             onPress={handleOpenNewChat}
             activeOpacity={0.85}
@@ -419,7 +443,7 @@ export function ProviderMessagesScreen() {
             <View
               style={[
                 styles.bottomBackdropShield,
-                { height: 146 + Math.max(insets.bottom, 0) },
+                { height: bottomFadeHeight },
               ]}
               pointerEvents="none"
             >
@@ -434,7 +458,7 @@ export function ProviderMessagesScreen() {
             <View
               style={[
                 styles.bottomNavContainer,
-                { bottom: 20 + Math.max(insets.bottom, 0) },
+                { bottom: tabBottomOffset },
               ]}
               pointerEvents="box-none"
             >
@@ -732,7 +756,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(235, 235, 245, 0.96)',
   },
   staffTag: {
-    width: 45,
+    minWidth: 45,
     height: 20,
     borderRadius: 24,
     backgroundColor: 'rgba(238, 248, 238, 0.8)',
@@ -857,24 +881,25 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 16,
     ...Platform.select({
       ios: {
-        shadowColor: 'rgba(133, 139, 148, 0.08)',
-        shadowOffset: { width: 4, height: 10 },
-        shadowOpacity: 0.16,
+        shadowColor: 'rgba(133, 139, 148, 0.12)',
+        shadowOffset: { width: 0, height: 16 },
+        shadowOpacity: 0.12,
         shadowRadius: 24,
       },
       android: {
         elevation: 10,
       },
       web: {
-        shadowColor: 'rgba(133, 139, 148, 0.08)',
-        shadowOffset: { width: 4, height: 10 },
-        shadowOpacity: 0.16,
+        shadowColor: 'rgba(133, 139, 148, 0.12)',
+        shadowOffset: { width: 0, height: 16 },
+        shadowOpacity: 0.12,
         shadowRadius: 24,
       },
     }),
+    borderWidth: 1,
+    borderColor: 'rgba(235, 235, 245, 0.96)',
   },
   navTabItem: {
     width: 72,

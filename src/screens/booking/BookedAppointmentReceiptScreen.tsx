@@ -8,7 +8,8 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { SafeImage } from '../../components/ui/SafeImage';
 import { bookingStore } from '../../utils/bookingStore';
@@ -136,7 +137,7 @@ const HomeServiceIcon = ({ size = 24, color = 'rgba(0, 8, 20, 0.96)' }: { size?:
 );
 
 export const BookedAppointmentReceiptScreen = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const { activeAppointment, appointments } = useBookingContext();
@@ -449,7 +450,7 @@ export const BookedAppointmentReceiptScreen = () => {
   const userNote = (params.note as string) || currentAppointment?.note || bookingStore.getSpecialistNote() || '';
 
   const handleGoBack = () => {
-    router.replace('/home/bookings' as any);
+    safeRouter.replace('/home/bookings' as any);
   };
 
   return (

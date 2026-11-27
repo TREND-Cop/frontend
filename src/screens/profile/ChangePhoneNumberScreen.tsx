@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Check } from 'lucide-react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { useUserContext } from '../../store/UserContext';
 
 // ── Circular Nigeria Flag Icon (Figma Vector Spec) ──
@@ -25,7 +25,7 @@ const NigeriaFlagCircle = ({ size = 24 }: { size?: number }) => (
 );
 
 export const ChangePhoneNumberScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { profileData } = useUserContext();
 
   const currentCountryCode = '+234';
@@ -57,10 +57,10 @@ export const ChangePhoneNumberScreen: React.FC = () => {
   const isValid = isValidPhoneLength && !isDuplicate && !phoneError;
 
   const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
+    if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/profile' as any);
+      safeRouter.replace('/profile' as any);
     }
   };
 
@@ -82,7 +82,7 @@ export const ChangePhoneNumberScreen: React.FC = () => {
 
     // Navigate to in-app account verification selection screen (user signed up with phone)
     const fullPhone = `${currentCountryCode} ${newPhone}`;
-    router.push({
+    safeRouter.push({
       pathname: '/profile-verification-method',
       params: { signupMethod: 'phone', type: 'phone', targetPhone: fullPhone },
     });

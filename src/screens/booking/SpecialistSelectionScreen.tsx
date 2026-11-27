@@ -1,4 +1,5 @@
-import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ArrowLeft, Check, Star } from 'lucide-react-native';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import {
@@ -73,7 +74,7 @@ export const SpecialistSelectionScreen: React.FC<SpecialistSelectionScreenProps>
   onApply,
   showStepper,
 }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const bottomInset = Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16);
   const params = useLocalSearchParams();
@@ -175,12 +176,12 @@ export const SpecialistSelectionScreen: React.FC<SpecialistSelectionScreenProps>
   const handleGoBack = () => {
     if (onBack) {
       onBack();
-    } else if (router.canGoBack()) {
-      router.back();
+    } else if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else if (isFromReview) {
-      router.replace('/booking-review' as any);
+      safeRouter.replace('/booking-review' as any);
     } else {
-      router.replace('/appointment-time' as any);
+      safeRouter.replace('/appointment-time' as any);
     }
   };
 
@@ -240,13 +241,13 @@ export const SpecialistSelectionScreen: React.FC<SpecialistSelectionScreenProps>
     if (onApply) {
       onApply(newlyChosen[0] || SPECIALIST_LIST[0], noteText);
     } else if (isFromReview || isAddOnSpecialist) {
-      if (router.canGoBack()) {
-        router.back();
+      if (safeRouter.canGoBack()) {
+        safeRouter.back();
       } else {
-        router.replace('/booking-review' as any);
+        safeRouter.replace('/booking-review' as any);
       }
     } else {
-      router.push('/booking-review');
+      safeRouter.push('/booking-review');
     }
   };
 

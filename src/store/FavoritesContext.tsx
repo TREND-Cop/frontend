@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { trendApi, getAuthToken, extractArray } from '../api/trendApi';
 
 const FAVORITES_STORAGE_KEY = '@trend_favorites';
 
@@ -28,13 +29,46 @@ const FavoritesContext = createContext<FavoritesContextType | undefined>(undefin
 export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
 
-  // Load favorites from AsyncStorage on mount
+  // Load favorites from AsyncStorage on mount and hydrate from live backend wishlist
   useEffect(() => {
     const loadFavorites = async () => {
       try {
         const stored = await AsyncStorage.getItem(FAVORITES_STORAGE_KEY);
+        let localItems: FavoriteItem[] = [];
         if (stored) {
-          setFavorites(JSON.parse(stored));
+          localItems = JSON.parse(stored);
+          setFavorites(localItems);
+        }
+
+        const token = await getAuthToken();
+        if (token) {
+          const res = await trendApi.wishlist.list();
+          if (res.ok && res.data) {
+            const remoteRows = extractArray<any>(res.data, ['wishlist', 'services']);
+            if (remoteRows.length > 0) {
+              const mapped: FavoriteItem[] = remoteRows.map((row) => ({
+                id: String(row.service_id || row.id || ''),
+                name: row.name || row.service_name || 'Service',
+                category: row.category,
+                location: row.location || row.address,
+                rating: row.rating ? String(row.rating) : undefined,
+                reviewsCount: row.reviews_count ? String(row.reviews_count) : undefined,
+                price: typeof row.price === 'number' ? row.price : undefined,
+                imageUri:
+                  Array.isArray(row.images) && row.images.length > 0
+                    ? row.images[0]
+                    : row.image || row.image_url,
+                images: Array.isArray(row.images) ? row.images : undefined,
+              }));
+              const validMapped = mapped.filter((item) => item.id.length > 0);
+              if (validMapped.length > 0) {
+                setFavorites(validMapped);
+                AsyncStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(validMapped)).catch(
+                  () => {}
+                );
+              }
+            }
+          }
         }
       } catch (err) {
         console.warn('Failed to load favorites from storage:', err);
@@ -69,6 +103,12 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         updated = [item, ...favorites];
       }
       await persistFavorites(updated);
+      getAuthToken()
+        .then((token) => {
+          if (!token) return null;
+          return exists ? trendApi.wishlist.remove(item.id) : trendApi.wishlist.add(item.id);
+        })
+        .catch(() => {});
     },
     [favorites, persistFavorites]
   );
@@ -77,6 +117,12 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     async (id: string) => {
       const updated = favorites.filter((fav) => fav.id !== id);
       await persistFavorites(updated);
+      getAuthToken()
+        .then((token) => {
+          if (!token) return null;
+          return trendApi.wishlist.remove(id);
+        })
+        .catch(() => {});
     },
     [favorites, persistFavorites]
   );

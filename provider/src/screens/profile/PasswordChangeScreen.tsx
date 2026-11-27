@@ -1,24 +1,24 @@
+import { useSafeRouter } from '../../utils/safeNavigation';
+import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import {
-  View,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Share,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Share,
+  View,
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
+import { DEV_WRONG_CURRENT_PASSWORDS } from '../../constants/passwordVerification.config';
 import { useProviderProfile } from '../../context/ProviderProfileContext';
 import { AccountVerificationFlow } from '../verification/AccountVerificationFlow';
-import { DEV_WRONG_CURRENT_PASSWORDS } from '../../constants/passwordVerification.config';
 
 // ── Platform Typography Standards ──
 const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
@@ -44,15 +44,11 @@ function ArrowLeftIcon({ size = 24 }: { size?: number }) {
 function ShareIcon({ size = 24 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="18" cy="5" r="3" stroke="#141B34" strokeWidth="1.5" />
+      <Circle cx="6" cy="12" r="3" stroke="#141B34" strokeWidth="1.5" />
+      <Circle cx="18" cy="19" r="3" stroke="#141B34" strokeWidth="1.5" />
       <Path
-        d="M12 3v11M12 3l-4 4M12 3l4 4"
-        stroke="#141B34"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7"
+        d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"
         stroke="#141B34"
         strokeWidth="1.5"
         strokeLinecap="round"
@@ -112,7 +108,7 @@ function CheckmarkBadgeIcon({ size = 20 }: { size?: number }) {
 }
 
 export const PasswordChangeScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { ownerPhone, ownerEmail } = useProviderProfile();
 
@@ -220,7 +216,7 @@ export const PasswordChangeScreen: React.FC = () => {
       setIsVerifying(false);
       return;
     }
-    router.back();
+    safeRouter.back();
   };
 
   const handleSharePress = async () => {
@@ -399,7 +395,7 @@ export const PasswordChangeScreen: React.FC = () => {
         </ScrollView>
 
         {/* Bottom Action Button: Save Changes */}
-        <View style={[styles.bottomContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <View style={[styles.bottomContainer, { paddingBottom: insets.bottom + 16 }]}>
           <TouchableOpacity
             activeOpacity={0.8}
             disabled={!hasAnyInput}

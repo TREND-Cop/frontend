@@ -92,7 +92,7 @@ export const ReadOnlyStaffRoleSheet: React.FC<ReadOnlyStaffRoleSheetProps> = ({
         <View
           style={[
             styles.sheetContainer,
-            { paddingBottom: Math.max(insets.bottom, 24) },
+            { paddingBottom: insets.bottom + 16 },
           ]}
         >
           {/* ── Header (62px) ── */}

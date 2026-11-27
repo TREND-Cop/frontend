@@ -950,7 +950,7 @@ export const ProviderAppointmentFilterModal: React.FC<ProviderAppointmentFilterM
                           </TouchableOpacity>
                         );
                       })}
-                      {pair.length === 1 && <View style={{ width: 167.5 }} />}
+                      {pair.length === 1 && <View style={{ flex: 1 }} />}
                     </View>
                   );
                 })}
@@ -1021,7 +1021,7 @@ export const ProviderAppointmentFilterModal: React.FC<ProviderAppointmentFilterM
                   <TouchableOpacity
                     style={[
                       styles.paymentPill,
-                      { width: 150 },
+                      { flex: 1 },
                       filters.paymentMethod === 'cash'
                         ? styles.servicePillActive
                         : styles.servicePillInactive,
@@ -1045,7 +1045,7 @@ export const ProviderAppointmentFilterModal: React.FC<ProviderAppointmentFilterM
                   <TouchableOpacity
                     style={[
                       styles.paymentPill,
-                      { width: 167 },
+                      { flex: 1 },
                       filters.paymentMethod === 'card'
                         ? styles.servicePillActive
                         : styles.servicePillInactive,
@@ -1240,7 +1240,7 @@ export const ProviderAppointmentFilterModal: React.FC<ProviderAppointmentFilterM
             style={[
               styles.bottomActionBar,
               {
-                paddingBottom: Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16),
+                paddingBottom: insets.bottom + 16,
                 height: undefined,
               },
             ]}
@@ -1607,7 +1607,7 @@ const styles = StyleSheet.create({
   },
 
   staffPill: {
-    width: 167.5,
+    flex: 1,
     height: 48,
     borderRadius: 24,
     justifyContent: 'center',

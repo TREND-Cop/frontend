@@ -2,26 +2,26 @@
  * Route: /forgot-password
  */
 
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../utils/safeNavigation';
 import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
 
 export default function ForgotPasswordRoute() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   return (
     <ForgotPasswordScreen
       navigation={{
         navigate: (screen: string, params?: any) => {
           if (screen === 'VerificationMethod') {
-            router.push('/verification-method');
+            safeRouter.push('/verification-method');
           } else if (screen === 'EmailVerification') {
-            router.push({
+            safeRouter.push({
               pathname: '/email-verification',
               params: { email: params?.email },
             });
           }
         },
-        goBack: () => router.back(),
+        goBack: () => safeRouter.back(),
       }}
     />
   );

@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { typography } from '../../constants/theme';
 
@@ -77,7 +77,7 @@ export const NoInternetScreen: React.FC<NoInternetScreenProps> = ({
   message = 'Please check your internet connection',
   buttonText = 'Reload',
 }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const [isReloading, setIsReloading] = useState(false);
 
   const handleReload = async () => {
@@ -87,10 +87,10 @@ export const NoInternetScreen: React.FC<NoInternetScreenProps> = ({
       if (onReload) {
         await Promise.resolve(onReload());
       } else {
-        if (router.canGoBack()) {
-          router.back();
+        if (safeRouter.canGoBack()) {
+          safeRouter.back();
         } else {
-          router.replace('/home');
+          safeRouter.replace('/home');
         }
       }
     } catch {

@@ -3,7 +3,7 @@
  *
  * Features:
  * - Back arrow (top-left) to navigate to the previous step
- * - Optional step progress indicator (dots showing current step out of total)
+ * - Optional segmented step progress bar aligned beside the back arrow
  * - Title (typography.h1)
  * - Subtitle (typography.bodyRegular, muted)
  *
@@ -17,10 +17,11 @@
  *   />
  */
 
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
-import { colors, typography, spacing } from '../constants/theme';
+import React from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { typography } from '../constants/theme';
+import { useSingleFlight } from '../utils/safeNavigation';
 
 interface ProfileSetupHeaderProps {
   /** Called when the back arrow is tapped */
@@ -29,7 +30,7 @@ interface ProfileSetupHeaderProps {
   title: string;
   /** Screen subtitle/description text */
   subtitle: string;
-  /** Current step number (1-based). If omitted, progress dots are hidden. */
+  /** Current step number (1-based). If omitted, progress bar is hidden. */
   currentStep?: number;
   /** Total number of steps in the wizard. Defaults to 4. */
   totalSteps?: number;
@@ -39,15 +40,46 @@ export const ProfileSetupHeader: React.FC<ProfileSetupHeaderProps> = ({
   onBack,
   title,
   subtitle,
+  currentStep,
+  totalSteps = 4,
 }) => {
+  const safeBack = useSingleFlight(onBack);
+
   return (
     <View style={styles.container}>
-      {/* ─── Top Row: Back Arrow ────────────────────────────────────── */}
+      {/* ─── Top Row: Back Arrow + Segmented Progress Indicator ─────── */}
       <View style={styles.topRow}>
         {/* Back Arrow */}
-        <TouchableOpacity onPress={onBack} style={styles.backButton} activeOpacity={0.7}>
+        <TouchableOpacity
+          onPress={safeBack}
+          style={styles.backButton}
+          activeOpacity={0.7}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
           <ArrowLeft size={24} color="#141A33" />
         </TouchableOpacity>
+
+        {/* Segmented Progress Indicator */}
+        {currentStep !== undefined && (
+          <View
+            style={styles.progressContainer}
+            accessibilityRole="progressbar"
+            accessibilityValue={{ min: 0, max: totalSteps, now: currentStep }}
+          >
+            {Array.from({ length: totalSteps }).map((_, index) => {
+              const isActive = index < currentStep;
+              return (
+                <View
+                  key={index}
+                  style={[
+                    styles.progressDash,
+                    isActive ? styles.progressDashActive : styles.progressDashInactive,
+                  ]}
+                />
+              );
+            })}
+          </View>
+        )}
       </View>
 
       {/* ─── Title & Subtitle ──────────────────────────────────────── */}
@@ -70,18 +102,33 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 11,
     marginBottom: 24,
   },
   backButton: {
     width: 40,
     height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backArrow: {
-    fontSize: 24,
-    color: '#141A33', // Custom back arrow color
+  progressContainer: {
+    flex: 1,
+    height: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  progressDash: {
+    flex: 1,
+    height: 6,
+    borderRadius: 6,
+  },
+  progressDashActive: {
+    backgroundColor: 'rgba(0, 8, 20, 0.96)',
+  },
+  progressDashInactive: {
+    backgroundColor: 'rgba(235, 235, 245, 0.96)',
   },
 
   // ── Title & Subtitle ───────────────────────────────────────────────────

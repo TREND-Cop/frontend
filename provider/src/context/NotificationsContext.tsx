@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
 import { DEV_SAMPLE_NOTIFICATIONS } from '../constants/notifications.config';
+import { trendApi, getAuthToken, extractArray } from '../api/trendApi';
 
 export type NotificationKind = 'text' | 'media-approval';
 export type MediaApprovalStatus = 'pending' | 'approved' | 'declined';
@@ -133,6 +134,66 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
     DEV_SAMPLE_NOTIFICATIONS ? createSampleNotifications() : []
   );
 
+  useEffect(() => {
+    let active = true;
+    const hydrate = async () => {
+      try {
+        const token = await getAuthToken('business');
+        if (!token || !active) return;
+        const [notifRes, portfolioRes] = await Promise.all([
+          trendApi.notifications.list('business'),
+          trendApi.business.listPendingPortfolio(),
+        ]);
+        const remoteItems: NotificationItem[] = [];
+        if (portfolioRes.ok && portfolioRes.data) {
+          const pending = extractArray<any>(portfolioRes.data, ['portfolio', 'uploads']);
+          pending.forEach((p: any, idx: number) => {
+            remoteItems.push({
+              id: String(p.id || `port_${idx}`),
+              kind: 'media-approval',
+              senderName: 'System Notification',
+              senderAvatar: sampleAvatars.system,
+              timestamp: p.created_at ? Date.parse(p.created_at) || Date.now() : Date.now(),
+              formattedDate: p.created_at ? new Date(p.created_at).toLocaleString() : 'Just now',
+              read: false,
+              staffName: p.staff_name || p.staff?.name || 'Staff',
+              images: p.url ? [p.url] : Array.isArray(p.images) ? p.images : [],
+              status: 'pending',
+            });
+          });
+        }
+        if (notifRes.ok && notifRes.data) {
+          const rows = extractArray<any>(notifRes.data, ['notifications']);
+          rows.forEach((n: any, idx: number) => {
+            remoteItems.push({
+              id: String(n.id || `notif_${idx}`),
+              kind: 'text',
+              senderName: n.title || 'TREND',
+              senderAvatar: n.image || sampleAvatars.system,
+              timestamp: n.created_at ? Date.parse(n.created_at) || Date.now() : Date.now(),
+              formattedDate: n.created_at ? new Date(n.created_at).toLocaleString() : 'Just now',
+              read: Boolean(n.read ?? n.is_read),
+              title: n.title,
+              body: n.body || n.message || '',
+            });
+          });
+        }
+        if (active && remoteItems.length > 0) {
+          setNotifications((prev) => {
+            const ids = new Set(remoteItems.map((r) => r.id));
+            return [...remoteItems, ...prev.filter((p) => !ids.has(p.id))];
+          });
+        }
+      } catch {
+        // Keep local notifications intact
+      }
+    };
+    hydrate();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.read).length,
     [notifications]
@@ -142,15 +203,20 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
     setNotifications((prev) =>
       prev.map((item) => (item.id === id ? { ...item, read: true } : item))
     );
+    getAuthToken('business')
+      .then((token) => (token ? trendApi.notifications.markRead(id, 'business') : null))
+      .catch(() => {});
   }, []);
 
   const approveNotification = useCallback(async (id: string) => {
-    // TODO (Backend): Persist media approval status
     setNotifications((prev) =>
       prev.map((item) =>
         item.id === id ? { ...item, status: 'approved', read: true } : item
       )
     );
+    getAuthToken('business')
+      .then((token) => (token ? trendApi.business.approvePortfolio(id) : null))
+      .catch(() => {});
   }, []);
 
   const declineNotification = useCallback(async (id: string) => {
@@ -160,6 +226,9 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
         item.id === id ? { ...item, status: 'declined', read: true } : item
       )
     );
+    getAuthToken('business')
+      .then((token) => (token ? trendApi.business.declinePortfolio(id) : null))
+      .catch(() => {});
   }, []);
 
   const deleteNotification = useCallback((id: string) => {

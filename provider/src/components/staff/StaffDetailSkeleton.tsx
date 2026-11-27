@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 26,
   },
   profileCard: {
     width: '100%',
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: 40,
   },
   avatarCircle: {
     width: 96,
@@ -190,19 +190,19 @@ const styles = StyleSheet.create({
     height: 149,
     borderRadius: 24,
     backgroundColor: '#EAECF0',
-    marginBottom: 24,
+    marginBottom: 40,
   },
   tabsSkeleton: {
     width: '100%',
     height: 48,
     borderRadius: 24,
     backgroundColor: 'rgba(247, 247, 247, 0.96)',
-    marginBottom: 24,
+    marginBottom: 40,
   },
   rowsContainer: {
     width: '100%',
-    gap: 20,
-    marginBottom: 32,
+    gap: 24,
+    marginBottom: 34,
   },
   rowItem: {
     width: '100%',

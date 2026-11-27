@@ -90,16 +90,18 @@ export function SimpleArrowLeftIcon({ size = 24, color = 'rgba(0, 8, 20, 0.96)' 
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M9.5 12.002H16.25"
+        d="M9.57 5.93L3.5 12L9.57 18.07"
         stroke={color}
-        strokeWidth="1.5"
+        strokeWidth={1.5}
+        strokeMiterlimit={10}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <Path
-        d="M12.25 15.002C12.25 15.002 9.25 12.792 9.25 12.0019C9.25 11.2118 12.25 9.002 12.25 9.002"
+        d="M20.5 12H3.67"
         stroke={color}
-        strokeWidth="1.5"
+        strokeWidth={1.5}
+        strokeMiterlimit={10}
         strokeLinecap="round"
         strokeLinejoin="round"
       />

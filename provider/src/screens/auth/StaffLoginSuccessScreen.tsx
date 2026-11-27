@@ -11,9 +11,11 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { STAFF_ROUTES } from '../../constants/staffRoutes';
+import { useStaffLoginStore } from '../../context/StaffLoginContext';
+import { saveToStorage, removeFromStorage, STORAGE_KEYS } from '../../utils/providerStorage';
 
 const CONFETTI_IMAGE = require('../../../assets/images/custom/booking_success_confetti.png');
 const CHARACTERS_IMAGE = require('../../../assets/images/custom/booking_success_characters.png');
@@ -62,8 +64,9 @@ function MiniLoaderSpinner() {
 }
 
 export function StaffLoginSuccessScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
+  const { setJustSignedUp } = useStaffLoginStore();
   const [messageIndex, setMessageIndex] = useState(0);
 
   // Cycling support messages including "Creating Dashboard" and design support lines
@@ -125,9 +128,19 @@ export function StaffLoginSuccessScreen() {
       setMessageIndex((prev) => (prev + 1) % supportMessages.length);
     }, 1800);
 
-    // Short, clearly marked mock delay then replaces stack with staff home
-    const navigationTimer = setTimeout(() => {
-      router.replace(STAFF_ROUTES.HOME as any);
+    // Short, clearly marked mock delay then replaces stack with staff home (marked as fromSignup)
+    const navigationTimer = setTimeout(async () => {
+      setJustSignedUp(true);
+      try {
+        await saveToStorage(STORAGE_KEYS.STAFF_HAS_COMPLETED_TUTORIAL, false);
+        await removeFromStorage(STORAGE_KEYS.STAFF_HAS_COMPLETED_TUTORIAL);
+      } catch (err) {
+        console.warn('Failed to reset staff tutorial state:', err);
+      }
+      safeRouter.resetRoot({
+        pathname: STAFF_ROUTES.HOME as any,
+        params: { fromSignup: 'true' },
+      });
     }, 2200);
 
     return () => {
@@ -135,7 +148,7 @@ export function StaffLoginSuccessScreen() {
       clearInterval(interval);
       clearTimeout(navigationTimer);
     };
-  }, [supportMessages.length, router]);
+  }, [supportMessages.length, safeRouter, setJustSignedUp]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

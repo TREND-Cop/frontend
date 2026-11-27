@@ -358,3 +358,43 @@ export function BlueVerifiedBadgeIcon({
   );
 }
 
+/**
+ * 1:1 Figma square-lock-02 Icon (16x16)
+ * Used inside the "Off Duty" red status toggle pill on StaffDetailScreen
+ */
+export function SquareLock02Icon({
+  size = 16,
+  color = 'rgba(204, 41, 41, 0.9)',
+}: {
+  size?: number;
+  color?: string;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <Path
+        d="M5 6V4.5a3 3 0 016 0V6"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Rect
+        x="2.67"
+        y="6"
+        width="10.66"
+        height="8.67"
+        rx="2"
+        stroke={color}
+        strokeWidth={1.5}
+      />
+      <Path
+        d="M8 9.67V11"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+

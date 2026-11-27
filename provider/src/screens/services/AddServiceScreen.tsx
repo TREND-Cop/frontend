@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,14 +11,15 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 import { TactilePressable } from '../../components/ui/TactilePressable';
+import { DeletePostDialog } from '../../components/DeletePostDialog';
 import { triggerLightHaptic } from '../../utils/haptics';
 import { useServices, Service, DEV_SAMPLE_SERVICES } from '../../hooks/useServices';
 import { formatServiceDateParts, formatServiceDate } from '../../utils/formatServiceDate';
-import { DateFilterSheet, FilterValue } from '../../components/DateFilterSheet';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -51,11 +52,35 @@ function ArrowLeft02Icon({ size = 24, color = '#000814' }: { size?: number; colo
   );
 }
 
-function FilterFunnelIcon({ size = 18, color = '#141B34' }: { size?: number; color?: string }) {
+// ── 1:1 Vector Trash Icon (24x24) ──
+function TrashIcon({ size = 24, color = '#141B34' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M21 4H3L10.2 12.5V19L13.8 21V12.5L21 4Z"
+        d="M19.5 5.5L18.8 17.5C18.7 19.2 17.3 20.5 15.6 20.5H8.4C6.7 20.5 5.3 19.2 5.2 17.5L4.5 5.5"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+      <Path d="M3 5.5H21" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+      <Path
+        d="M9.5 5.5V4C9.5 3.2 10.2 2.5 11 2.5H13C13.8 2.5 14.5 3.2 14.5 4V5.5"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+      <Path d="M10 10V16" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+      <Path d="M14 10V16" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+// ── Plus Icon (16x16) ──
+function PlusIcon({ size = 16, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <Path
+        d="M8 3.33v9.34M3.33 8h9.34"
         stroke={color}
         strokeWidth={1.5}
         strokeLinecap="round"
@@ -65,13 +90,14 @@ function FilterFunnelIcon({ size = 18, color = '#141B34' }: { size?: number; col
   );
 }
 
-function PlusIcon({ size = 16, color = '#FFFFFF' }: { size?: number; color?: string }) {
+// ── Check Mark Icon for Selected Service (14x14) ──
+function CheckMarkIcon({ size = 14, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M8 3.33v9.34M3.33 8h9.34"
+        d="M4 12.6l5.4 5.4L20 6"
         stroke={color}
-        strokeWidth={1.5}
+        strokeWidth={2.4}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -92,21 +118,48 @@ export interface AddServiceScreenProps {
 export const AddServiceScreen: React.FC<AddServiceScreenProps> = ({
   devSampleServices = DEV_SAMPLE_SERVICES,
 }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
 
-  // Load business services (TODO: Backend)
-  const { services } = useServices({ devSample: devSampleServices });
+  // Load business services & delete hook
+  const { services, reloadServices, deleteServices } = useServices({ devSample: devSampleServices });
 
-  // Date Filter Sheet & Active Filter State
-  const [isFilterSheetVisible, setIsFilterSheetVisible] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<FilterValue | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      reloadServices();
+    }, [reloadServices])
+  );
 
-  // Android Hardware Back Handler: Closes filter sheet first if open
+  // Selection & Delete state
+  const [mode, setMode] = useState<'view' | 'select'>('view');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const isNavigatingRef = useRef(false);
+
+  const isSelectMode = mode === 'select';
+  const hasSelected = selectedIds.length > 0;
+
+  // Handle Return to Dashboard
+  const handleGoBack = useCallback(() => {
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
+    triggerLightHaptic();
+    if (safeRouter.canGoBack()) {
+      safeRouter.back();
+    } else {
+      safeRouter.push('/dashboard' as any);
+    }
+    setTimeout(() => {
+      isNavigatingRef.current = false;
+    }, 700);
+  }, [safeRouter]);
+
+  // Android Hardware Back Handler: exits selection mode if active
   useEffect(() => {
     const onBackPress = () => {
-      if (isFilterSheetVisible) {
-        setIsFilterSheetVisible(false);
+      if (mode === 'select') {
+        setMode('view');
+        setSelectedIds([]);
         return true;
       }
       handleGoBack();
@@ -115,71 +168,93 @@ export const AddServiceScreen: React.FC<AddServiceScreenProps> = ({
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => subscription.remove();
-  }, [isFilterSheetVisible]);
+  }, [mode, handleGoBack]);
 
-  // Handle Return to Dashboard
-  const handleGoBack = useCallback(() => {
+  // Header Back Button handler
+  const handleHeaderBack = () => {
     triggerLightHaptic();
-    // TODO (Skeleton): global skeleton loader on return to dashboard
-    if (router.canGoBack()) {
-      router.back();
+    if (mode === 'select') {
+      setMode('view');
+      setSelectedIds([]);
     } else {
-      router.push('/dashboard' as any);
+      handleGoBack();
     }
-  }, [router]);
+  };
 
-  // Filter Matching in device's local time (compare local year/month/day, never UTC strings)
-  const filteredServices = useMemo(() => {
-    if (!activeFilter) {
-      return services;
-    }
-
-    return services.filter((srv) => {
-      const srvDate = new Date(srv.createdAt);
-      if (isNaN(srvDate.getTime())) return false;
-
-      if (activeFilter.type === 'day') {
-        return (
-          srvDate.getFullYear() === activeFilter.year &&
-          srvDate.getMonth() === activeFilter.month &&
-          srvDate.getDate() === activeFilter.day
-        );
-      } else {
-        return srvDate.getFullYear() === activeFilter.year;
+  // Header Right Action handler
+  const handleHeaderRightAction = () => {
+    triggerLightHaptic();
+    if (mode === 'view') {
+      if (services.length > 0) {
+        setMode('select');
+        setSelectedIds([]);
       }
-    });
-  }, [services, activeFilter]);
+    } else {
+      if (selectedIds.length > 0) {
+        setShowDeleteDialog(true);
+      } else {
+        setMode('view');
+        setSelectedIds([]);
+      }
+    }
+  };
+
+  // Toggle selection on a service card in select mode
+  const handleToggleSelect = (id: string) => {
+    triggerLightHaptic();
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  // Confirm delete from dialog
+  const handleConfirmDelete = async () => {
+    triggerLightHaptic();
+    setShowDeleteDialog(false);
+    await deleteServices(selectedIds);
+    setSelectedIds([]);
+    setMode('view');
+  };
 
   // Compute Grid Data:
-  // Tile is hidden while a filter is active (inferred from F7)
+  // "Add new service" tile is visible in view mode, hidden in select mode
   const gridData = useMemo<GridItem[]>(() => {
-    const isFilterActive = activeFilter !== null;
     const items: GridItem[] = [];
 
-    if (!isFilterActive) {
+    if (!isSelectMode) {
       items.push({ type: 'add_tile' });
     }
 
-    filteredServices.forEach((service) => {
+    services.forEach((service) => {
       items.push({ type: 'service_card', service });
     });
 
     return items;
-  }, [activeFilter, filteredServices]);
+  }, [isSelectMode, services]);
 
-  // Navigate to Wizard route (placeholder)
+  // Navigate to Wizard route
   const handleOpenWizard = () => {
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
     triggerLightHaptic();
-    router.push('/business-services-wizard' as any);
+    safeRouter.push('/business-services-wizard' as any);
+    setTimeout(() => {
+      isNavigatingRef.current = false;
+    }, 700);
   };
 
-  // Navigate to Service details route, passing only the id (placeholder)
+  // Navigate to Service details route
   const handleOpenServiceDetails = (serviceId: string) => {
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
     triggerLightHaptic();
-    router.push({
+    safeRouter.push({
       pathname: '/service/[id]',
-      params: { id: serviceId },
+      params: { id: serviceId, showSuccessBanner: 'true' },
     } as any);
+    setTimeout(() => {
+      isNavigatingRef.current = false;
+    }, 700);
   };
 
   // Calculate Responsive Column Width
@@ -213,21 +288,31 @@ export const AddServiceScreen: React.FC<AddServiceScreenProps> = ({
     }
 
     const { service } = item;
+    const isSelected = selectedIds.includes(service.id);
     const dateParts = formatServiceDateParts(service.createdAt);
     const accessibleDate = formatServiceDate(service.createdAt);
 
     return (
       <TactilePressable
         style={[styles.serviceCard, { width: colWidth }]}
-        onPress={() => handleOpenServiceDetails(service.id)}
+        onPress={() => {
+          if (isSelectMode) {
+            handleToggleSelect(service.id);
+          } else {
+            handleOpenServiceDetails(service.id);
+          }
+        }}
         accessibilityLabel={`${service.name}, ${accessibleDate}`}
       >
         {/* Photo Container */}
         <View style={styles.serviceImageFrame}>
-          {/* TODO (Asset): Export photo for service card (153x104, 2x: 306x208, 3x: 459x312 PNG/JPG) */}
           {service.imageUri ? (
             <Image
-              source={{ uri: service.imageUri }}
+              source={
+                typeof service.imageUri === 'number'
+                  ? service.imageUri
+                  : { uri: service.imageUri }
+              }
               style={styles.serviceImage}
               resizeMode="cover"
             />
@@ -239,10 +324,23 @@ export const AddServiceScreen: React.FC<AddServiceScreenProps> = ({
             </View>
           )}
 
-          {/* Green "New" Tag on top-right corner if isNew */}
-          {service.isNew && (
+          {/* View mode: Green "New" Tag on top-right corner if isNew */}
+          {!isSelectMode && service.isNew && (
             <View style={styles.newBadge}>
               <Text style={styles.newBadgeText}>New</Text>
+            </View>
+          )}
+
+          {/* Select mode: Select circle on top-left */}
+          {isSelectMode && (
+            <View style={styles.selectBadgePosition}>
+              {isSelected ? (
+                <View style={styles.selectedCircle}>
+                  <CheckMarkIcon size={14} color="#FFFFFF" />
+                </View>
+              ) : (
+                <View style={styles.unselectedCircle} />
+              )}
             </View>
           )}
         </View>
@@ -264,8 +362,6 @@ export const AddServiceScreen: React.FC<AddServiceScreenProps> = ({
     );
   };
 
-  const isNoRecordFound = activeFilter !== null && filteredServices.length === 0;
-
   return (
     <SafeAreaView style={styles.screenContainer} edges={['top']}>
       {/* ── Page Header (390x64px, 1:1 Figma) ── */}
@@ -275,8 +371,8 @@ export const AddServiceScreen: React.FC<AddServiceScreenProps> = ({
           <TouchableOpacity
             activeOpacity={0.7}
             style={styles.backButton}
-            onPress={handleGoBack}
-            accessibilityLabel="Go back"
+            onPress={handleHeaderBack}
+            accessibilityLabel={isSelectMode ? 'Cancel selection and go back' : 'Go back'}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <ArrowLeft02Icon size={24} color="#000814" />
@@ -285,69 +381,62 @@ export const AddServiceScreen: React.FC<AddServiceScreenProps> = ({
           {/* Centered Page Title */}
           <Text style={styles.headerTitle}>Add Service</Text>
 
-          {/* Filter button */}
+          {/* Right Action: TrashIcon in view mode, Cancel/Delete in select mode */}
           <TouchableOpacity
             activeOpacity={0.7}
-            style={styles.filterButton}
-            onPress={() => {
-              triggerLightHaptic();
-              setIsFilterSheetVisible(true);
-            }}
-            accessibilityLabel="Filter by date"
+            style={styles.headerRightButton}
+            onPress={handleHeaderRightAction}
+            accessibilityLabel={
+              !isSelectMode
+                ? 'Select services to delete'
+                : hasSelected
+                ? 'Delete selected services'
+                : 'Cancel selection'
+            }
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <FilterFunnelIcon size={18} color="#141B34" />
+            {!isSelectMode ? (
+              <TrashIcon size={24} color="#141B34" />
+            ) : hasSelected ? (
+              <Text style={styles.deleteActionText} numberOfLines={1}>
+                Delete
+              </Text>
+            ) : (
+              <Text style={styles.cancelActionText} numberOfLines={1}>
+                Cancel
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* ── Body: 2-Column Grid vs "No Record Found" ── */}
-      {isNoRecordFound ? (
-        /* ── F7: "No Record Found" State ── */
-        <View style={styles.noRecordContainer}>
-          {/* TODO (Asset): Export No Record Found illustration (134x134, 2x: 268x268, 3x: 402x402 PNG) */}
-          <View style={styles.noRecordIllustrationWrapper}>
-            <Image
-              source={require('../../../assets/images/search_not_found.png')}
-              style={styles.noRecordIllustration}
-              resizeMode="contain"
-            />
-          </View>
+      {/* ── 2-Column Responsive Service Grid ── */}
+      <FlatList
+        data={gridData}
+        keyExtractor={(item) =>
+          item.type === 'add_tile' ? 'add_tile' : item.service.id
+        }
+        renderItem={renderItem}
+        numColumns={2}
+        columnWrapperStyle={styles.columnWrapper}
+        contentContainerStyle={[
+          styles.listContent,
+          {
+            paddingBottom: insets.bottom + 24,
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+      />
 
-          <Text style={styles.noRecordTitle}>No Record Found</Text>
-          <Text style={styles.noRecordSubtitle}>No recorded activity on this search</Text>
-        </View>
-      ) : (
-        /* ── F1 & F2: 2-Column Responsive Service Grid ── */
-        <FlatList
-          data={gridData}
-          keyExtractor={(item, index) =>
-            item.type === 'add_tile' ? 'add_tile' : item.service.id
-          }
-          renderItem={renderItem}
-          numColumns={2}
-          columnWrapperStyle={styles.columnWrapper}
-          contentContainerStyle={[
-            styles.listContent,
-            {
-              paddingBottom:
-                Platform.OS === 'android'
-                  ? Math.max(insets.bottom, 56) + 24
-                  : Math.max(insets.bottom, 16) + 24,
-            },
-          ]}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
-
-      {/* ── Date Filter Bottom Sheet (Month / Year) ── */}
-      <DateFilterSheet
-        visible={isFilterSheetVisible}
-        onClose={() => setIsFilterSheetVisible(false)}
-        onApplyFilter={(filter) => {
-          setActiveFilter(filter);
-        }}
-        currentFilter={activeFilter}
+      {/* ── Delete Confirmation Dialog ── */}
+      <DeletePostDialog
+        visible={showDeleteDialog}
+        title="Delete Service?"
+        description="The service will be removed from your business dashboard and clients can no longer see it."
+        confirmText="Yes, Delete"
+        cancelText="No,Cancel It."
+        onCancel={() => setShowDeleteDialog(false)}
+        onConfirm={handleConfirmDelete}
       />
 
       {/* Android System Navigation Dock Protection */}
@@ -402,12 +491,30 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 
-  filterButton: {
-    width: 48,
+  headerRightButton: {
+    minWidth: 48,
     height: 48,
-    borderRadius: 8,
+    paddingHorizontal: 8,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-end',
+  },
+
+  cancelActionText: {
+    fontFamily: FONT_MEDIUM,
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#000814',
+    includeFontPadding: false,
+  },
+
+  deleteActionText: {
+    fontFamily: FONT_MEDIUM,
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#CC292B',
+    includeFontPadding: false,
   },
 
   /* ── 2-Column Grid List ── */
@@ -527,6 +634,31 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 
+  selectBadgePosition: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    zIndex: 5,
+  },
+
+  unselectedCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+  },
+
+  selectedCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(0, 8, 20, 0.96)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   serviceInfoColumn: {
     gap: 4,
     paddingTop: 4,
@@ -553,48 +685,5 @@ const styles = StyleSheet.create({
   serviceDateSuperscript: {
     fontSize: 9,
     lineHeight: 12,
-  },
-
-  /* ── No Record Found State (F7) ── */
-  noRecordContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingBottom: 80,
-  },
-
-  noRecordIllustrationWrapper: {
-    width: 134,
-    height: 134,
-    marginBottom: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  noRecordIllustration: {
-    width: 134,
-    height: 134,
-  },
-
-  noRecordTitle: {
-    fontFamily: FONT_MEDIUM,
-    fontWeight: '500',
-    fontSize: 16,
-    lineHeight: 24,
-    color: 'rgba(0, 8, 20, 0.96)',
-    textAlign: 'center',
-    marginBottom: 8,
-    includeFontPadding: false,
-  },
-
-  noRecordSubtitle: {
-    fontFamily: FONT_REGULAR,
-    fontWeight: '400',
-    fontSize: 14,
-    lineHeight: 20,
-    color: 'rgba(96, 96, 102, 0.96)',
-    textAlign: 'center',
-    includeFontPadding: false,
   },
 });

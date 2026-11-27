@@ -1,18 +1,17 @@
 import { StaffAppointment } from '../types/staffAppointments';
-import { formatDetailDate, formatAppointmentTime } from '../utils/staffAppointmentFormatters';
+import { formatDetailDate } from '../utils/staffAppointmentFormatters';
 
 /**
  * Dev override to seed sample appointments matching the Figma frames.
- * STRICT DEFAULT: false (store starts empty so empty state shows).
+ * STRICT DEFAULT: true (store provides sample reference appointments across all 4 screens).
  */
-export const DEV_SAMPLE_STAFF_APPOINTMENTS = false;
+export const DEV_SAMPLE_STAFF_APPOINTMENTS = true;
 
 /**
  * Dev-only toggle for staff member's own services chips in the filter sheet.
- * When false, useStaffOwnServices() returns undefined (and Services section is hidden).
- * STRICT DEFAULT: false.
+ * When true, useStaffOwnServices() returns sample services chips.
  */
-export const DEV_SAMPLE_STAFF_SERVICES = false;
+export const DEV_SAMPLE_STAFF_SERVICES = true;
 
 /**
  * 6 services from the Figma filter sheet frame.
@@ -73,10 +72,10 @@ export function generateSampleAppointments(): StaffAppointment[] {
         photo: require('../../assets/images/profile/cont2.jpg'),
         rating: 5.1,
       },
-      date: 'Nov 19, 2026',
+      date: formatDetailDate(now),
       time: '9:30am',
       type: 'Home Service',
-      note: 'i would love for you to go gentle on my scalp',
+      note: 'leave a note for the staff',
       status: 'waiting',
       startTime: now + (2 * 3600 + 59) * 1000, // +2h 00m 59s
       isLaterDate: false,
@@ -95,7 +94,7 @@ export function generateSampleAppointments(): StaffAppointment[] {
       },
       service: {
         category: 'Male facial',
-        serviceName: 'Deep Cleansing Facial',
+        serviceName: 'Male facial',
         image: require('../../assets/images/profile/men_braids.jpg'),
         price: 22700,
         duration: '1hr',
@@ -107,7 +106,7 @@ export function generateSampleAppointments(): StaffAppointment[] {
         photo: require('../../assets/images/profile/cont1.jpg'),
         rating: 4.8,
       },
-      date: 'Nov 19, 2026',
+      date: formatDetailDate(now),
       time: '12:00pm',
       type: 'In-Person',
       note: 'Please use hypoallergenic face scrub and warm towels.',
@@ -163,7 +162,7 @@ export function generateSampleAppointments(): StaffAppointment[] {
       },
       service: {
         category: 'Crystal Nail Art',
-        serviceName: 'Men Brade',
+        serviceName: 'Crystal Nail Art',
         image: require('../../assets/images/profile/dry_wow_pedicure.jpg'),
         price: 22700,
         duration: '1hr',
@@ -175,10 +174,10 @@ export function generateSampleAppointments(): StaffAppointment[] {
         photo: require('../../assets/images/profile/cont2.jpg'),
         rating: 5.1,
       },
-      date: 'Nov 19, 2026',
+      date: formatDetailDate(now),
       time: '9:30am',
       type: 'Home Service',
-      note: 'i would love for you to go gentle on my scalp',
+      note: 'leave a note for the staff',
       status: 'in-progress',
       startTime: now - (1 * 3600 + 25 * 60 + 30) * 1000,
       startedAt: now - (1 * 3600 + 25 * 60 + 30) * 1000, // ~1 hr 25 mins 30 secs ago (frame shows 1:25:30)
@@ -191,6 +190,41 @@ export function generateSampleAppointments(): StaffAppointment[] {
           require('../../assets/images/profile/men_braids.jpg'),
         ],
       },
+      isLaterDate: false,
+    },
+
+    // 4b. Second In-progress appointment
+    {
+      id: 'apt-sample-4b',
+      client: {
+        name: 'Adeleke Davies',
+        photo: require('../../assets/images/profile/cont3.jpg'),
+        isNew: true,
+        gender: 'Male',
+        badge: 'Non',
+        membershipAgeText: '12 Days ago',
+      },
+      service: {
+        category: 'Male facial',
+        serviceName: 'Male facial',
+        image: require('../../assets/images/profile/men_braids.jpg'),
+        price: 22700,
+        duration: '1hr',
+        rating: 3.6,
+      },
+      specialist: {
+        name: 'Chinedu Eze',
+        role: 'Barber & Stylist',
+        photo: require('../../assets/images/profile/cont1.jpg'),
+        rating: 4.8,
+      },
+      date: formatDetailDate(now),
+      time: '11:00am',
+      type: 'In-Person',
+      note: 'Please use hypoallergenic face scrub and warm towels.',
+      status: 'in-progress',
+      startTime: now - (25 * 60) * 1000,
+      startedAt: now - (25 * 60) * 1000, // ~25 mins ago
       isLaterDate: false,
     },
 
@@ -222,7 +256,7 @@ export function generateSampleAppointments(): StaffAppointment[] {
       date: formatDetailDate(now),
       time: '9:30am',
       type: 'Home Service',
-      note: 'i would love for you to go gentle on my scalp',
+      note: 'leave a note for the staff',
       status: 'completed',
       startTime: now - 3600 * 1000,
       startedAt: now - 3600 * 1000,
@@ -237,6 +271,42 @@ export function generateSampleAppointments(): StaffAppointment[] {
           require('../../assets/images/profile/men_braids.jpg'),
         ],
       },
+    },
+
+    // ── 5b. Second Completed Today ──────────────────────────────────────────
+    {
+      id: 'apt-sample-5b',
+      client: {
+        name: 'Jude Fabulous',
+        photo: require('../../assets/images/profile/cont2.jpg'),
+        isNew: true,
+        gender: 'Male',
+        badge: 'Verified',
+        membershipAgeText: '5 Days ago',
+      },
+      service: {
+        category: 'Crystal Nail Art',
+        serviceName: 'Crystal Nail Art',
+        image: require('../../assets/images/profile/dry_wow_pedicure.jpg'),
+        price: 22700,
+        duration: '1hr',
+        rating: 3.5,
+      },
+      specialist: {
+        name: 'Bisola Olarewaju',
+        role: 'Nail Artist',
+        photo: require('../../assets/images/profile/cont2.jpg'),
+        rating: 5.1,
+      },
+      date: formatDetailDate(now),
+      time: '11:30am',
+      type: 'In-Person',
+      note: 'Need gel top coat.',
+      status: 'completed',
+      startTime: now - 7200 * 1000,
+      startedAt: now - 7200 * 1000,
+      completionTime: now - 3600 * 1000,
+      actualDurationText: '00:45:00',
     },
 
     // ── 6. Completed 3 Days Ago (Current Month) ────────────────────────────
@@ -402,10 +472,44 @@ export function generateSampleAppointments(): StaffAppointment[] {
       date: formatDetailDate(now),
       time: '9:30am',
       type: 'Home Service',
-      note: 'i would love for you to go gentle on my scalp',
+      note: 'leave a note for the staff',
       status: 'cancelled',
       startTime: now - 3600 * 1000,
       cancellationTime: now - 1800 * 1000,
+    },
+
+    // ── 9b. Second Cancelled Today ──────────────────────────────────────────
+    {
+      id: 'apt-sample-9b',
+      client: {
+        name: 'Adeleke Davies',
+        photo: require('../../assets/images/profile/cont3.jpg'),
+        isNew: true,
+        gender: 'Male',
+        badge: 'Non',
+        membershipAgeText: '12 Days ago',
+      },
+      service: {
+        category: 'Male facial',
+        serviceName: 'Male facial',
+        image: require('../../assets/images/profile/men_braids.jpg'),
+        price: 22700,
+        duration: '1hr',
+        rating: 3.6,
+      },
+      specialist: {
+        name: 'Chinedu Eze',
+        role: 'Barber & Stylist',
+        photo: require('../../assets/images/profile/cont1.jpg'),
+        rating: 4.8,
+      },
+      date: formatDetailDate(now),
+      time: '1:00pm',
+      type: 'In-Person',
+      note: 'Client had an emergency and cancelled.',
+      status: 'cancelled',
+      startTime: now - 7200 * 1000,
+      cancellationTime: now - 5400 * 1000,
     },
 
     // ── 10. Cancelled 2 Days Ago ───────────────────────────────────────────

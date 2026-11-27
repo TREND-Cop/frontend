@@ -17,7 +17,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ChevronDown } from 'lucide-react-native';
 import {
   View,
@@ -178,17 +178,17 @@ export const UserLocationScreen = ({ navigation }: { navigation?: any }) => {
     if (navigation?.navigate) {
       navigation.navigate('UserProfile');
     } else {
-      router.push('/user-profile');
+      safeRouter.push('/user-profile');
     }
   };
 
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   const handleBack = () => {
     if (navigation?.goBack) {
-      navigation.goBack();
+      safeRouter.back();
     } else {
-      router.back();
+      safeRouter.back();
     }
   };
 
@@ -291,7 +291,6 @@ export const UserLocationScreen = ({ navigation }: { navigation?: any }) => {
               title="Next"
               onPress={handleNext}
               disabled={false}
-              currentStep={1}
             />
           </View>
         </ScrollView>
@@ -344,7 +343,7 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   fieldLabel: {
-    ...typography.labelMed,
+    ...typography.bodyMed,
     color: '#000000',
     marginBottom: 8,
   },

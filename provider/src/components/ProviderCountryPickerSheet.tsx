@@ -238,9 +238,7 @@ export const ProviderCountryPickerSheet: React.FC<ProviderCountryPickerSheetProp
               paddingBottom:
                 activeKeyboardHeight > 0
                   ? 8
-                  : Platform.OS === 'android'
-                  ? Math.max(insets.bottom, 56)
-                  : Math.max(insets.bottom, 16),
+                  : insets.bottom + 16,
             },
           ]}
         >

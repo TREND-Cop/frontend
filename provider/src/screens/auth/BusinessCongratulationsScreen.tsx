@@ -11,9 +11,10 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useProviderOnboarding } from '../../context/ProviderOnboardingContext';
+import { useFirstTime } from '../../context/FirstTimeContext';
 import { CONGRATS_DURATION_MS } from '../../constants/onboarding.config';
 
 // Typography matching Golden Rules & Provider Platform Typography Mandate
@@ -71,9 +72,10 @@ const MiniLoaderSpinner: React.FC = () => {
 };
 
 export const BusinessCongratulationsScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { businessName, setHasSeenFirstTime, setJustSignedUp } = useProviderOnboarding();
+  const { resetTutorialState, startFirstTimeFlow } = useFirstTime();
 
   const [messageIndex, setMessageIndex] = useState(0);
 
@@ -389,10 +391,17 @@ export const BusinessCongratulationsScreen: React.FC = () => {
 
     // Auto-redirect to Dashboard after CONGRATS_DURATION_MS (5.2 seconds)
     // Marks first-time sign-up so the dashboard triggers the tutorial ONLY on this arrival.
-    const redirectTimer = setTimeout(() => {
+    // Uses resetRoot to clear the entire auth/signup wizard stack from navigation history.
+    const redirectTimer = setTimeout(async () => {
       setHasSeenFirstTime(false);
       setJustSignedUp(true);
-      router.replace({
+      try {
+        await resetTutorialState();
+        startFirstTimeFlow(true);
+      } catch (err) {
+        console.warn('Failed to reset tutorial state:', err);
+      }
+      safeRouter.resetRoot({
         pathname: '/dashboard',
         params: { fromSignup: 'true' },
       } as any);
@@ -423,9 +432,11 @@ export const BusinessCongratulationsScreen: React.FC = () => {
     loaderOpacity,
     particleAnims,
     loadingMessages.length,
-    router,
+    safeRouter,
     setHasSeenFirstTime,
     setJustSignedUp,
+    resetTutorialState,
+    startFirstTimeFlow,
   ]);
 
   const confettiRotation = confettiSway.interpolate({

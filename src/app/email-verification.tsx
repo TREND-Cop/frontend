@@ -2,11 +2,12 @@
  * Route: /email-verification
  */
 
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../utils/safeNavigation';
 import { EmailVerificationScreen } from '@/screens/auth/EmailVerificationScreen';
 
 export default function EmailVerificationRoute() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams<{ email: string }>();
 
   return (
@@ -15,10 +16,10 @@ export default function EmailVerificationRoute() {
       navigation={{
         navigate: (screen: string) => {
           if (screen === 'PasswordResetSuccess' || screen === 'SignInScreen') {
-            router.replace('/password-reset-success' as any);
+            safeRouter.replace('/password-reset-success' as any);
           }
         },
-        goBack: () => router.back(),
+        goBack: () => safeRouter.back(),
       }}
     />
   );

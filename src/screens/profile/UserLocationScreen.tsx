@@ -11,7 +11,7 @@ import {
   KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ArrowLeft, ChevronDown, Check } from 'lucide-react-native';
 import { State } from 'country-state-city';
 import { CountryPickerBottomSheet, CountryItem } from '../../components/CountryPickerBottomSheet';
@@ -36,7 +36,7 @@ const NigeriaFlag = ({ size = 24 }: { size?: number }) => (
 );
 
 export function UserLocationScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { profileData, setLocation } = useUserContext();
 
   // Location form state
@@ -74,10 +74,10 @@ export function UserLocationScreen() {
   const [statePickerVisible, setStatePickerVisible] = useState(false);
 
   const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
+    if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/profile' as any);
+      safeRouter.replace('/profile' as any);
     }
   };
 
@@ -123,7 +123,7 @@ export function UserLocationScreen() {
     setHasChanges(false);
     setShowSuccessToast(true);
     setTimeout(() => {
-      router.replace('/profile' as any);
+      safeRouter.replace('/profile' as any);
     }, 500);
   };
 

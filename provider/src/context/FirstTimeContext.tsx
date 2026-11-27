@@ -1,24 +1,29 @@
 import React, {
   createContext,
-  useContext,
-  useState,
-  useRef,
   useCallback,
+  useContext,
   useEffect,
+  useRef,
+  useState,
 } from 'react';
-import { BackHandler, findNodeHandle, UIManager, Platform, Dimensions } from 'react-native';
-import { TUTORIAL_STEPS, TutorialStep } from '../constants/tutorialSteps';
+import { BackHandler, Dimensions, findNodeHandle, Platform, UIManager } from 'react-native';
 import {
   FORCE_FIRST_TIME_FLOW,
-  TUTORIAL_TIMINGS,
   TUTORIAL_SELFTEST,
+  TUTORIAL_TIMINGS,
 } from '../constants/tutorial.config';
-import { useProviderOnboarding } from './ProviderOnboardingContext';
+import { TUTORIAL_STEPS, TutorialStep } from '../constants/tutorialSteps';
+import { loadFromStorage, saveToStorage, removeFromStorage, STORAGE_KEYS } from '../utils/providerStorage';
+import { useProviderOnboarding, HAS_SEEN_TUTORIAL_KEY } from './ProviderOnboardingContext';
+
+export const PAYOUT_PROMPT_DELAY_MS = 5 * 60 * 1000; // 5 minutes (300,000ms)
 
 export type FirstTimePhase =
   | 'idle'
   | 'welcome'
   | 'tour'
+  | 'video'
+  | 'completion'
   | 'connectPrompt'
   | 'trialNotice'
   | 'done';
@@ -48,6 +53,8 @@ interface TargetRegistration {
 interface FirstTimeContextType {
   phase: FirstTimePhase;
   hasSeenFirstTime: boolean;
+  hasCompletedTour: boolean;
+  totalSteps: number;
   stepIndex: number;
   currentStep: TutorialStep | null;
   activeTargetRect: TargetRect | null;
@@ -55,9 +62,15 @@ interface FirstTimeContextType {
   isSpotlightActive: boolean;
   isStepTransitioning: boolean;
   isSpotlightTarget: (id: string) => boolean;
-  startFirstTimeFlow: () => void;
+  startFirstTimeFlow: (force?: boolean) => void;
+  resetTutorialState: () => Promise<void>;
   handleGetStarted: () => void;
   handleNextStep: () => void;
+  handlePrevStep: () => void;
+  openVideo: () => void;
+  closeVideo: () => void;
+  finishTour: () => void;
+  handleCloseCompletion: () => void;
   onTourFinished: () => void;
   registerTarget: (id: string, ref: any, borderRadius?: number) => void;
   unregisterTarget: (id: string) => void;
@@ -68,6 +81,9 @@ interface FirstTimeContextType {
   setScreenInsets: (insets: { top: number; bottom: number }) => void;
   handleContentSizeChange: (w: number, h: number) => void;
   scrollOffsetY: number;
+  tutorialCompletedAt: number | null;
+  hasDismissedPayoutPrompt: boolean;
+  triggerConnectPrompt: () => void;
   handleConnectAccount: () => void;
   handleMaybeLater: () => void;
   handleDismissTrialNotice: () => void;
@@ -90,10 +106,10 @@ export function calculateMinimumScroll(
   stepIdx: number = 0
 ): { newScrollY: number; needsScroll: boolean; predictedSide: 'below' | 'above' } {
   const tabBarHeight = 80;
-  const fadeHeight = 36;
-  const lockedBottomOffset = bottomInset > 0 ? bottomInset : 16;
-  // Total obstruction from screen bottom: tab bar (80px) + white gradient fade (36px) + offset + 12px margin
-  const bottomBarObstruction = tabBarHeight + fadeHeight + lockedBottomOffset + 12;
+  const fadeHeight = 24;
+  const tabOffset = bottomInset > 0 ? bottomInset + 24 : 0;
+  // Total obstruction from screen bottom: tab bar (80px) + white gradient fade (24px) + tab offset + 12px margin
+  const bottomBarObstruction = tabBarHeight + fadeHeight + tabOffset + 12;
 
   const topLimit = topInset + 16;
   const bottomLimit = screenHeight - bottomBarObstruction;
@@ -236,12 +252,98 @@ const FirstTimeContext = createContext<FirstTimeContextType | null>(null);
 export const FirstTimeProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { hasSeenFirstTime, setHasSeenFirstTime } = useProviderOnboarding();
+  const { hasSeenFirstTime, setHasSeenFirstTime, payoutMethod } = useProviderOnboarding();
   const [phase, setPhase] = useState<FirstTimePhase>('idle');
   const [stepIndex, setStepIndex] = useState<number>(0);
   const [activeTargetRect, setActiveTargetRect] = useState<TargetRect | null>(null);
   const [currentScrollY, setCurrentScrollY] = useState<number>(0);
   const [isStepTransitioning, setIsStepTransitioning] = useState<boolean>(false);
+  const [hasCompletedTour, setHasCompletedTour] = useState<boolean>(false);
+  const [tutorialCompletedAt, setTutorialCompletedAt] = useState<number | null>(null);
+  const [hasDismissedPayoutPrompt, setHasDismissedPayoutPrompt] = useState<boolean>(false);
+  const [hasShownPayoutPrompt, setHasShownPayoutPrompt] = useState<boolean>(false);
+  const payoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Hydrate persisted tutorial completion state from storage
+  useEffect(() => {
+    let isMounted = true;
+    loadFromStorage<boolean>(STORAGE_KEYS.PROVIDER_HAS_COMPLETED_TUTORIAL, false).then((completed) => {
+      if (isMounted && completed) {
+        setHasCompletedTour(true);
+        setHasSeenFirstTime(true);
+      }
+    });
+    loadFromStorage<number | null>(STORAGE_KEYS.PROVIDER_TUTORIAL_COMPLETED_AT, null).then((ts) => {
+      if (isMounted && ts) {
+        setTutorialCompletedAt(ts);
+      }
+    });
+    loadFromStorage<boolean>(STORAGE_KEYS.PROVIDER_PAYOUT_MODAL_DISMISSED, false).then((dismissed) => {
+      if (isMounted && dismissed) {
+        setHasDismissedPayoutPrompt(true);
+      }
+    });
+    loadFromStorage<boolean>(STORAGE_KEYS.PROVIDER_PAYOUT_MODAL_SHOWN, false).then((shown) => {
+      if (isMounted && shown) {
+        setHasShownPayoutPrompt(true);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [setHasSeenFirstTime]);
+
+  // 5-minute delayed payout wallet prompt after tutorial completion
+  useEffect(() => {
+    // If payout prompt was already shown, dismissed, payout method exists, or no tutorial timestamp, skip
+    if (hasShownPayoutPrompt || hasDismissedPayoutPrompt || !!payoutMethod || !tutorialCompletedAt) {
+      if (payoutTimerRef.current) {
+        clearTimeout(payoutTimerRef.current);
+        payoutTimerRef.current = null;
+      }
+      return;
+    }
+
+    // If currently inside an active tutorial phase, wait until phase finishes
+    if (phase !== 'idle' && phase !== 'done') {
+      return;
+    }
+
+    const elapsed = Date.now() - tutorialCompletedAt;
+
+    // If the 5-minute window has already elapsed in a prior session or while app was closed,
+    // do NOT interrupt the user with an immediate popup on cold start. Mark as shown/expired.
+    if (elapsed >= PAYOUT_PROMPT_DELAY_MS) {
+      setHasShownPayoutPrompt(true);
+      saveToStorage(STORAGE_KEYS.PROVIDER_PAYOUT_MODAL_SHOWN, true);
+      return;
+    }
+
+    const remaining = PAYOUT_PROMPT_DELAY_MS - elapsed;
+
+    if (payoutTimerRef.current) {
+      clearTimeout(payoutTimerRef.current);
+    }
+
+    payoutTimerRef.current = setTimeout(() => {
+      setPhase((currentPhase) => {
+        // Only show if not in an active tutorial flow
+        if (currentPhase === 'idle' || currentPhase === 'done') {
+          setHasShownPayoutPrompt(true);
+          saveToStorage(STORAGE_KEYS.PROVIDER_PAYOUT_MODAL_SHOWN, true);
+          return 'connectPrompt';
+        }
+        return currentPhase;
+      });
+    }, remaining);
+
+    return () => {
+      if (payoutTimerRef.current) {
+        clearTimeout(payoutTimerRef.current);
+        payoutTimerRef.current = null;
+      }
+    };
+  }, [tutorialCompletedAt, hasShownPayoutPrompt, hasDismissedPayoutPrompt, payoutMethod, phase]);
 
   const targetsRef = useRef<Map<string, TargetRegistration>>(new Map());
   const scrollViewRef = useRef<any>(null);
@@ -253,7 +355,7 @@ export const FirstTimeProvider: React.FC<{ children: React.ReactNode }> = ({
   const contentHeightRef = useRef<number>(1400);
 
   const currentStep =
-    phase === 'tour' && stepIndex >= 0 && stepIndex < TUTORIAL_STEPS.length
+    (phase === 'tour' || phase === 'video') && stepIndex >= 0 && stepIndex < TUTORIAL_STEPS.length
       ? TUTORIAL_STEPS[stepIndex]
       : null;
 
@@ -434,12 +536,12 @@ export const FirstTimeProvider: React.FC<{ children: React.ReactNode }> = ({
     async (targetId: string, stepIdx: number) => {
       activeStepIdRef.current = targetId;
 
-      // 1. Initial measurement of the target
-      let rect = await measureTarget(targetId);
-      if (!rect) {
-        await new Promise((r) => setTimeout(r, 40));
-        if (activeStepIdRef.current !== targetId) return;
+      // 1. Initial measurement of the target with retries
+      let rect: TargetRect | null = null;
+      for (let attempt = 0; attempt < 8; attempt++) {
         rect = await measureTarget(targetId);
+        if (rect || activeStepIdRef.current !== targetId) break;
+        await new Promise((r) => setTimeout(r, 50));
       }
       if (!rect || activeStepIdRef.current !== targetId) return;
 
@@ -505,20 +607,59 @@ export const FirstTimeProvider: React.FC<{ children: React.ReactNode }> = ({
     return () => sub.remove();
   }, [phase, currentStep, stepIndex, executeStepPipeline]);
 
-  // Block Android hardware back press during active tutorial phases
+  // Block Android hardware back press during active tutorial phases;
+  // back press on video modal returns to that step of the tour
   useEffect(() => {
-    if (phase !== 'idle' && phase !== 'done') {
-      const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
-      return () => sub.remove();
-    }
+    const onBackPress = () => {
+      if (phase === 'welcome' || phase === 'tour' || phase === 'completion') {
+        return true; // do nothing
+      }
+      if (phase === 'video') {
+        setPhase('tour');
+        return true; // returns to that step
+      }
+      return false;
+    };
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
   }, [phase]);
 
-  const startFirstTimeFlow = useCallback(() => {
-    if (hasSeenFirstTime && !FORCE_FIRST_TIME_FLOW) {
-      return;
+  const startFirstTimeFlow = useCallback(
+    (force: boolean = false) => {
+      if (!force && (hasCompletedTour || hasSeenFirstTime) && !FORCE_FIRST_TIME_FLOW) {
+        return;
+      }
+      setHasCompletedTour(false);
+      setHasSeenFirstTime(false);
+      saveToStorage(STORAGE_KEYS.PROVIDER_HAS_COMPLETED_TUTORIAL, false);
+      saveToStorage(STORAGE_KEYS.PROVIDER_PAYOUT_MODAL_DISMISSED, false);
+      setStepIndex(0);
+      setActiveTargetRect(null);
+      setPhase('welcome');
+    },
+    [hasCompletedTour, hasSeenFirstTime, setHasSeenFirstTime]
+  );
+
+  const resetTutorialState = useCallback(async () => {
+    if (payoutTimerRef.current) {
+      clearTimeout(payoutTimerRef.current);
+      payoutTimerRef.current = null;
     }
-    setPhase('welcome');
-  }, [hasSeenFirstTime]);
+    setHasCompletedTour(false);
+    setHasSeenFirstTime(false);
+    setTutorialCompletedAt(null);
+    setHasDismissedPayoutPrompt(false);
+    setStepIndex(0);
+    setActiveTargetRect(null);
+    setPhase('idle');
+    await saveToStorage(STORAGE_KEYS.PROVIDER_HAS_COMPLETED_TUTORIAL, false);
+    await saveToStorage(STORAGE_KEYS.PROVIDER_PAYOUT_MODAL_DISMISSED, false);
+    await removeFromStorage(STORAGE_KEYS.PROVIDER_TUTORIAL_COMPLETED_AT);
+    await removeFromStorage(STORAGE_KEYS.PROVIDER_HAS_COMPLETED_TUTORIAL);
+    await removeFromStorage(STORAGE_KEYS.PROVIDER_PAYOUT_MODAL_DISMISSED);
+    await removeFromStorage(HAS_SEEN_TUTORIAL_KEY);
+  }, [setHasSeenFirstTime]);
 
   const handleGetStarted = useCallback(() => {
     setActiveTargetRect(null);
@@ -529,27 +670,80 @@ export const FirstTimeProvider: React.FC<{ children: React.ReactNode }> = ({
     scrollOffsetYRef.current = 0;
   }, [scrollToTarget]);
 
-  const onTourFinished = useCallback(() => {
-    setHasSeenFirstTime(true);
+  const handlePrevStep = useCallback(() => {
+    if (stepIndex > 0) {
+      setStepIndex((prev) => prev - 1);
+      setPhase('tour');
+    }
+  }, [stepIndex]);
+
+  const openVideo = useCallback(() => {
+    setPhase('video');
+  }, []);
+
+  const closeVideo = useCallback(() => {
+    setPhase('tour');
+  }, []);
+
+  const finishTour = useCallback(() => {
     setActiveTargetRect(null);
-    setPhase('connectPrompt');
-    // Animate scroll back to the top at the end of the tour
+    setPhase('completion');
+  }, []);
+
+  const handleCloseCompletion = useCallback(() => {
+    setHasCompletedTour(true);
+    setHasSeenFirstTime(true);
+    const now = Date.now();
+    setTutorialCompletedAt(now);
+    setHasShownPayoutPrompt(false);
+    setHasDismissedPayoutPrompt(false);
+    saveToStorage(STORAGE_KEYS.PROVIDER_HAS_COMPLETED_TUTORIAL, true);
+    saveToStorage(STORAGE_KEYS.PROVIDER_TUTORIAL_COMPLETED_AT, now);
+    saveToStorage(STORAGE_KEYS.PROVIDER_PAYOUT_MODAL_SHOWN, false);
+    saveToStorage(STORAGE_KEYS.PROVIDER_PAYOUT_MODAL_DISMISSED, false);
+    setActiveTargetRect(null);
     scrollToTarget(0);
     scrollOffsetYRef.current = 0;
+    // Tutorial completed: set phase to 'done'. Payout wallet prompt will appear 5 minutes later.
+    setPhase('done');
   }, [scrollToTarget, setHasSeenFirstTime]);
 
+  const triggerConnectPrompt = useCallback(() => {
+    setPhase('connectPrompt');
+  }, []);
+
+  const onTourFinished = useCallback(() => {
+    finishTour();
+  }, [finishTour]);
+
   const handleConnectAccount = useCallback(() => {
+    setHasCompletedTour(true);
     setHasSeenFirstTime(true);
+    setHasDismissedPayoutPrompt(true);
+    setHasShownPayoutPrompt(true);
+    saveToStorage(STORAGE_KEYS.PROVIDER_HAS_COMPLETED_TUTORIAL, true);
+    saveToStorage(STORAGE_KEYS.PROVIDER_PAYOUT_MODAL_DISMISSED, true);
+    saveToStorage(STORAGE_KEYS.PROVIDER_PAYOUT_MODAL_SHOWN, true);
     setPhase('done');
     setActiveTargetRect(null);
   }, [setHasSeenFirstTime]);
 
   const handleMaybeLater = useCallback(() => {
-    setPhase('trialNotice');
-  }, []);
+    setHasCompletedTour(true);
+    setHasSeenFirstTime(true);
+    setHasDismissedPayoutPrompt(true);
+    setHasShownPayoutPrompt(true);
+    saveToStorage(STORAGE_KEYS.PROVIDER_HAS_COMPLETED_TUTORIAL, true);
+    saveToStorage(STORAGE_KEYS.PROVIDER_PAYOUT_MODAL_DISMISSED, true);
+    saveToStorage(STORAGE_KEYS.PROVIDER_PAYOUT_MODAL_SHOWN, true);
+    setPhase('done');
+    setActiveTargetRect(null);
+  }, [setHasSeenFirstTime]);
 
   const handleDismissTrialNotice = useCallback(() => {
+    setHasCompletedTour(true);
     setHasSeenFirstTime(true);
+    saveToStorage(STORAGE_KEYS.PROVIDER_HAS_COMPLETED_TUTORIAL, true);
     setPhase('done');
     setActiveTargetRect(null);
   }, [setHasSeenFirstTime]);
@@ -557,10 +751,11 @@ export const FirstTimeProvider: React.FC<{ children: React.ReactNode }> = ({
   const handleNextStep = useCallback(() => {
     if (stepIndex < TUTORIAL_STEPS.length - 1) {
       setStepIndex((prev) => prev + 1);
+      setPhase('tour');
     } else {
-      onTourFinished();
+      finishTour();
     }
-  }, [stepIndex, onTourFinished]);
+  }, [stepIndex, finishTour]);
 
   // ── Dev-Only Automated Self-Test Runner (10 complete runs) ───────────────────
   useEffect(() => {
@@ -619,6 +814,8 @@ export const FirstTimeProvider: React.FC<{ children: React.ReactNode }> = ({
       value={{
         phase,
         hasSeenFirstTime,
+        hasCompletedTour,
+        totalSteps: TUTORIAL_STEPS.length,
         stepIndex,
         currentStep,
         activeTargetRect,
@@ -627,8 +824,14 @@ export const FirstTimeProvider: React.FC<{ children: React.ReactNode }> = ({
         isStepTransitioning,
         isSpotlightTarget,
         startFirstTimeFlow,
+        resetTutorialState,
         handleGetStarted,
         handleNextStep,
+        handlePrevStep,
+        openVideo,
+        closeVideo,
+        finishTour,
+        handleCloseCompletion,
         onTourFinished,
         registerTarget,
         unregisterTarget,
@@ -639,6 +842,9 @@ export const FirstTimeProvider: React.FC<{ children: React.ReactNode }> = ({
         setScreenInsets,
         handleContentSizeChange,
         scrollOffsetY: currentScrollY,
+        tutorialCompletedAt,
+        hasDismissedPayoutPrompt,
+        triggerConnectPrompt,
         handleConnectAccount,
         handleMaybeLater,
         handleDismissTrialNotice,

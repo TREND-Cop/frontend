@@ -1,3 +1,4 @@
+import '../utils/safeNavigation';
 import React, { useMemo } from 'react';
 import { Platform } from 'react-native';
 import { Stack } from 'expo-router';
@@ -82,6 +83,7 @@ import { NotificationsProvider } from '../context/NotificationsContext';
 import { MessagesProvider } from '../context/MessagesContext';
 import { StaffLoginProvider } from '../context/StaffLoginContext';
 import { StaffAppointmentsProvider } from '../context/StaffAppointmentsContext';
+import { ExitAppDialog } from '../components/ExitAppDialog';
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -123,6 +125,7 @@ export default function RootLayout() {
                             >
                               <Stack.Screen name="index" />
                             </Stack>
+                            <ExitAppDialog />
                           </GlobalSafeAreaInsetsAdapter>
                         </SafeAreaProvider>
                         </ReviewsProvider>

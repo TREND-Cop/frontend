@@ -280,7 +280,11 @@ export function formatDaysForClients(input?: string[] | string | null): string {
       }
     }
     if (days.length === 0) {
-      days = raw.split(/,\s*/).map((d) => d.trim()).filter(Boolean);
+      days = raw
+        .replace(/\s+and\s+/i, ', ')
+        .split(/,\s*/)
+        .map((d) => d.trim())
+        .filter(Boolean);
     }
   }
 
@@ -308,8 +312,18 @@ export function formatDaysForClients(input?: string[] | string | null): string {
     }
   }
 
-  // Non-contiguous / scattered list: return comma list
-  return uniqueDays.join(', ');
+  // Non-contiguous / scattered list: return compact abbreviated list (e.g. "Mon, Thu, Sun")
+  // so it fits comfortably on a single row in preview and cards without wrapping or creating empty voids
+  const shortMap: Record<string, string> = {
+    Monday: 'Mon',
+    Tuesday: 'Tue',
+    Wednesday: 'Wed',
+    Thursday: 'Thu',
+    Friday: 'Fri',
+    Saturday: 'Sat',
+    Sunday: 'Sun',
+  };
+  return uniqueDays.map((d) => shortMap[d] || d).join(', ');
 }
 
 /**
@@ -416,7 +430,7 @@ function runAssertions() {
   );
   // 5. Scattered list (not contiguous)
   console.assert(
-    formatDaysForClients(['Monday', 'Thursday', 'Sunday']) === 'Monday, Thursday, Sunday',
+    formatDaysForClients(['Monday', 'Thursday', 'Sunday']) === 'Mon, Thu, Sun',
     'formatDaysForClients scattered list failed'
   );
 

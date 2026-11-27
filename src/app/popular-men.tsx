@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../utils/safeNavigation';
 import { ArrowLeft, MapPin, Star } from 'lucide-react-native';
 import { ShareIcon } from '../components/ShareIcon';
 import { theme } from '../constants/theme';
@@ -11,12 +11,12 @@ import { NativeDockSpacer } from '../components/ui/NativeDockSpacer';
 import { shareStore } from '../utils/shareStore';
 
 export default function PopularMenScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerButton} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)' as any)}>
+        <TouchableOpacity style={styles.headerButton} onPress={() => safeRouter.canGoBack() ? safeRouter.back() : safeRouter.replace('/(tabs)' as any)}>
           <ArrowLeft size={24} color={theme.colors.barberPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Popular Amongst Men</Text>
@@ -42,7 +42,7 @@ export default function PopularMenScreen() {
             item={item}
             showFavorite={false}
             onPress={() => {
-              router.push({
+              safeRouter.push({
                 pathname: '/professional/style-details',
                 params: {
                   id: item.id,

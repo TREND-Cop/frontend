@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../../utils/safeNavigation';
 import { ArrowLeft02Icon } from '../../../components/staff/StaffIcons';
 import { NativeDockSpacer } from '../../../components/NativeDockSpacer';
 import { triggerLightHaptic } from '../../../utils/haptics';
@@ -14,12 +15,12 @@ const FONT_BUTTON = Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium';
  * Placeholder for "Verify staff — not designed"
  */
 export default function StaffVerifyPlaceholderRoute() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const handleBack = () => {
     triggerLightHaptic();
-    router.back();
+    safeRouter.back();
   };
 
   return (

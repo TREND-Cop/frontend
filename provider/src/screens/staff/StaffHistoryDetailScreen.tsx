@@ -9,7 +9,8 @@ import {
   Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { useStaffAppointments } from '../../context/StaffAppointmentsContext';
@@ -204,7 +205,7 @@ function DarkCheckCircleIcon({ size = 20 }: { size?: number }) {
 
 export function StaffHistoryDetailScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams<{ id?: string; kind?: 'completed' | 'cancelled' }>();
   const { getAppointmentById } = useStaffAppointments();
 
@@ -219,7 +220,7 @@ export function StaffHistoryDetailScreen() {
         <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => safeRouter.back()}
           >
             <ArrowLeftIcon size={24} />
           </TouchableOpacity>
@@ -230,7 +231,7 @@ export function StaffHistoryDetailScreen() {
           <Text style={styles.emptyTitle}>Appointment Not Found</Text>
           <TouchableOpacity
             style={styles.backHomeButton}
-            onPress={() => router.back()}
+            onPress={() => safeRouter.back()}
           >
             <Text style={styles.backHomeButtonText}>Go Back</Text>
           </TouchableOpacity>
@@ -254,7 +255,7 @@ export function StaffHistoryDetailScreen() {
             activeOpacity={0.7}
             onPress={() => {
               triggerLightHaptic();
-              router.back();
+              safeRouter.back();
             }}
             accessibilityLabel="Back"
           >
@@ -262,7 +263,7 @@ export function StaffHistoryDetailScreen() {
           </TouchableOpacity>
 
           <Text style={styles.headerTitle} numberOfLines={1}>
-            {appointment.service.category}
+            {appointment.service.serviceName || appointment.service.category}
           </Text>
 
           <TouchableOpacity
@@ -270,7 +271,7 @@ export function StaffHistoryDetailScreen() {
             activeOpacity={0.7}
             onPress={() => {
               triggerLightHaptic();
-              router.push({
+              safeRouter.push({
                 pathname: STAFF_ROUTES.TUTORIAL_VIDEO as any,
                 params: {
                   step: isCompleted ? '4' : '3',
@@ -434,8 +435,7 @@ export function StaffHistoryDetailScreen() {
           <Text style={styles.sectionTitle}>Note</Text>
 
           <View style={styles.noteCard}>
-            <Text style={styles.noteText}>{appointment.note || 'No special note provided.'}</Text>
-            <Text style={styles.noteCounterText}>{`${appointment.note?.length || 0}/120`}</Text>
+            <Text style={styles.noteText}>{appointment.note || 'leave a note for the staff'}</Text>
           </View>
         </View>
 
@@ -824,6 +824,7 @@ const styles = StyleSheet.create({
   },
   packageImagesGrid: {
     gap: 16,
+    alignSelf: 'center',
   },
   packageImageRow: {
     flexDirection: 'row',

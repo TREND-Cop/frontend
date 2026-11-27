@@ -298,10 +298,7 @@ export const OperatingHoursWheelSheet: React.FC<OperatingHoursWheelSheetProps> =
           style={[
             styles.sheetContainer,
             {
-              paddingBottom:
-                Platform.OS === 'android'
-                  ? Math.max(insets.bottom, 56)
-                  : Math.max(insets.bottom, 24),
+              paddingBottom: insets.bottom + 16,
             },
           ]}
         >

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { trendApi, getAuthToken, extractArray } from '../api/trendApi';
 
 const CONVERSATIONS_STORAGE_KEY = '@trend_conversations_v2';
 const MESSAGES_STORAGE_KEY = '@trend_messages_v2';
@@ -249,6 +250,36 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (storedMsgs) {
           setMessagesMap(JSON.parse(storedMsgs));
         }
+
+        const token = await getAuthToken();
+        if (token) {
+          const res = await trendApi.conversations.list();
+          if (res.ok && res.data) {
+            const remoteRows = extractArray<any>(res.data, ['conversations']);
+            if (remoteRows.length > 0) {
+              const mapped: MessageConversation[] = remoteRows.map((c: any, idx: number) => ({
+                id: String(c.user_id || c.partner_id || c.id || `remote_${idx}`),
+                name: c.name || c.partner_name || c.business_name || 'Salon Specialist',
+                avatar:
+                  c.image || c.avatar ||
+                  require('../../assets/images/620f39dda80fe7971b4af170c890481a63da61b0.jpg'),
+                lastMessage: c.last_message || c.lastMessage || '',
+                time: c.last_message_at || c.updated_at
+                  ? new Date(c.last_message_at || c.updated_at).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                  : formatCurrentTime(),
+                unreadCount: Number(c.unread_count ?? c.unreadCount ?? 0),
+                salonId: String(c.business_id || c.user_id || c.id || ''),
+              }));
+              setConversations(mapped);
+              AsyncStorage.setItem(CONVERSATIONS_STORAGE_KEY, JSON.stringify(mapped)).catch(
+                () => {}
+              );
+            }
+          }
+        }
       } catch (e) {
         console.warn('Failed to load message store from AsyncStorage:', e);
       } finally {
@@ -431,8 +462,32 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       await saveState(updatedConvs, updatedMsgs);
 
-      // If sent by user, simulate realistic salon specialist response
+      let sentToBackend = false;
       if (message.sender !== 'salon') {
+        try {
+          const token = await getAuthToken();
+          if (token) {
+            let mediaUrl = '';
+            if (typeof message.image === 'string' && message.image.length > 0) {
+              const up = await trendApi.uploads.uploadMedia(message.image, 'chat_media.jpg');
+              mediaUrl = up.data?.url || up.data?.secure_url || '';
+            }
+            const sendRes = await trendApi.messages.send({
+              to: targetConv?.salonId || actualConvId,
+              body: message.text || previewText,
+              media_url: mediaUrl,
+            });
+            if (sendRes.ok) {
+              sentToBackend = true;
+            }
+          }
+        } catch {
+          // Fallback to local behavior when offline
+        }
+      }
+
+      // If sent by user while offline/guest, simulate realistic salon specialist response
+      if (message.sender !== 'salon' && !sentToBackend) {
         setTimeout(async () => {
           const userLower = (message.text || '').toLowerCase();
           let salonReply =

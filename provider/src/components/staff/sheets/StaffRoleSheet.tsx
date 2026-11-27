@@ -11,11 +11,14 @@ import {
   Platform,
   Keyboard,
   Dimensions,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { STAFF_ROLE_GROUPS, StaffRoleItem } from '../../../constants/staffRoles';
+import { getCategoryIcon } from '../../../constants/serviceCategories';
 import { triggerLightHaptic } from '../../../utils/haptics';
+import { useSingleFlight } from '../../../utils/safeNavigation';
 
 const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
 const FONT_REGULAR = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular';
@@ -92,6 +95,42 @@ function CircleXBadgeIcon({ size = 24 }: { size?: number }) {
         strokeLinecap="round"
       />
     </Svg>
+  );
+}
+
+// ── Exact 1:1 Figma Category Group Icon (24x24 inside 40x40 circle) ──
+function CategoryGroupIcon({
+  groupId,
+  size = 24,
+}: {
+  groupId?: string;
+  size?: number;
+}) {
+  const iconSource = groupId ? getCategoryIcon(groupId) : null;
+  if (!iconSource) {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6z"
+          stroke="rgba(96, 96, 102, 0.96)"
+          strokeWidth={1.5}
+          strokeLinecap="round"
+        />
+        <Path
+          d="M9 12h6M12 9v6"
+          stroke="rgba(96, 96, 102, 0.96)"
+          strokeWidth={1.5}
+          strokeLinecap="round"
+        />
+      </Svg>
+    );
+  }
+  return (
+    <Image
+      source={iconSource}
+      style={{ width: size, height: size, borderRadius: 4 }}
+      resizeMode="contain"
+    />
   );
 }
 
@@ -178,7 +217,12 @@ export const StaffRoleSheet: React.FC<StaffRoleSheetProps> = ({
         title: group.groupName,
         data: filteredRoles,
       };
-    }).filter((section) => section.data.length > 0);
+    })
+      .filter((section) => section.data.length > 0)
+      .map((section, idx) => ({
+        ...section,
+        isFirst: idx === 0,
+      }));
   }, [searchQuery]);
 
   const handleSelect = (role: StaffRoleItem) => {
@@ -211,18 +255,19 @@ export const StaffRoleSheet: React.FC<StaffRoleSheetProps> = ({
 
   const canConfirm = workingRoles.length >= 1 && isChanged;
 
-  const handleConfirm = () => {
-    if (!canConfirm) return;
+  const handleConfirm = useSingleFlight(() => {
+    if (!visible || !canConfirm) return;
     triggerLightHaptic();
     Keyboard.dismiss();
     onConfirmRoles?.(workingRoles);
     onClose();
-  };
+  });
 
-  const handleDismiss = () => {
+  const handleDismiss = useSingleFlight(() => {
+    if (!visible) return;
     Keyboard.dismiss();
     onClose();
-  };
+  });
 
   return (
     <Modal
@@ -248,7 +293,7 @@ export const StaffRoleSheet: React.FC<StaffRoleSheetProps> = ({
                   maxHeight: Dimensions.get('window').height - keyboardHeight - (insets.top || 20),
                 }
               : null,
-            { paddingBottom: keyboardHeight > 0 ? 8 : Math.max(insets.bottom, 24) },
+            { paddingBottom: keyboardHeight > 0 ? 8 : insets.bottom + 16 },
           ]}
         >
           {/* ── Header ── */}
@@ -322,12 +367,21 @@ export const StaffRoleSheet: React.FC<StaffRoleSheetProps> = ({
             <SectionList
               sections={sections}
               keyExtractor={(item) => item.id}
+              stickySectionHeadersEnabled={false}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.listContent}
-              renderSectionHeader={({ section: { title } }) => (
-                <View style={styles.sectionHeader}>
+              renderSectionHeader={({ section: { id, title, isFirst } }) => (
+                <View
+                  style={[
+                    styles.sectionHeader,
+                    isFirst ? styles.sectionHeaderFirst : styles.sectionHeaderSpaced,
+                  ]}
+                >
+                  <View style={styles.groupIconContainer}>
+                    <CategoryGroupIcon groupId={id} size={24} />
+                  </View>
                   <Text style={styles.sectionHeaderText}>{title}</Text>
                 </View>
               )}
@@ -525,26 +579,44 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: 24,
   },
   sectionHeader: {
-    paddingTop: 12,
-    paddingBottom: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    paddingBottom: 12,
     backgroundColor: '#FFFFFF',
+  },
+  sectionHeaderFirst: {
+    marginTop: 16,
+  },
+  sectionHeaderSpaced: {
+    marginTop: 40,
+  },
+  groupIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sectionHeaderText: {
     fontFamily: FONT_MEDIUM,
+    fontWeight: '500',
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: Platform.OS === 'ios' ? 0.5 : 0.2,
     color: 'rgba(96, 96, 102, 0.96)',
   },
   roleRow: {
-    height: 48,
+    minHeight: 48,
+    paddingLeft: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    paddingVertical: 10,
   },
   roleRowDisabled: {
     opacity: 0.4,

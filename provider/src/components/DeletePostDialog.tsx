@@ -8,6 +8,7 @@ import {
   Platform,
   Image,
 } from 'react-native';
+import { useSingleFlight } from '../utils/safeNavigation';
 
 const WARNING_ICON = require('../../assets/images/payout/warning_triangle.png');
 
@@ -43,19 +44,28 @@ export const DeletePostDialog: React.FC<DeletePostDialogProps> = ({
   confirmVariant = 'default',
   cancelVariant = 'default',
 }) => {
+  const safeConfirm = useSingleFlight(() => {
+    if (!visible) return;
+    onConfirm();
+  });
+  const safeCancel = useSingleFlight(() => {
+    if (!visible) return;
+    onCancel();
+  });
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="fade"
       statusBarTranslucent
-      onRequestClose={onCancel}
+      onRequestClose={safeCancel}
     >
       <View style={styles.backdropOverlay}>
         <TouchableOpacity
           style={StyleSheet.absoluteFill}
           activeOpacity={1}
-          onPress={onCancel}
+          onPress={safeCancel}
           accessibilityLabel="Dismiss dialog backdrop"
         />
 
@@ -85,7 +95,7 @@ export const DeletePostDialog: React.FC<DeletePostDialogProps> = ({
                 confirmVariant === 'lightRed' && styles.yesButtonLightRed,
               ]}
               activeOpacity={0.8}
-              onPress={onConfirm}
+              onPress={safeConfirm}
               accessibilityLabel={confirmText}
             >
               <Text
@@ -105,7 +115,7 @@ export const DeletePostDialog: React.FC<DeletePostDialogProps> = ({
                 cancelVariant === 'dark' && styles.noButtonDark,
               ]}
               activeOpacity={0.8}
-              onPress={onCancel}
+              onPress={safeCancel}
               accessibilityLabel={cancelText}
             >
               <Text

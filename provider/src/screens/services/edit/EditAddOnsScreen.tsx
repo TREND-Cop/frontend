@@ -9,7 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../../utils/safeNavigation';
 import * as ImagePicker from 'expo-image-picker';
 
 import {
@@ -24,7 +24,6 @@ import { EditFooter } from '../../../components/wizard/EditFooter';
 import { AddOnBlockList } from '../../../components/wizard/AddOnBlockList';
 import { ServiceDurationSheet } from '../../../components/wizard/ServiceDurationSheet';
 import { ProviderPhotoUploadSheet } from '../../../components/ProviderPhotoUploadSheet';
-import { NativeDockSpacer } from '../../../components/NativeDockSpacer';
 
 const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
 const FONT_REGULAR = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular';
@@ -45,7 +44,7 @@ const FONT_REGULAR = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular';
  * - Back button -> discards working copy, returns to Review
  */
 export const EditAddOnsScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   const { draft, commitWorkingCopy } = useServiceDraft();
 
@@ -183,7 +182,8 @@ export const EditAddOnsScreen: React.FC = () => {
       }
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['images'] as any,
-        quality: 0.8,
+        quality: 0.85,
+        allowsEditing: false,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -208,8 +208,9 @@ export const EditAddOnsScreen: React.FC = () => {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'] as any,
-        quality: 0.8,
+        quality: 0.85,
         allowsMultipleSelection: false,
+        allowsEditing: false,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -234,7 +235,7 @@ export const EditAddOnsScreen: React.FC = () => {
     // Commit changes to draft
     commitWorkingCopy({ addOns: workingAddOns });
     // Return to Review
-    router.back();
+    safeRouter.back();
   };
 
   return (
@@ -246,8 +247,8 @@ export const EditAddOnsScreen: React.FC = () => {
         {/* Header: "Edit Add-ons" */}
         <EditHeader
           title="Edit Add-ons"
-          onBack={() => router.back()}
-          onHelp={() => router.push('/guide/general' as any)}
+          onBack={() => safeRouter.back()}
+          onHelp={() => safeRouter.push('/guide/general' as any)}
         />
 
         <ScrollView
@@ -287,8 +288,6 @@ export const EditAddOnsScreen: React.FC = () => {
           showErrorToast={hasAttemptedSave && !isValid}
           saveLabel="Save changes"
         />
-
-        <NativeDockSpacer />
 
         {/* Modal Sheets */}
         <ServiceDurationSheet

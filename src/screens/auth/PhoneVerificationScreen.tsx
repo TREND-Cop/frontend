@@ -16,9 +16,14 @@ import {
   Keyboard,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 import { typography } from '../../constants/theme';
+import {
+  trendApi,
+  getPendingAuthDraft,
+  clearPendingAuthDraft,
+} from '../../api/trendApi';
 
 const OTP_LENGTH = 4;
 const RESEND_COUNTDOWN_SECONDS = 65; // 1:05 in seconds
@@ -75,7 +80,7 @@ export const PhoneVerificationScreen = ({
   navigation?: any;
   route?: any;
 }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const phone = route?.params?.phone || '+234 8136567398';
 
@@ -148,19 +153,36 @@ export const PhoneVerificationScreen = ({
 
   const isForgotPassword = route?.params?.flow === 'forgot-password';
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     if (!allDigitsEntered) return;
+    const code = otp.join('');
+    const target = String(phone || '').replace(/\s+/g, '');
+
     if (isForgotPassword) {
+      const draft = getPendingAuthDraft();
+      if (draft.resetPassword && target) {
+        await trendApi.auth
+          .resetPassword({
+            identifier: draft.resetIdentifier || target,
+            code,
+            new_password: draft.resetPassword,
+          })
+          .catch(() => null);
+        clearPendingAuthDraft();
+      }
       if (navigation?.navigate) {
         navigation.navigate('PasswordResetSuccess');
       } else {
-        router.replace('/password-reset-success' as any);
+        safeRouter.replace('/password-reset-success' as any);
       }
     } else {
+      if (target) {
+        await trendApi.auth.otpVerify({ target, code }).catch(() => null);
+      }
       if (navigation?.navigate) {
         navigation.navigate('SignUpSuccess');
       } else {
-        router.replace('/sign-up-success' as any);
+        safeRouter.replace('/sign-up-success' as any);
       }
     }
   };
@@ -170,15 +192,23 @@ export const PhoneVerificationScreen = ({
     setIsTimerRunning(true);
     setOtp(Array(OTP_LENGTH).fill(''));
     inputRefs.current[0]?.focus();
+    const target = String(phone || '').replace(/\s+/g, '');
+    if (target) {
+      if (isForgotPassword) {
+        trendApi.auth.forgotPassword({ identifier: target }).catch(() => {});
+      } else {
+        trendApi.auth.otpSend({ target }).catch(() => {});
+      }
+    }
   };
 
   const handleGoBack = () => {
     if (navigation?.goBack) {
-      navigation.goBack();
-    } else if (router.canGoBack()) {
-      router.back();
+      safeRouter.back();
+    } else if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/sign-up' as any);
+      safeRouter.replace('/sign-up' as any);
     }
   };
 

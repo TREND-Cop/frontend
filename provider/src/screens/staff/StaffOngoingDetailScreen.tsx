@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
@@ -168,7 +169,7 @@ function formatElapsedTime(seconds: number): string {
  */
 export function StaffOngoingDetailScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { getAppointmentById } = useStaffAppointments();
 
@@ -206,7 +207,7 @@ export function StaffOngoingDetailScreen() {
         <Text style={styles.notFoundText}>Ongoing appointment not found.</Text>
         <TouchableOpacity
           style={styles.backButtonSimple}
-          onPress={() => router.back()}
+          onPress={() => safeRouter.back()}
         >
           <Text style={styles.backButtonSimpleText}>Go Back</Text>
         </TouchableOpacity>
@@ -232,7 +233,7 @@ export function StaffOngoingDetailScreen() {
 
   const handleCompletedPress = () => {
     triggerLightHaptic();
-    router.push({
+    safeRouter.push({
       pathname: STAFF_ROUTES.VERIFYING_STATUS as any,
       params: { id: appointment.id },
     });
@@ -251,7 +252,7 @@ export function StaffOngoingDetailScreen() {
             activeOpacity={0.7}
             onPress={() => {
               triggerLightHaptic();
-              router.back();
+              safeRouter.back();
             }}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
@@ -260,7 +261,7 @@ export function StaffOngoingDetailScreen() {
 
           {/* Centered screen title */}
           <Text style={styles.headerTitleText} numberOfLines={1}>
-            {appointment.service.category || 'Ongoing Appointment'}
+            {appointment.service.serviceName || appointment.service.category || 'Ongoing Appointment'}
           </Text>
 
           {/* Header play icon: navigates to In Progress tutorial video */}
@@ -269,7 +270,7 @@ export function StaffOngoingDetailScreen() {
             activeOpacity={0.7}
             onPress={() => {
               triggerLightHaptic();
-              router.push({
+              safeRouter.push({
                 pathname: STAFF_ROUTES.TUTORIAL_VIDEO as any,
                 params: { step: '2', title: 'In Progress' },
               });
@@ -480,9 +481,7 @@ export function StaffOngoingDetailScreen() {
           <Text style={styles.sectionTitle}>Note</Text>
 
           <View style={styles.noteCard}>
-            <Text style={styles.noteText}>{appointment.note || 'No special note provided.'}</Text>
-            {/* Real note length counter over 120 */}
-            <Text style={styles.noteCounterText}>{`${appointment.note?.length || 0}/120`}</Text>
+            <Text style={styles.noteText}>{appointment.note || 'leave a note for the staff'}</Text>
           </View>
         </View>
 
@@ -534,7 +533,7 @@ export function StaffOngoingDetailScreen() {
       </ScrollView>
 
       {/* ── Pinned Bottom "Completed" Action Button ── */}
-      <View style={[styles.bottomButtonContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+      <View style={[styles.bottomButtonContainer, { paddingBottom: insets.bottom + 16 }]}>
         <TouchableOpacity
           style={styles.completedActionButton}
           activeOpacity={0.88}
@@ -979,6 +978,7 @@ const styles = StyleSheet.create({
   },
   packageImagesGrid: {
     gap: 16,
+    alignSelf: 'center',
   },
   packageImageRow: {
     flexDirection: 'row',

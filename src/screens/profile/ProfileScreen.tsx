@@ -9,7 +9,8 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
 import { toastStore } from '../../utils/toastStore';
 import {
@@ -34,12 +35,14 @@ import {
   ProfileShieldLockIcon,
   ProfileBiometricIcon,
   ProfileLogoutIcon,
+  ProfileTrashIcon,
   ProfileChevronRight,
   VerifiedCheckmarkBadge,
   StatHandshakeIcon,
   StatCalendarIcon,
 } from '../../components/profile/ProfileIcons';
 import { ProfilePromoBanner } from '../../components/profile/ProfilePromoBanner';
+import { useNativeBackExitGuard } from '../../utils/exitAppGuard';
 
 // ── Nigeria Flag Icon ──
 const NigeriaFlagIcon = ({ size = 20 }: { size?: number }) => (
@@ -51,11 +54,15 @@ const NigeriaFlagIcon = ({ size = 20 }: { size?: number }) => (
 );
 
 export const ProfileScreen = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams<{ toast?: string; message?: string }>();
   const insets = useSafeAreaInsets();
   const { profileData } = useUserContext();
   const { appointments } = useBookingContext();
+
+  // Android Native Back Button Guard:
+  // - Prompts user with in-built Exit Confirmation Dialog; directing them to use in-app back buttons.
+  useNativeBackExitGuard();
 
   React.useEffect(() => {
     if (params?.toast === 'password_reset' || params?.message === 'password_reset') {
@@ -85,15 +92,19 @@ export const ProfileScreen = () => {
   const appointmentsCount = appointments.length > 0 ? appointments.length : 0;
 
   const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
+    if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/(tabs)' as any);
+      safeRouter.replace('/(tabs)' as any);
     }
   };
 
   const handleLogOut = () => {
-    router.push('/logout' as any);
+    safeRouter.push('/logout' as any);
+  };
+
+  const handleDeleteAccount = () => {
+    safeRouter.push('/delete-account' as any);
   };
 
   return (
@@ -130,7 +141,7 @@ export const ProfileScreen = () => {
           {/* Top Row: Avatar + Details */}
           <View style={styles.userDetailsRow}>
             {/* Avatar Frame 80x80 with verified badge */}
-            <TouchableOpacity activeOpacity={0.8} style={styles.avatarWrapper} onPress={() => router.push('/change-profile-photo')}>
+            <TouchableOpacity activeOpacity={0.8} style={styles.avatarWrapper} onPress={() => safeRouter.push('/change-profile-photo')}>
               <SafeImage
                 source={
                   profileData.avatarUri
@@ -186,7 +197,7 @@ export const ProfileScreen = () => {
             <TouchableOpacity
               style={styles.activityStatCard}
               activeOpacity={0.8}
-              onPress={() => router.push('/home/bookings' as any)}
+              onPress={() => safeRouter.push('/home/bookings' as any)}
             >
               <View style={styles.statIconCircle}>
                 <StatCalendarIcon size={20} color="#141B34" />
@@ -215,7 +226,7 @@ export const ProfileScreen = () => {
             <TouchableOpacity
               style={styles.menuItemRow}
               activeOpacity={0.7}
-              onPress={() => router.push('/profile-settings' as any)}
+              onPress={() => safeRouter.push('/profile-settings' as any)}
             >
               <View style={styles.menuItemLeft}>
                 <ProfileUserIcon size={24} color="rgba(192, 192, 204, 0.96)" />
@@ -230,7 +241,7 @@ export const ProfileScreen = () => {
             <TouchableOpacity
               style={styles.menuItemRow}
               activeOpacity={0.7}
-              onPress={() => router.push('/change-location' as any)}
+              onPress={() => safeRouter.push('/change-location' as any)}
             >
               <View style={styles.menuItemLeft}>
                 <ProfileLocationIcon size={24} color="rgba(192, 192, 204, 0.96)" />
@@ -245,7 +256,7 @@ export const ProfileScreen = () => {
             <TouchableOpacity
               style={styles.menuItemRow}
               activeOpacity={0.7}
-              onPress={() => router.push('/notification-settings' as any)}
+              onPress={() => safeRouter.push('/notification-settings' as any)}
             >
               <View style={styles.menuItemLeft}>
                 <ProfileNotificationIcon size={24} color="rgba(192, 192, 204, 0.96)" />
@@ -267,7 +278,7 @@ export const ProfileScreen = () => {
             <TouchableOpacity
               style={styles.menuItemRow}
               activeOpacity={0.7}
-              onPress={() => router.push('/reset-password' as any)}
+              onPress={() => safeRouter.push('/reset-password' as any)}
             >
               <View style={styles.menuItemLeft}>
                 <ProfileLockIcon size={24} color="rgba(192, 192, 204, 0.96)" />
@@ -282,7 +293,7 @@ export const ProfileScreen = () => {
             <TouchableOpacity
               style={styles.menuItemRow}
               activeOpacity={0.7}
-              onPress={() => router.push('/change-phone-number' as any)}
+              onPress={() => safeRouter.push('/change-phone-number' as any)}
             >
               <View style={styles.menuItemLeft}>
                  <ProfilePhoneChangeIcon size={24} color="rgba(192, 192, 204, 0.96)" />
@@ -297,7 +308,7 @@ export const ProfileScreen = () => {
             <TouchableOpacity
               style={styles.menuItemRow}
               activeOpacity={0.7}
-              onPress={() => router.push('/gmail-security' as any)}
+              onPress={() => safeRouter.push('/gmail-security' as any)}
             >
               <View style={styles.menuItemLeft}>
                 <ProfileGmailSecurityIcon size={24} color="rgba(192, 192, 204, 0.96)" />
@@ -312,7 +323,7 @@ export const ProfileScreen = () => {
             <TouchableOpacity
               style={styles.menuItemRow}
               activeOpacity={0.7}
-              onPress={() => router.push('/two-step-verification' as any)}
+              onPress={() => safeRouter.push('/two-step-verification' as any)}
             >
               <View style={styles.menuItemLeft}>
                 <ProfileShieldLockIcon size={24} color="rgba(192, 192, 204, 0.96)" />
@@ -327,7 +338,7 @@ export const ProfileScreen = () => {
             <TouchableOpacity
               style={styles.menuItemRow}
               activeOpacity={0.7}
-              onPress={() => router.push('/biometrics' as any)}
+              onPress={() => safeRouter.push('/biometrics' as any)}
             >
               <View style={styles.menuItemLeft}>
                 <ProfileBiometricIcon size={24} color="rgba(192, 192, 204, 0.96)" />
@@ -339,7 +350,7 @@ export const ProfileScreen = () => {
         </View>
 
         {/* ══════════════════════════════════════════════════════════
-            5. SECTION: System
+            5. SECTION: System (Figma: top 1324, height 264, gap 24px)
         ══════════════════════════════════════════════════════════ */}
         <View style={styles.sectionBlock}>
           <Text style={styles.sectionTitle}>System</Text>
@@ -349,7 +360,7 @@ export const ProfileScreen = () => {
             <TouchableOpacity
               style={styles.menuItemRow}
               activeOpacity={0.7}
-              onPress={() => router.push('/contact-support' as any)}
+              onPress={() => safeRouter.push('/contact-support' as any)}
             >
               <View style={styles.menuItemLeft}>
                 <Headphones size={24} color="rgba(192, 192, 204, 0.96)" />
@@ -359,32 +370,46 @@ export const ProfileScreen = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Privacy & Terms Card */}
-          <View style={[styles.singleCardContainer, { marginTop: 12 }]}>
+          {/* Terms of Service Card */}
+          <View style={styles.singleCardContainer}>
             <TouchableOpacity
               style={styles.menuItemRow}
               activeOpacity={0.7}
-              onPress={() => router.push('/terms-policy' as any)}
+              onPress={() => safeRouter.push('/terms-policy' as any)}
             >
               <View style={styles.menuItemLeft}>
                 <FileText size={24} color="rgba(192, 192, 204, 0.96)" />
-                <Text style={styles.menuItemLabel}>Privacy & Terms</Text>
+                <Text style={styles.menuItemLabel}>Terms of Service</Text>
               </View>
               <ProfileChevronRight size={24} color="#141B34" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Logout Card (Figma: 358x56, radius 16px, bg #FFFFFF, gap 8px) */}
+          <View style={styles.singleCardContainer}>
+            <TouchableOpacity
+              style={styles.menuItemRow}
+              activeOpacity={0.7}
+              onPress={handleLogOut}
+            >
+              <View style={styles.menuItemLeft}>
+                <ProfileLogoutIcon size={24} color="rgba(204, 41, 41, 0.9)" />
+                <Text style={styles.logoutCardText}>Logout</Text>
+              </View>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* ══════════════════════════════════════════════════════════
-            7. LOG OUT BUTTON
+            6. DELETE ACCOUNT ROW (Figma: top 1628 => 40px below System, 358x56, padding 8px, gap 16px)
         ══════════════════════════════════════════════════════════ */}
         <TouchableOpacity
-          style={styles.logoutButton}
+          style={styles.deleteAccountButton}
           activeOpacity={0.7}
-          onPress={handleLogOut}
+          onPress={handleDeleteAccount}
         >
-          <ProfileLogoutIcon size={24} color="rgba(204, 41, 41, 0.9)" />
-          <Text style={styles.logoutButtonText}>Log Out</Text>
+          <ProfileTrashIcon size={24} color="rgba(204, 41, 41, 0.9)" />
+          <Text style={styles.deleteAccountText}>Delete Account</Text>
         </TouchableOpacity>
       </ScrollView>
       <NativeDockSpacer backgroundColor="rgba(248, 249, 250, 0.98)" />
@@ -623,22 +648,34 @@ const styles = StyleSheet.create({
     width: '100%',
   },
 
-  // ── 7. Logout Button (Figma: padding 8px, gap 16px, height 44px) ──
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    padding: 8,
-    height: 44,
-    marginTop: 8,
-    marginBottom: 24,
-  },
-  logoutButtonText: {
-    fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',
+  logoutCardText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
     fontWeight: '400',
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: 0.4,
     color: 'rgba(204, 41, 41, 0.9)',
+    includeFontPadding: false,
+  },
+
+  // ── 6. Delete Account Row (Figma: top 1628 => 40px below System, 358x56, padding 8px, gap 16px) ──
+  deleteAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    height: 56,
+    padding: 8,
+    gap: 16,
+    marginTop: 16, // 24px scrollContent gap + 16px = exact 40px Figma coordinate gap
+    marginBottom: 24,
+  },
+  deleteAccountText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontWeight: '400',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.4,
+    color: 'rgba(204, 41, 41, 0.9)',
+    includeFontPadding: false,
   },
 });

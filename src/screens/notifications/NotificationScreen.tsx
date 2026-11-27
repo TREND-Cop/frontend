@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {  View, Text, StyleSheet, TouchableOpacity, Animated, Image, SectionList , Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect, useNavigation } from 'expo-router';
+import { useFocusEffect, useNavigation } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { theme } from '../../constants/theme';
-import { BellOff } from 'lucide-react-native';
 import { MOCK_NOTIFICATIONS } from '../../constants/mockData';
 import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
 import { tabSkeletonStore } from '../../utils/tabSkeletonStore';
+import { trendApi, getAuthToken, extractArray } from '../../api/trendApi';
 
 // --- COMPONENTS ---
 const NotificationSkeleton = () => {
@@ -69,10 +70,16 @@ const NotificationItem = ({ item, onPress }: { item: any, onPress: () => void })
   </TouchableOpacity>
 );
 
+const EMPTY_NOTIFICATIONS_IMAGE = require('../../../assets/images/notifications/empty_notifications.png');
+
 const EmptyState = ({ onEnablePush }: { onEnablePush: () => void }) => (
   <View style={styles.emptyContent}>
-    <View style={styles.emptyGraphic}>
-      <BellOff size={60} color="#D9D9D9" strokeWidth={1.5} />
+    <View style={styles.emptyIllustrationWrapper}>
+      <Image
+        source={EMPTY_NOTIFICATIONS_IMAGE}
+        style={{ width: 150, height: 150 }}
+        resizeMode="contain"
+      />
     </View>
     <Text style={styles.emptyTitle}>No Notification Yet</Text>
     <Text style={styles.emptySubtitle}>We would notify you when something shows up.</Text>
@@ -85,21 +92,48 @@ const EmptyState = ({ onEnablePush }: { onEnablePush: () => void }) => (
 
 // --- MAIN SCREEN ---
 export const NotificationScreen = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const navigation = useNavigation<any>();
   const [isLoading, setIsLoading] = useState(true);
+  const [sections, setSections] = useState(MOCK_NOTIFICATIONS);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   
   // Set to true to test empty state
   const isEmpty = false; 
 
+  const hydrateNotifications = useCallback(async () => {
+    try {
+      const token = await getAuthToken();
+      if (!token) return;
+      const res = await trendApi.notifications.list();
+      if (!res.ok || !res.data) return;
+      const items = extractArray<any>(res.data, ['notifications']);
+      if (items.length === 0) return;
+      const mapped = items.map((n: any, idx: number) => ({
+        id: String(n.id || `notif_${idx}`),
+        title: n.title || 'TREND',
+        content: n.body || n.message || n.content || '',
+        time: n.created_at
+          ? new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          : 'Now',
+        initials: (n.title || 'TR').slice(0, 2).toUpperCase(),
+        image: n.image || null,
+        isUnread: n.read === false || n.is_read === false || n.read === 0,
+      }));
+      setSections([{ title: 'Recent', data: mapped }]);
+    } catch {
+      // Keep fallback sections intact
+    }
+  }, []);
+
   const startLoading = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     setIsLoading(true);
+    hydrateNotifications();
     timerRef.current = setTimeout(() => {
       setIsLoading(false);
     }, 1400);
-  }, []);
+  }, [hydrateNotifications]);
 
   const resetToLoading = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -166,15 +200,20 @@ export const NotificationScreen = () => {
           </TouchableOpacity>
         </View>
       ) : isEmpty ? (
-        <EmptyState onEnablePush={() => router.back()} />
+        <EmptyState onEnablePush={() => safeRouter.back()} />
       ) : (
         <SectionList
-          sections={MOCK_NOTIFICATIONS}
+          sections={sections}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <NotificationItem 
               item={item} 
-              onPress={() => router.push(`/notifications/${item.id}`)} 
+              onPress={() => {
+                getAuthToken()
+                  .then((token) => (token ? trendApi.notifications.markRead(item.id) : null))
+                  .catch(() => {});
+                safeRouter.push(`/notifications/${item.id}`);
+              }} 
             />
           )}
           renderSectionHeader={({ section: { title } }) => (
@@ -285,11 +324,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 16,
   },
-  emptyGraphic: {
-    width: 120,
-    height: 120,
-    backgroundColor: '#F5F5F5',
-    borderRadius: 60,
+  emptyIllustrationWrapper: {
+    width: 150,
+    height: 150,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,

@@ -160,10 +160,23 @@ export const AddOnBlockList: React.FC<AddOnBlockListProps> = ({
                 onPress={() => onUploadPress(block.id)}
                 accessibilityLabel="Replace photo"
               >
+                {/* Ambient blurred backdrop preserving full aspect ratio */}
+                <Image
+                  source={{ uri: block.imageUri }}
+                  style={StyleSheet.absoluteFill}
+                  resizeMode="cover"
+                  blurRadius={25}
+                />
+                <View
+                  style={[
+                    StyleSheet.absoluteFill,
+                    { backgroundColor: 'rgba(0, 8, 20, 0.25)' },
+                  ]}
+                />
                 <Image
                   source={{ uri: block.imageUri }}
                   style={styles.filledImage}
-                  resizeMode="cover"
+                  resizeMode="contain"
                 />
               </TouchableOpacity>
 
@@ -263,6 +276,9 @@ export const AddOnBlockList: React.FC<AddOnBlockListProps> = ({
                   value={block.priceRaw ? formatWithCommas(block.priceRaw) : ''}
                   onChangeText={(t) => handlePriceChange(block.id, t)}
                   keyboardType="numeric"
+                  multiline={false}
+                  numberOfLines={1}
+                  scrollEnabled={true}
                   accessibilityLabel="Add-on price in Naira"
                 />
               </View>
@@ -275,6 +291,7 @@ export const AddOnBlockList: React.FC<AddOnBlockListProps> = ({
                 activeOpacity={0.7}
                 style={[
                   styles.dropdownField,
+                  !block.duration && styles.dropdownFieldInactive,
                   errors[`addon_duration_${block.id}`] && styles.inputErrorBorder,
                 ]}
                 onPress={() => {
@@ -292,7 +309,10 @@ export const AddOnBlockList: React.FC<AddOnBlockListProps> = ({
                 >
                   {block.duration || '30 hr'}
                 </Text>
-                <ArrowDown01Icon size={24} color="rgba(0, 8, 20, 0.96)" />
+                <ArrowDown01Icon
+                  size={24}
+                  color={block.duration ? 'rgba(0, 8, 20, 0.96)' : 'rgba(192, 192, 204, 0.96)'}
+                />
               </TouchableOpacity>
             </View>
           </View>
@@ -306,7 +326,10 @@ export const AddOnBlockList: React.FC<AddOnBlockListProps> = ({
       {/* Block 1 */}
       {firstBlock && renderSingleBlock(firstBlock, true)}
 
-      {/* "Add more add-ons" Section Row */}
+      {/* Extra Blocks */}
+      {extraBlocks.map((block) => renderSingleBlock(block, false))}
+
+      {/* "Add more add-ons" Section Row (Always below all blocks) */}
       <View style={styles.addMoreSection}>
         <Text style={styles.sectionHeaderH2}>Add more add-ons</Text>
         <TouchableOpacity
@@ -325,9 +348,6 @@ export const AddOnBlockList: React.FC<AddOnBlockListProps> = ({
           </View>
         </TouchableOpacity>
       </View>
-
-      {/* Extra Blocks */}
-      {extraBlocks.map((block) => renderSingleBlock(block, false))}
     </View>
   );
 };
@@ -376,6 +396,8 @@ const styles = StyleSheet.create({
     height: 221,
     borderRadius: 24,
     position: 'relative',
+    overflow: 'hidden',
+    backgroundColor: '#000814',
   },
   imageTouchable: {
     width: '100%',
@@ -454,6 +476,7 @@ const styles = StyleSheet.create({
   },
   columnItem: {
     flex: 1,
+    minWidth: 0,
   },
   subFieldLabel: {
     fontFamily: FONT_MEDIUM,
@@ -465,6 +488,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   priceInputField: {
+    width: '100%',
     height: 48,
     borderRadius: 24,
     borderWidth: 1,
@@ -473,11 +497,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+    minWidth: 0,
   },
   currencyPrefixContainer: {
     justifyContent: 'center',
     alignItems: 'center',
     paddingRight: 6,
+    flexShrink: 0,
   },
   currencyPrefixText: {
     fontFamily: FONT_REGULAR,
@@ -492,6 +519,7 @@ const styles = StyleSheet.create({
     height: 24,
     backgroundColor: 'rgba(235, 235, 245, 0.96)',
     marginHorizontal: 4,
+    flexShrink: 0,
   },
   nairaSymbol: {
     fontFamily: FONT_REGULAR,
@@ -501,9 +529,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     color: 'rgba(0, 8, 20, 0.96)',
     marginRight: 2,
+    flexShrink: 0,
   },
   priceTextInput: {
     flex: 1,
+    minWidth: 0,
     fontFamily: FONT_MEDIUM,
     fontWeight: '500',
     fontSize: 16,
@@ -522,6 +552,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',
+  },
+  dropdownFieldInactive: {
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderColor: 'rgba(247, 247, 247, 0.96)',
   },
   dropdownText: {
     fontFamily: FONT_REGULAR,

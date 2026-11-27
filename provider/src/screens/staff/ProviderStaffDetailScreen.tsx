@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
@@ -305,8 +306,7 @@ const DEFAULT_STAFF_DETAIL = {
     items: ['Hair Washing', 'Conditioning & Wash', 'Manicure'],
   },
   summary: {
-    appointmentCost: '₦52,700',
-    trendPoints: '-₦2,700',
+    appointmentCost: '₦50,000',
     paymentType: 'Opay (Transfer)',
     total: '₦50,000',
   },
@@ -316,7 +316,7 @@ import { getStaffById } from '../../store/staffStore';
 
 export function ProviderStaffDetailScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams<{
     id?: string;
     name?: string;
@@ -383,7 +383,6 @@ export function ProviderStaffDetailScreen() {
 
   // Summary
   const summaryAppointmentCost = storeStaff?.summary?.appointmentCost || DEFAULT_STAFF_DETAIL.summary.appointmentCost;
-  const summaryTrendPoints = storeStaff?.summary?.trendPoints || DEFAULT_STAFF_DETAIL.summary.trendPoints;
   const summaryPaymentType = storeStaff?.summary?.paymentType || DEFAULT_STAFF_DETAIL.summary.paymentType;
   const summaryTotal = params.totalCost || storeStaff?.summary?.total || DEFAULT_STAFF_DETAIL.summary.total;
 
@@ -468,7 +467,7 @@ export function ProviderStaffDetailScreen() {
           <TouchableOpacity
             style={styles.headerIconButton}
             activeOpacity={0.7}
-            onPress={() => router.back()}
+            onPress={() => safeRouter.back()}
           >
             <ArrowLeft02Icon />
           </TouchableOpacity>
@@ -753,34 +752,11 @@ export function ProviderStaffDetailScreen() {
         </View>
 
         {/* ── Section: Note ─────────────────────────────────────────────────── */}
-        <View
-          style={styles.sectionBlock}
-          onLayout={(e) => {
-            noteSectionYRef.current = e.nativeEvent.layout.y;
-          }}
-        >
+        <View style={styles.sectionBlock}>
           <Text style={styles.sectionHeading}>Note</Text>
 
-          <View
-            style={styles.noteBox}
-            onLayout={(e) => {
-              noteBoxYRef.current = e.nativeEvent.layout.y;
-            }}
-          >
-            <TextInput
-              ref={noteInputRef}
-              style={styles.noteTextInput}
-              multiline
-              maxLength={120}
-              value={noteText}
-              onChangeText={setNoteText}
-              placeholder="Enter note here.."
-              placeholderTextColor="rgba(96, 96, 102, 0.6)"
-              onFocus={scrollNoteIntoView}
-            />
-            <Text style={styles.noteCharCount}>
-              {noteText.length}/120
-            </Text>
+          <View style={styles.noteBox}>
+            <Text style={styles.noteInactiveText}>leave a note for the staff</Text>
           </View>
         </View>
 
@@ -851,15 +827,7 @@ export function ProviderStaffDetailScreen() {
               </Text>
             </View>
 
-            {/* Row 2: Trend points */}
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Trend points</Text>
-              <Text style={styles.summaryPointsValue}>
-                {summaryTrendPoints}
-              </Text>
-            </View>
-
-            {/* Row 3: Payment type */}
+            {/* Row 2: Payment type */}
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Payment type</Text>
               <View style={styles.paymentTypeGroup}>
@@ -1021,36 +989,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: 326,
+    width: '100%',
     height: 104,
   },
   activityColumnCol1: {
-    width: 80,
+    flex: 1,
     height: 104,
     borderRadius: 16,
     paddingVertical: 8,
-    paddingHorizontal: 10,
-    alignItems: 'flex-start',
+    paddingHorizontal: 4,
+    alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
   activityColumnCol2: {
-    width: 58,
+    flex: 1,
     height: 104,
     borderRadius: 16,
     paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
   activityColumnCol3: {
-    width: 97,
+    flex: 1,
     height: 104,
     borderRadius: 16,
     paddingVertical: 8,
-    paddingHorizontal: 10,
-    alignItems: 'flex-start',
+    paddingHorizontal: 4,
+    alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
@@ -1063,16 +1031,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   activityTextGroupCol1: {
-    alignItems: 'flex-start',
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
   activityTextGroupCol2: {
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    gap: 4,
   },
   activityTextGroupCol3: {
-    alignItems: 'flex-start',
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    width: '100%',
   },
   activityLabel: {
     fontFamily: FONT_REGULAR,
@@ -1080,6 +1052,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
+    textAlign: 'center',
   },
   activityValueGender: {
     fontFamily: FONT_REGULAR,
@@ -1087,6 +1060,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     letterSpacing: 0.4,
     color: '#000000',
+    textAlign: 'center',
   },
   activityValueBadge: {
     fontFamily: FONT_REGULAR,
@@ -1094,13 +1068,15 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     letterSpacing: 0.4,
     color: 'rgba(0, 8, 20, 0.96)',
+    textAlign: 'center',
   },
   activityValueMembership: {
     fontFamily: FONT_REGULAR,
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 0.4,
+    fontSize: 13,
+    lineHeight: 18,
+    letterSpacing: 0.2,
     color: 'rgba(0, 8, 20, 0.96)',
+    textAlign: 'center',
   },
   verticalDivider: {
     width: 1,
@@ -1283,6 +1259,13 @@ const styles = StyleSheet.create({
     padding: 16,
     position: 'relative',
   },
+  noteInactiveText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.4,
+    color: 'rgba(96, 96, 102, 0.6)',
+  },
   noteTextInput: {
     fontFamily: FONT_REGULAR,
     fontSize: 14,
@@ -1375,14 +1358,6 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 0.5,
     color: 'rgba(0, 8, 20, 0.96)',
-  },
-  summaryPointsValue: {
-    fontFamily: FONT_MEDIUM,
-    fontWeight: '500',
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: 0.5,
-    color: 'rgba(248, 155, 24, 0.96)',
   },
   paymentTypeGroup: {
     flexDirection: 'row',

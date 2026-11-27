@@ -48,7 +48,7 @@ export interface StaffAppointment {
   date: string; // e.g. "Nov 19, 2026" or "26th June, 2026"
   time: string; // e.g. "9:30am"
   type: StaffAppointmentType; // "Home Service" | "In-Person"
-  note: string; // client's note (e.g. "i would love for you to go gentle on my scalp")
+  note: string; // client's note (e.g. "leave a note for the staff")
   status: StaffAppointmentStatus; // 'waiting' | 'in-progress' | 'completed' | 'cancelled'
   startTime: number; // Timestamp (ms) used for live countdown calculation
   startedAt?: number; // Timestamp (ms) when ongoing appointment began (used for live count-up timer)

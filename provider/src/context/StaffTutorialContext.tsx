@@ -9,6 +9,7 @@ import React, {
 import { BackHandler, findNodeHandle, UIManager, Platform, Dimensions } from 'react-native';
 import { STAFF_TUTORIAL_STEPS, StaffTutorialStep } from '../constants/staffTutorialSteps';
 import { calculateMinimumScroll, TargetRect } from './FirstTimeContext';
+import { loadFromStorage, saveToStorage, removeFromStorage, STORAGE_KEYS } from '../utils/providerStorage';
 
 export type StaffTutorialPhase = 'idle' | 'welcome' | 'tour' | 'video' | 'completion' | 'done';
 
@@ -32,7 +33,8 @@ interface StaffTutorialContextType {
   isSpotlightActive: boolean;
   isStepTransitioning: boolean;
   hasCompletedTour: boolean;
-  startStaffWelcome: () => void;
+  startStaffWelcome: (force?: boolean) => void;
+  resetStaffTutorialState: () => Promise<void>;
   handleGetStarted: () => void;
   handleNextStep: () => void;
   handlePrevStep: () => void;
@@ -52,14 +54,60 @@ interface StaffTutorialContextType {
 
 const StaffTutorialContext = createContext<StaffTutorialContextType | undefined>(undefined);
 
+const noop = () => {};
+const fallbackStaffTutorialContext: StaffTutorialContextType = {
+  phase: 'idle',
+  stepIndex: 0,
+  currentStep: null,
+  activeTargetRect: null,
+  spotlightTargetId: null,
+  isSpotlightActive: false,
+  isStepTransitioning: false,
+  hasCompletedTour: true,
+  startStaffWelcome: noop,
+  resetStaffTutorialState: async () => {},
+  handleGetStarted: noop,
+  handleNextStep: noop,
+  handlePrevStep: noop,
+  openVideo: noop,
+  closeVideo: noop,
+  finishTour: noop,
+  handleCloseCompletion: noop,
+  registerTarget: noop,
+  unregisterTarget: noop,
+  measureTarget: async () => null,
+  registerScrollView: noop,
+  handleScroll: noop,
+  setScreenInsets: noop,
+  handleContentSizeChange: noop,
+  scrollOffsetY: 0,
+};
+
 export const StaffTutorialProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // In-memory state only: resets on each login session
+  const existing = useContext(StaffTutorialContext);
+  if (existing) {
+    return <>{children}</>;
+  }
+
   const [phase, setPhase] = useState<StaffTutorialPhase>('idle');
   const [stepIndex, setStepIndex] = useState<number>(0);
   const [activeTargetRect, setActiveTargetRect] = useState<TargetRect | null>(null);
   const [isStepTransitioning, setIsStepTransitioning] = useState<boolean>(false);
   const [currentScrollY, setCurrentScrollY] = useState<number>(0);
   const [hasCompletedTour, setHasCompletedTour] = useState<boolean>(false);
+
+  // Hydrate persisted tutorial completion state from storage
+  useEffect(() => {
+    let isMounted = true;
+    loadFromStorage<boolean>(STORAGE_KEYS.STAFF_HAS_COMPLETED_TUTORIAL, false).then((completed) => {
+      if (isMounted && completed) {
+        setHasCompletedTour(true);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const targetsRef = useRef<Map<string, TargetRegistration>>(new Map());
   const scrollViewRef = useRef<any>(null);
@@ -239,12 +287,20 @@ export const StaffTutorialProvider: React.FC<{ children: React.ReactNode }> = ({
     async (targetId: string, stepIdx: number) => {
       activeStepIdRef.current = targetId;
 
-      // 1. Initial measurement of the target
-      let rect = await measureTarget(targetId);
-      if (!rect) {
-        await new Promise((r) => setTimeout(r, 60));
-        if (activeStepIdRef.current !== targetId) return;
-        rect = await measureTarget(targetId);
+      // 1. Initial measurement of the target (with fallback support & retries)
+      let effectiveTargetId = targetId;
+      let rect: TargetRect | null = null;
+      for (let attempt = 0; attempt < 8; attempt++) {
+        rect = await measureTarget(effectiveTargetId);
+        if (rect || activeStepIdRef.current !== targetId) break;
+        if (!rect && currentStep?.fallbackTargetId) {
+          rect = await measureTarget(currentStep.fallbackTargetId);
+          if (rect) {
+            effectiveTargetId = currentStep.fallbackTargetId;
+            break;
+          }
+        }
+        await new Promise((r) => setTimeout(r, 50));
       }
       if (!rect || activeStepIdRef.current !== targetId) return;
 
@@ -278,7 +334,7 @@ export const StaffTutorialProvider: React.FC<{ children: React.ReactNode }> = ({
         await new Promise((r) => setTimeout(r, 300));
         if (activeStepIdRef.current !== targetId) return;
 
-        let remeasured = await measureTarget(targetId);
+        let remeasured = await measureTarget(effectiveTargetId);
         if (remeasured && activeStepIdRef.current === targetId) {
           setActiveTargetRect(remeasured);
         }
@@ -327,16 +383,42 @@ export const StaffTutorialProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [phase]);
 
   // Public control methods
-  const startStaffWelcome = useCallback(() => {
-    if (!hasCompletedTour && phase === 'idle') {
-      setPhase('welcome');
-    }
-  }, [hasCompletedTour, phase]);
+  const startStaffWelcome = useCallback(
+    (force: boolean = false) => {
+      if (force) {
+        setHasCompletedTour(false);
+        saveToStorage(STORAGE_KEYS.STAFF_HAS_COMPLETED_TUTORIAL, false);
+        setStepIndex(0);
+        setActiveTargetRect(null);
+        setPhase('welcome');
+        return;
+      }
+      setPhase((currentPhase) => {
+        if (!hasCompletedTour && currentPhase === 'idle') {
+          return 'welcome';
+        }
+        return currentPhase;
+      });
+    },
+    [hasCompletedTour]
+  );
+
+  const resetStaffTutorialState = useCallback(async () => {
+    setHasCompletedTour(false);
+    setStepIndex(0);
+    setActiveTargetRect(null);
+    setPhase('idle');
+    await saveToStorage(STORAGE_KEYS.STAFF_HAS_COMPLETED_TUTORIAL, false);
+    await removeFromStorage(STORAGE_KEYS.STAFF_HAS_COMPLETED_TUTORIAL);
+  }, []);
 
   const handleGetStarted = useCallback(() => {
-    setPhase('tour');
+    setActiveTargetRect(null);
     setStepIndex(0);
-  }, []);
+    setPhase('tour');
+    scrollToTarget(0);
+    scrollOffsetYRef.current = 0;
+  }, [scrollToTarget]);
 
   const finishTour = useCallback(() => {
     setActiveTargetRect(null);
@@ -370,7 +452,7 @@ export const StaffTutorialProvider: React.FC<{ children: React.ReactNode }> = ({
   const handleCloseCompletion = useCallback(() => {
     setPhase('done');
     setHasCompletedTour(true);
-    // TODO (Backend): persist tutorial completion for this staff member
+    saveToStorage(STORAGE_KEYS.STAFF_HAS_COMPLETED_TUTORIAL, true);
   }, []);
 
   return (
@@ -385,6 +467,7 @@ export const StaffTutorialProvider: React.FC<{ children: React.ReactNode }> = ({
         isStepTransitioning,
         hasCompletedTour,
         startStaffWelcome,
+        resetStaffTutorialState,
         handleGetStarted,
         handleNextStep,
         handlePrevStep,
@@ -407,10 +490,10 @@ export const StaffTutorialProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 };
 
-export const useStaffTutorial = () => {
+export const useStaffTutorial = (): StaffTutorialContextType => {
   const context = useContext(StaffTutorialContext);
   if (!context) {
-    throw new Error('useStaffTutorial must be used within a StaffTutorialProvider');
+    return fallbackStaffTutorialContext;
   }
   return context;
 };

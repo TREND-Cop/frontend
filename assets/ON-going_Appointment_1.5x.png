@@ -5044,12 +5044,12 @@ border-radius: 2px;
           border: 1px solid #ebebf5;
           border-radius: 24px;
 
-            /* i would love for you to go gentle on my scalp (TEXT) */
+            /* leave a note for the staff (TEXT) */
             width: 311px;
             height: 20px;
             position: (x: 16px, y: 16px);
             background: #606066 (opacity: 0.9599999785423279);
-            text: "i would love for you to go gentle on my scalp";
+            text: "leave a note for the staff";
             font: 14px "SF Pro" (Regular);
             color: #606066;
             line-height: 20px;

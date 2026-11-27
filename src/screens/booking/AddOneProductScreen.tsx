@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getSafeBottomPadding } from '../../utils/safeArea';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ArrowLeft, Star, Maximize2, Check } from 'lucide-react-native';
 import { ShareIcon } from '../../components/ShareIcon';
 import { bookingStore } from '../../utils/bookingStore';
@@ -61,7 +61,7 @@ const INITIAL_PRODUCTS: ProductItem[] = [
 ];
 
 export const AddOneProductScreen = ({ navigation }: { navigation?: any }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const screenWidth = windowWidth || Dimensions.get('window').width || 390;
@@ -93,11 +93,11 @@ export const AddOneProductScreen = ({ navigation }: { navigation?: any }) => {
 
   const handleGoBack = () => {
     if (navigation?.canGoBack && navigation.canGoBack()) {
-      navigation.goBack();
-    } else if (router.canGoBack()) {
-      router.back();
+      safeRouter.back();
+    } else if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/booking-review' as any);
+      safeRouter.replace('/booking-review' as any);
     }
   };
 
@@ -115,14 +115,14 @@ export const AddOneProductScreen = ({ navigation }: { navigation?: any }) => {
       rating: p.rating ? p.rating.toFixed(1) : '4.8',
     }));
     previewStore.setPreviewImages(productImgs, 'Add-On Products', productItems, index);
-    router.push({
+    safeRouter.push({
       pathname: '/professional/gallery-preview',
       params: { index, initialIndex: index, source: 'products' },
     });
   };
 
   const handleReviewBooking = () => {
-    router.push('/booking-review');
+    safeRouter.push('/booking-review');
   };
 
   return (

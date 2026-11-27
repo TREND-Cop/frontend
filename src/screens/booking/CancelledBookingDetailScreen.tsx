@@ -8,7 +8,8 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { SafeImage } from '../../components/ui/SafeImage';
 import { bookingStore } from '../../utils/bookingStore';
@@ -149,7 +150,7 @@ const GoldStarIcon = ({ size = 16 }: { size?: number }) => (
 );
 
 export const CancelledBookingDetailScreen = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const bottomInset = Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16);
   const params = useLocalSearchParams();
@@ -167,7 +168,7 @@ export const CancelledBookingDetailScreen = () => {
   const cancellationNote = (params.note || 'Service provider cancelled your appointment') as string;
 
   const handleGoBack = () => {
-    router.replace('/home/bookings' as any);
+    safeRouter.replace('/home/bookings' as any);
   };
 
   const [showReportModal, setShowReportModal] = useState(false);
@@ -177,7 +178,7 @@ export const CancelledBookingDetailScreen = () => {
   };
 
   const handleReviewPress = () => {
-    router.push({
+    safeRouter.push({
       pathname: '/booked-appointment',
       params: {
         id: params.id,
@@ -214,7 +215,7 @@ export const CancelledBookingDetailScreen = () => {
     bookingStore.setDuration(duration);
     bookingStore.setRating(rating);
 
-    router.push({
+    safeRouter.push({
       pathname: '/appointment-time',
       params: {
         name: serviceName,
@@ -229,7 +230,7 @@ export const CancelledBookingDetailScreen = () => {
 
   const handleBookAgain = () => {
     const salonId = (params.salonId as string) || 'salon2';
-    router.push({
+    safeRouter.push({
       pathname: '/salon/[id]',
       params: { id: salonId, name: 'Luminous Lux' },
     } as any);
@@ -333,7 +334,7 @@ export const CancelledBookingDetailScreen = () => {
             style={styles.locationBanner}
             activeOpacity={0.8}
             onPress={() =>
-              router.push({
+              safeRouter.push({
                 pathname: '/salon/location',
                 params: {
                   salonId: (params.salonId as string) || 'salon2',

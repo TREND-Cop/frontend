@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ArrowLeft } from 'lucide-react-native';
 import { ShareIcon } from '../../components/ShareIcon';
 import { theme } from '../../constants/theme';
@@ -11,7 +12,7 @@ import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
 import { shareStore } from '../../utils/shareStore';
 
 export default function SeeAllScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   
   const sectionData = id ? SEE_ALL_SECTIONS[id] : null;
@@ -20,7 +21,7 @@ export default function SeeAllScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.headerButton} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)' as any)}>
+          <TouchableOpacity style={styles.headerButton} onPress={() => safeRouter.canGoBack() ? safeRouter.back() : safeRouter.replace('/(tabs)' as any)}>
             <ArrowLeft size={24} color={theme.colors.barberPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Section Not Found</Text>
@@ -33,7 +34,7 @@ export default function SeeAllScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerButton} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)' as any)}>
+        <TouchableOpacity style={styles.headerButton} onPress={() => safeRouter.canGoBack() ? safeRouter.back() : safeRouter.replace('/(tabs)' as any)}>
           <ArrowLeft size={24} color={theme.colors.barberPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{sectionData.title}</Text>
@@ -61,13 +62,13 @@ export default function SeeAllScreen() {
             onPress={() => {
               if (item.categories || item.reviews !== undefined || item.rank) {
                 // Salon card -> navigate to salon details
-                router.push({
+                safeRouter.push({
                   pathname: `/salon/${item.id}`,
                   params: { id: item.id, name: item.title || item.name },
                 } as any);
               } else {
                 // Service card -> navigate to style details
-                router.push({
+                safeRouter.push({
                   pathname: '/professional/style-details',
                   params: {
                     id: item.id,

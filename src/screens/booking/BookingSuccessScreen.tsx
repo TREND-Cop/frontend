@@ -9,46 +9,21 @@ import {
   Platform,
   Dimensions,
 } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
 import { SafeImage } from '../../components/ui/SafeImage';
-import {
-  RateFeedbackBottomSheet,
-  shouldShowPostBookingRatePrompt,
-} from '../../components/RateFeedbackBottomSheet';
 import { bookingStore } from '../../utils/bookingStore';
 import { typography } from '../../constants/theme';
 
 const CONFETTI_IMAGE = require('../../../assets/images/custom/booking_success_confetti.png');
 const CHARACTERS_IMAGE = require('../../../assets/images/custom/booking_success_characters.png');
 
-// Exact Figma arrow-left-02 icon
-const ArrowLeftIcon = ({ size = 24, color = '#141B34' }: { size?: number; color?: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M4.5 12H19.5"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <Path
-      d="M10 18C10 18 4.5 13.58 4.5 12C4.5 10.42 10 6 10 6"
-      stroke={color}
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
 export const BookingSuccessScreen = ({ navigation }: { navigation?: any }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams<{ appointmentId?: string }>();
   const insets = useSafeAreaInsets();
   const { height: screenHeight } = Dimensions.get('window');
-  const [showRateModal, setShowRateModal] = useState(false);
 
   // ── Native 60fps Animation Drivers ──
   const confettiScale = useRef(new Animated.Value(0.3)).current;
@@ -252,15 +227,6 @@ export const BookingSuccessScreen = ({ navigation }: { navigation?: any }) => {
     );
     swayLoop.start();
 
-    // Show rate modal after a short delay post-booking
-    const checkRatePrompt = async () => {
-      const shouldShow = await shouldShowPostBookingRatePrompt();
-      if (shouldShow) {
-        setTimeout(() => setShowRateModal(true), 2500);
-      }
-    };
-    checkRatePrompt();
-
     return () => {
       floatLoop.stop();
       tiltLoop.stop();
@@ -269,20 +235,15 @@ export const BookingSuccessScreen = ({ navigation }: { navigation?: any }) => {
     };
   }, []);
 
-  const handleGoBack = () => {
-    bookingStore.resetBookingSelections();
-    router.replace('/home');
-  };
-
   const handleViewAppointment = () => {
     bookingStore.resetBookingSelections();
     if (params.appointmentId) {
-      router.push({
+      safeRouter.push({
         pathname: '/appointment',
         params: { id: params.appointmentId },
       } as any);
     } else {
-      router.push('/appointment' as any);
+      safeRouter.push('/appointment' as any);
     }
   };
 
@@ -326,16 +287,6 @@ export const BookingSuccessScreen = ({ navigation }: { navigation?: any }) => {
           resizeMode="contain"
         />
       </Animated.View>
-
-      {/* ── Back Button (Figma: 48x48, radius 8px, left 16px, top 68px) ── */}
-      <TouchableOpacity
-        onPress={handleGoBack}
-        style={styles.backButton}
-        activeOpacity={0.7}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-      >
-        <ArrowLeftIcon size={24} color="#141B34" />
-      </TouchableOpacity>
 
       {/* ── Layer 2: Characters High-Five Illustration (Figma Rectangle 296: 213x153, top 130px) ── */}
       <Animated.View
@@ -396,15 +347,6 @@ export const BookingSuccessScreen = ({ navigation }: { navigation?: any }) => {
           <Text style={styles.actionBtnText}>View Appointment</Text>
         </TouchableOpacity>
       </Animated.View>
-
-      {/* ── Rate / Feedback Bottom Sheet ── */}
-      <RateFeedbackBottomSheet
-        visible={showRateModal}
-        onClose={() => setShowRateModal(false)}
-        onSubmit={(rating, feedback) => {
-          console.log('Rating submitted:', { rating, feedback });
-        }}
-      />
     </SafeAreaView>
   );
 };
@@ -431,19 +373,6 @@ const styles = StyleSheet.create({
   confettiImage: {
     width: 466,
     height: 308,
-  },
-
-  // ── Back Button (top 68px, left 16px, 48x48px, radius 8px, padding 12px) ──
-  backButton: {
-    position: 'absolute',
-    top: 68,
-    left: 16,
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
   },
 
   // ── Characters High-Five Illustration (Rectangle 296: 213x153, left calc(50% - 213px/2 + 0.5px), top 130px) ──

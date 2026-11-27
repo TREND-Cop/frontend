@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useServiceDraft } from '../../context/ServiceDraftContext';
 import { WizardStepper } from '../../components/wizard/WizardStepper';
@@ -41,12 +41,12 @@ function HelpCircleIcon({ size = 24 }: { size?: number }) {
 }
 
 export const ReviewPlaceholder: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { draft } = useServiceDraft();
 
   const handleBack = () => {
     triggerLightHaptic();
-    router.back();
+    safeRouter.back();
   };
 
   const hasAddOns = draft.addOns.length > 0;
@@ -67,7 +67,7 @@ export const ReviewPlaceholder: React.FC = () => {
         <TouchableOpacity
           activeOpacity={0.7}
           style={styles.headerButton}
-          onPress={() => router.push('/guide/general' as any)}
+          onPress={() => safeRouter.push('/guide/general' as any)}
           accessibilityLabel="Guide"
         >
           <HelpCircleIcon size={24} />

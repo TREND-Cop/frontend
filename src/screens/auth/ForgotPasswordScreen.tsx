@@ -16,9 +16,10 @@ import {
   Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { typography } from '../../constants/theme';
+import { setPendingAuthDraft } from '../../api/trendApi';
 
 // ── Back Arrow Icon (24x24 matching Figma arrow-left-02) ──
 const ArrowLeftIcon = ({
@@ -134,7 +135,7 @@ const GreenCheckmarkBadge = ({ size = 24 }: { size?: number }) => (
 );
 
 export const ForgotPasswordScreen = ({ navigation }: { navigation?: any }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   // ── Form State ──
   const [newPassword, setNewPassword] = useState('');
@@ -223,9 +224,9 @@ export const ForgotPasswordScreen = ({ navigation }: { navigation?: any }) => {
 
   const handleGoBack = () => {
     if (navigation?.goBack) {
-      navigation.goBack();
+      safeRouter.back();
     } else {
-      router.back();
+      safeRouter.back();
     }
   };
 
@@ -242,13 +243,15 @@ export const ForgotPasswordScreen = ({ navigation }: { navigation?: any }) => {
       return;
     }
 
+    setPendingAuthDraft({ resetPassword: newPassword });
+
     // Navigate to Account Verification method selection screen
     if (navigation?.navigate) {
       navigation.navigate('VerificationMethod');
     } else {
-      router.push('/verification-method');
+      safeRouter.push('/verification-method');
     }
-  }, [isNewPasswordValid, passwordsMatch, navigation, router]);
+  }, [isNewPasswordValid, passwordsMatch, newPassword, navigation, safeRouter]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>

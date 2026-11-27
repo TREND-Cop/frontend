@@ -11,8 +11,8 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { SimpleArrowLeftIcon } from '../../components/messages/MessageIcons';
+import { useSafeRouter } from '../../utils/safeNavigation';
+import { ArrowLeft } from 'lucide-react-native';
 import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { useStaffLoginStore } from '../../context/StaffLoginContext';
 import {
@@ -20,10 +20,11 @@ import {
   DEV_STAFF_REJECT_BUSINESS,
   MOCK_LOGIN_CHECK_DELAY_MS,
 } from '../../constants/staffLogin.config';
+import { trendApi, getAuthToken } from '../../api/trendApi';
 
 export function StaffLoginFormScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { setStaffDetails, clearStaffLogin } = useStaffLoginStore();
 
   const [fullName, setFullName] = useState('');
@@ -40,8 +41,8 @@ export function StaffLoginFormScreen() {
   const handleBack = useCallback(() => {
     // Clear the entered code on back so the staff member must enter it again per spec
     clearStaffLogin();
-    router.back();
-  }, [clearStaffLogin, router]);
+    safeRouter.back();
+  }, [clearStaffLogin, safeRouter]);
 
   const handleNameChange = useCallback((text: string) => {
     setFullName(text);
@@ -55,43 +56,52 @@ export function StaffLoginFormScreen() {
     if (isValid) setIsValid(false);
   }, [businessError, isValid]);
 
+  const isSubmittingRef = useRef(false);
+
   const handleLoginPress = useCallback(async () => {
     const trimmedName = fullName.trim();
     const trimmedBusiness = businessName.trim();
 
     // With either field empty, does nothing and shows no error per design
-    if (!trimmedName || !trimmedBusiness || isLoading) {
+    if (!trimmedName || !trimmedBusiness || isLoading || isSubmittingRef.current) {
       return;
     }
 
-    // Mock check: TODO (Backend) verify credentials with backend staff login endpoint
+    isSubmittingRef.current = true;
+
+    let hasError = false;
+    if (DEV_STAFF_REJECT_NAME) {
+      setNameError('Incorrect name input');
+      hasError = true;
+    }
+    if (DEV_STAFF_REJECT_BUSINESS) {
+      setBusinessError('Incorrect business name input');
+      hasError = true;
+    }
+
+    if (hasError) {
+      isSubmittingRef.current = false;
+      return;
+    }
+
+    setIsValid(true);
+    setStaffDetails(trimmedName, trimmedBusiness);
+    setIsLoading(true);
+
+    try {
+      const token = await getAuthToken('staff');
+      if (token) {
+        await trendApi.staff.completeOnboarding({ name: trimmedName });
+      }
+    } catch {
+      // Non-fatal onboarding sync error
+    }
+
     setTimeout(() => {
-      let hasError = false;
-
-      if (DEV_STAFF_REJECT_NAME) {
-        setNameError('Incorrect name input');
-        hasError = true;
-      }
-
-      if (DEV_STAFF_REJECT_BUSINESS) {
-        setNameError((prev) => prev); // keep previous
-        setBusinessError('Incorrect business name input');
-        hasError = true;
-      }
-
-      if (!hasError) {
-        // Both fields valid -> turn green, show dimmed 4-dot loader, then navigate to success
-        setIsValid(true);
-        setStaffDetails(trimmedName, trimmedBusiness);
-        setIsLoading(true);
-
-        setTimeout(() => {
-          setIsLoading(false);
-          router.replace('/staff-login-success' as any);
-        }, 1200);
-      }
-    }, MOCK_LOGIN_CHECK_DELAY_MS);
-  }, [fullName, businessName, isLoading, setStaffDetails, router]);
+      setIsLoading(false);
+      safeRouter.replace('/staff-login-success' as any);
+    }, Math.max(MOCK_LOGIN_CHECK_DELAY_MS, 600));
+  }, [fullName, businessName, isLoading, setStaffDetails, safeRouter]);
 
   const nameInputStyle = [
     styles.inputField,
@@ -127,9 +137,10 @@ export function StaffLoginFormScreen() {
             style={styles.backButtonTouch}
             onPress={handleBack}
             activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             accessibilityLabel="Go back to Staff Login Code"
           >
-            <SimpleArrowLeftIcon size={24} color="rgba(0, 8, 20, 0.96)" />
+            <ArrowLeft size={24} color="rgba(0, 8, 20, 0.96)" strokeWidth={2} />
           </TouchableOpacity>
         </View>
 
@@ -231,7 +242,7 @@ const styles = StyleSheet.create({
 
   // ── Header Row ──
   headerRow: {
-    height: 48,
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -241,7 +252,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     justifyContent: 'center',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
 
   scrollContainer: {
@@ -349,7 +360,11 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: 'auto',
     paddingTop: 32,
-    marginBottom: 8,
+    marginBottom: Platform.select({
+      android: 56,
+      ios: 40,
+      default: 48,
+    }),
   },
   loginButton: {
     width: '100%',

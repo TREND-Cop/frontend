@@ -1,34 +1,39 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
   TextInput,
+  ScrollView,
   Image,
   Platform,
   StatusBar,
-  Modal,
-  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
-import { DommyLoader } from '../../components/DommyLoader';
+import { useStaffStore, StaffMember } from '../../context/StaffContext';
 import {
-  useStaffStore,
-  useRecentStaffSearches,
-  StaffMember,
-  SUGGESTED_STAFF_GAVIN,
-} from '../../store/staffStore';
+  deriveStaffStatus,
+  DEV_STAFF_ONGOING_APPOINTMENTS,
+} from '../../constants/staffStatus.config';
+import {
+  RecentSearchStaffItem,
+  INITIAL_RECENT_SEARCHES,
+  findSuggestedStaffName,
+} from '../../constants/staffSearch.config';
+import { DeleteSearchConfirmModal } from '../../components/staff/DeleteSearchConfirmModal';
+import { triggerLightHaptic } from '../../utils/haptics';
 
-// ── Typography Mandate (AGENTS.md & onefile.txt) ──────────────────────────────
-const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
 const FONT_REGULAR = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular';
+const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
+const FONT_BUTTON = Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium';
 
-// ── 1:1 Vector Icons from onefile.txt ────────────────────────────────────────
+const SEARCH_NOT_FOUND_IMAGE = require('../../../assets/images/search_not_found.png');
+
+// ── 1:1 Vector Icons ────────────────────────────────────────────────────────
 
 function ArrowLeft02Icon({
   size = 24,
@@ -59,6 +64,35 @@ function ArrowLeft02Icon({
   );
 }
 
+function ArrowRight02Icon({
+  size = 24,
+  color = 'rgba(0, 8, 20, 0.96)',
+}: {
+  size?: number;
+  color?: string;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M14.43 5.93L20.5 12L14.43 18.07"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeMiterlimit={10}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M3.5 12H20.33"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeMiterlimit={10}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 function SearchIcon({ size = 24, color = '#000000' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -68,66 +102,92 @@ function SearchIcon({ size = 24, color = '#000000' }: { size?: number; color?: s
   );
 }
 
-function CloseCircleIcon({ size = 20, color = 'rgba(96, 96, 102, 0.96)' }: { size?: number; color?: string }) {
+function CancelIcon({
+  size = 20,
+  color = 'rgba(96, 96, 102, 0.96)',
+}: {
+  size?: number;
+  color?: string;
+}) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-      <Circle cx="10" cy="10" r="8" fill="rgba(192, 192, 204, 0.4)" />
-      <Path d="M7 7l6 6M13 7l-6 6" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M18 6L6 18M6 6l12 12"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
-/**
- * 1:1 Figma checkmark-circle-02 selection radio
- */
 function CheckmarkCircle02Icon({
-  selected,
+  checked = false,
   size = 24,
 }: {
-  selected: boolean;
+  checked?: boolean;
   size?: number;
 }) {
-  if (selected) {
+  if (checked) {
     return (
-      <View
-        style={{
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: 'rgba(0, 8, 20, 0.96)',
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        <Svg width={14} height={14} viewBox="0 0 14 14" fill="none">
-          <Path
-            d="M3 7.2l2.8 2.8L11 4.5"
-            stroke="#FFFFFF"
-            strokeWidth={1.5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </Svg>
-      </View>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Circle cx="12" cy="12" r="10" fill="rgba(12, 121, 12, 0.96)" />
+        <Path
+          d="M8 12l2.8 2.8L16 9.6"
+          stroke="#FFFFFF"
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
     );
   }
   return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        borderWidth: 1.5,
-        borderColor: 'rgba(192, 192, 204, 0.96)',
-        backgroundColor: 'transparent',
-      }}
-    />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke="rgba(192, 192, 204, 0.96)" strokeWidth={1.5} />
+    </Svg>
   );
 }
 
-/**
- * 1:1 Figma briefcase-06 Vector Icon
- */
+function StarGoldIcon({
+  size = 18,
+  color = 'rgba(248, 155, 24, 0.96)',
+}: {
+  size?: number;
+  color?: string;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <Path
+        d="M9 2.5l2.09 4.24 4.68.68-3.39 3.3 0.8 4.66L9 13.18l-4.18 2.2.8-4.66-3.39-3.3 4.68-.68L9 2.5z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
+function Time04Icon({
+  size = 18,
+  color = 'rgba(96, 96, 102, 0.96)',
+}: {
+  size?: number;
+  color?: string;
+}) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <Circle cx="9" cy="9" r="7.5" stroke={color} strokeWidth={1} />
+      <Path
+        d="M9 5.25v3.75l2.25 1.5"
+        stroke={color}
+        strokeWidth={1}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 function Briefcase06Icon({
   size = 16,
   color = 'rgba(12, 121, 12, 0.96)',
@@ -152,15 +212,18 @@ function Briefcase06Icon({
         stroke={color}
         strokeWidth={1}
       />
-      <Path d="M1.33 7.33h13.34" stroke={color} strokeWidth={1} />
-      <Path d="M7.83 7.67v.5h.34v-.5" stroke={color} strokeWidth={1} />
+      <Path d="M1.33 8h13.34" stroke={color} strokeWidth={1} strokeLinecap="round" />
+      <Path
+        d="M7 8v1.33h2V8"
+        stroke={color}
+        strokeWidth={1}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
-/**
- * 1:1 Figma famicons:fast-food-outline Vector Icon
- */
 function FastFoodOutlineIcon({
   size = 16,
   color = 'rgba(248, 155, 24, 0.96)',
@@ -171,43 +234,16 @@ function FastFoodOutlineIcon({
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M3 11c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6"
+        d="M4 11h16a1 1 0 011 1v1a7 7 0 01-7 7H10a7 7 0 01-7-7v-1a1 1 0 011-1z"
         stroke={color}
         strokeWidth={1.5}
-        strokeLinecap="round"
       />
-      <Path
-        d="M2.5 13.5h14"
-        stroke={color}
-        strokeWidth={1.5}
-        strokeLinecap="round"
-      />
-      <Path
-        d="M3.5 16.5c0 1.5 2.5 2.5 6 2.5s6-1 6-2.5"
-        stroke={color}
-        strokeWidth={1.5}
-        strokeLinecap="round"
-      />
-      <Path
-        d="M17 9l1.5 10.5a1 1 0 001 .9h1a1 1 0 001-.9L23 9H17z"
-        stroke={color}
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M20 9V4.5l-1.5-1.5"
-        stroke={color}
-        strokeWidth={1.5}
-        strokeLinecap="round"
-      />
+      <Path d="M5 11c0-4 3.5-7 7-7s7 3 7 7" stroke={color} strokeWidth={1.5} />
+      <Path d="M9 15h6" stroke={color} strokeWidth={1.5} strokeLinecap="round" />
     </Svg>
   );
 }
 
-/**
- * 1:1 Figma home-03 Vector Icon
- */
 function Home03Icon({
   size = 16,
   color = 'rgba(96, 96, 102, 0.96)',
@@ -218,14 +254,7 @@ function Home03Icon({
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"
-        stroke={color}
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M9 21V12h6v9"
+        d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1h-5v-6h-6v6H4a1 1 0 01-1-1v-9.5z"
         stroke={color}
         strokeWidth={1.5}
         strokeLinecap="round"
@@ -235,11 +264,8 @@ function Home03Icon({
   );
 }
 
-/**
- * 1:1 Figma seat-selector Vector Icon
- */
 function SeatSelectorIcon({
-  size = 16,
+  size = 20,
   color = 'rgba(12, 121, 12, 0.96)',
 }: {
   size?: number;
@@ -254,634 +280,496 @@ function SeatSelectorIcon({
         strokeLinecap="round"
       />
       <Path
-        d="M4 8.5v3a1 1 0 001 1h1.5"
+        d="M4 8.5v3a1 1 0 001 1h1.5M16 8.5v3a1 1 0 01-1 1h-1.5M6 12.5h8M10 12.5V17M6.5 17h7"
         stroke={color}
         strokeWidth={1.25}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Path
-        d="M16 8.5v3a1 1 0 01-1 1h-1.5"
-        stroke={color}
-        strokeWidth={1.25}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M6 12.5h8"
-        stroke={color}
-        strokeWidth={1.25}
-        strokeLinecap="round"
-      />
-      <Path
-        d="M10 12.5V17"
-        stroke={color}
-        strokeWidth={1.25}
-        strokeLinecap="round"
-      />
-      <Path
-        d="M6.5 17h7"
-        stroke={color}
-        strokeWidth={1.25}
-        strokeLinecap="round"
-      />
     </Svg>
-  );
-}
-
-function StarGoldIcon({
-  size = 16,
-  color = 'rgba(248, 155, 24, 0.96)',
-}: {
-  size?: number;
-  color?: string;
-}) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
-      <Path
-        d="M8 2.2l1.85 3.75 4.15.6-3 2.92.71 4.13L8 11.65l-3.71 1.95.71-4.13-3-2.92 4.15-.6L8 2.2z"
-        fill={color}
-      />
-    </Svg>
-  );
-}
-
-function AlertTriangleIcon({ size = 44 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 44 44" fill="none">
-      <Path
-        d="M20.268 7.00001C21.0378 5.66668 22.9622 5.66668 23.732 7.00001L39.3205 34C40.0903 35.3333 39.1281 37 37.5885 37H6.41154C4.87194 37 3.90969 35.3333 4.67949 34L20.268 7.00001Z"
-        fill="#F04438"
-      />
-      <Path
-        d="M22 16V25"
-        stroke="#FFFFFF"
-        strokeWidth={2.5}
-        strokeLinecap="round"
-      />
-      <Circle cx="22" cy="30" r="1.5" fill="#FFFFFF" />
-    </Svg>
-  );
-}
-
-function FourDotPulseLoader({
-  dotSize = 16,
-  spacing = 20,
-  color = 'rgba(0, 8, 20, 0.96)',
-}: {
-  dotSize?: number;
-  spacing?: number;
-  color?: string;
-}) {
-  const dot1 = useRef(new Animated.Value(0.4)).current;
-  const dot2 = useRef(new Animated.Value(0.4)).current;
-  const dot3 = useRef(new Animated.Value(0.4)).current;
-  const dot4 = useRef(new Animated.Value(0.4)).current;
-
-  React.useEffect(() => {
-    const createPulseAnimation = (animValue: Animated.Value, delay: number) => {
-      return Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.timing(animValue, {
-            toValue: 1,
-            duration: 350,
-            useNativeDriver: true,
-          }),
-          Animated.timing(animValue, {
-            toValue: 0.4,
-            duration: 350,
-            useNativeDriver: true,
-          }),
-          Animated.delay(Math.max(0, 600 - delay)),
-        ])
-      );
-    };
-
-    const a1 = createPulseAnimation(dot1, 0);
-    const a2 = createPulseAnimation(dot2, 150);
-    const a3 = createPulseAnimation(dot3, 300);
-    const a4 = createPulseAnimation(dot4, 450);
-
-    a1.start();
-    a2.start();
-    a3.start();
-    a4.start();
-
-    return () => {
-      a1.stop();
-      a2.stop();
-      a3.stop();
-      a4.stop();
-    };
-  }, [dot1, dot2, dot3, dot4]);
-
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing }}>
-      {[dot1, dot2, dot3, dot4].map((anim, i) => (
-        <Animated.View
-          key={i}
-          style={{
-            width: dotSize,
-            height: dotSize,
-            borderRadius: dotSize / 2,
-            backgroundColor: color,
-            opacity: anim,
-            transform: [
-              {
-                scale: anim.interpolate({
-                  inputRange: [0.4, 1],
-                  outputRange: [0.85, 1.1],
-                }),
-              },
-            ],
-          }}
-        />
-      ))}
-    </View>
   );
 }
 
 export function ProviderStaffSearchScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
+  const { staff: providerStaff } = useStaffStore();
+  const inputRef = useRef<TextInput>(null);
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isSearchLoading, setIsSearchLoading] = useState(false);
-  const searchTimeoutRef = useRef<any>(null);
+  const [recentSearches, setRecentSearches] = useState<RecentSearchStaffItem[]>(INITIAL_RECENT_SEARCHES);
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
+  const [selectedDeleteIds, setSelectedDeleteIds] = useState<string[]>([]);
+  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
 
-  const { staffList } = useStaffStore();
-  const { recentList, addRecentStaffSearch, deleteRecentStaffSearches } =
-    useRecentStaffSearches();
+  useEffect(() => {
+    // Focus search input on mount
+    const timer = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 150);
+    return () => clearTimeout(timer);
+  }, []);
 
-  const isSearching = searchQuery.trim().length > 0;
-
-  // Filtered staff results based on query
-  const searchResults = useMemo(() => {
-    if (!isSearching) return [];
-    const q = searchQuery.toLowerCase().trim();
-    return staffList.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.role.toLowerCase().includes(q) ||
-        s.status.toLowerCase().includes(q) ||
-        (s.service?.title && s.service.title.toLowerCase().includes(q))
-    );
-  }, [searchQuery, isSearching, staffList]);
-
-  // Suggested staff when search has no direct match (e.g. Gavin Nwosisi from Figma)
-  const suggestedStaff = useMemo(() => {
-    if (searchResults.length > 0) return null;
-    if (!isSearching) return null;
-    return SUGGESTED_STAFF_GAVIN;
-  }, [searchResults, isSearching]);
-
-  // Handle staff card click
-  const handleStaffPress = (staff: StaffMember) => {
-    if (isSelectionMode) {
-      toggleSelection(staff.id);
-      return;
-    }
-    addRecentStaffSearch(staff.id);
-    router.push({
-      pathname: '/staff-profile',
-      params: {
-        id: staff.id,
-        staffName: staff.name,
-        staffRole: staff.role,
-        staffStatus: staff.status,
-        staffHours: staff.hours || '8am - 10:30pm',
-      },
+  // Compute live matching staff
+  const staffWithStatus = useMemo(() => {
+    const defaultAvatars = [
+      require('../../../assets/images/profile/godwin_profile_avatar.png'),
+      require('../../../assets/images/profile/gavin_nwosis_avatar.png'),
+    ];
+    return providerStaff.map((member, index) => {
+      const derived = deriveStaffStatus(member, DEV_STAFF_ONGOING_APPOINTMENTS);
+      const photoUri = member.avatarUri || member.photoUri;
+      const photo = photoUri
+        ? (typeof photoUri === 'string' ? { uri: photoUri } : photoUri)
+        : defaultAvatars[index % defaultAvatars.length];
+      const roleText = member.role || (index % 2 === 0 ? 'Nail Artist' : 'Barber');
+      const hoursText =
+        member.workHours?.start && member.workHours?.end
+          ? `${member.workHours.start} - ${member.workHours.end}`
+          : '8am - 10pm';
+      return { member, photo, roleText, hoursText, derived };
     });
-  };
+  }, [providerStaff]);
 
-  // Selection mode toggles
-  const handleClearAllPress = () => {
-    setIsSelectionMode(true);
-    setSelectedIds([]);
-  };
-
-  const handleCancelSelectionMode = () => {
-    setIsSelectionMode(false);
-    setSelectedIds([]);
-  };
-
-  const toggleSelection = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return staffWithStatus.filter(
+      (item) =>
+        item.member.name.toLowerCase().includes(q) ||
+        item.roleText.toLowerCase().includes(q)
     );
-  };
+  }, [staffWithStatus, searchQuery]);
 
-  const handleSelectAll = () => {
-    if (selectedIds.length === recentList.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(recentList.map((s) => s.id));
-    }
-  };
+  // "Do you mean" suggestion
+  const suggestedName = useMemo(() => {
+    if (!searchQuery.trim() || searchResults.length > 0) return null;
+    return findSuggestedStaffName(searchQuery, providerStaff);
+  }, [searchQuery, searchResults.length, providerStaff]);
 
-  const handleDeleteSearchPress = () => {
-    if (selectedIds.length === 0) return;
-    setIsDeleteModalVisible(true);
+  // Multi-select toggle
+  const toggleSelectDelete = (id: string) => {
+    triggerLightHaptic();
+    setSelectedDeleteIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
   };
 
   const handleConfirmDelete = () => {
-    setIsDeleteModalVisible(false);
-    const toDelete = [...selectedIds];
-    setIsDeleting(true);
-
-    setTimeout(() => {
-      deleteRecentStaffSearches(toDelete);
-      setIsDeleting(false);
-      setSelectedIds([]);
-      if (recentList.length <= toDelete.length) {
-        setIsSelectionMode(false);
-      }
-    }, 600);
+    setRecentSearches((prev) => prev.filter((item) => !selectedDeleteIds.includes(item.id)));
+    setSelectedDeleteIds([]);
+    setIsDeleteMode(false);
+    setConfirmModalVisible(false);
   };
 
-  const renderStatusTag = (staff: StaffMember) => {
-    const code = staff.statusCode;
-    if (code === 'available') {
-      return (
-        <View style={[styles.statusTag, styles.statusTagAvailable]}>
-          <Briefcase06Icon size={16} color="rgba(12, 121, 12, 0.96)" />
-          <Text style={styles.statusTextAvailable}>Available For work</Text>
-        </View>
-      );
-    }
-    if (code === 'on_break') {
-      return (
-        <View style={[styles.statusTag, styles.statusTagLunch]}>
-          <FastFoodOutlineIcon size={16} color="rgba(248, 155, 24, 0.96)" />
-          <Text style={styles.statusTextLunch}>Lunch Break</Text>
-        </View>
-      );
-    }
-    if (code === 'closed') {
-      return (
-        <View style={[styles.statusTag, styles.statusTagClosed]}>
-          <Home03Icon size={16} color="rgba(96, 96, 102, 0.96)" />
-          <Text style={styles.statusTextClosed}>Closed</Text>
-        </View>
-      );
-    }
-    return (
-      <View style={[styles.statusTag, styles.statusTagAttending]}>
-        <SeatSelectorIcon size={16} color="rgba(12, 121, 12, 0.96)" />
-        <Text style={styles.statusTextAttending}>Attending to client</Text>
-      </View>
-    );
+  const handleStaffCardPress = (memberId: string, memberName: string) => {
+    triggerLightHaptic();
+    // Add to recent search
+    setRecentSearches((prev) => {
+      if (prev.some((r) => r.staffId === memberId)) return prev;
+      const matched = staffWithStatus.find((s) => s.member.id === memberId);
+      const newItem: RecentSearchStaffItem = {
+        id: `recent_${Date.now()}`,
+        staffId: memberId,
+        name: memberName,
+        role: matched?.roleText || 'Specialist',
+        hours: matched?.hoursText || '8am - 10pm',
+        avatar: matched?.photo || require('../../../assets/images/profile/godwin_profile_avatar.png'),
+        rating: '4.1',
+        timestamp: Date.now(),
+      };
+      return [newItem, ...prev].slice(0, 8);
+    });
+    // Navigate to staff profile
+    safeRouter.push({
+      pathname: '/staff-profile',
+      params: { id: memberId },
+    });
   };
 
-  const renderStaffCard = (staff: StaffMember) => {
-    const isSelected = selectedIds.includes(staff.id);
-
-    return (
-      <View key={staff.id} style={styles.cardRowContainer}>
-        {/* Checkbox when in selection mode (delete state in onefile.txt) */}
-        {isSelectionMode && (
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={styles.checkboxTouchTarget}
-            onPress={() => toggleSelection(staff.id)}
-          >
-            <CheckmarkCircle02Icon selected={isSelected} size={24} />
-          </TouchableOpacity>
-        )}
-
-        {/* 358x116px Staff Card */}
-        <TouchableOpacity
-          activeOpacity={0.88}
-          style={[styles.card, isSelectionMode && styles.cardInSelection]}
-          onPress={() => handleStaffPress(staff)}
-        >
-          <View style={styles.cardInner}>
-            {/* 80x80px Avatar (radius 16px) */}
-            <Image
-              source={staff.avatar}
-              style={styles.avatar}
-              resizeMode="cover"
-            />
-
-            {/* 230x84px Info Column */}
-            <View style={styles.infoColumn}>
-              {/* Row 1: Name */}
-              <View style={styles.nameRow}>
-                <Text style={styles.staffName} numberOfLines={1}>
-                  {staff.name}
-                </Text>
-              </View>
-
-              {/* Row 2: Role & Hours */}
-              <View style={styles.roleTimeRow}>
-                <Text style={styles.roleText}>{staff.role}</Text>
-                <View style={styles.dotSeparator} />
-                <Text style={styles.hoursText}>
-                  {staff.hours || '8am - 10pm'}
-                </Text>
-              </View>
-
-              {/* Row 3: Tag & Rate */}
-              <View style={styles.tagRateRow}>
-                {renderStatusTag(staff)}
-
-                <View style={styles.ratingContainer}>
-                  <StarGoldIcon size={16} />
-                  <Text style={styles.ratingText}>
-                    {staff.service?.rating || '4.1'}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        </TouchableOpacity>
-      </View>
-    );
+  const handleBusyCardPress = (memberId: string, memberName: string) => {
+    triggerLightHaptic();
+    setRecentSearches((prev) => {
+      if (prev.some((r) => r.staffId === memberId)) return prev;
+      const matched = staffWithStatus.find((s) => s.member.id === memberId);
+      const newItem: RecentSearchStaffItem = {
+        id: `recent_${Date.now()}`,
+        staffId: memberId,
+        name: memberName,
+        role: matched?.roleText || 'Specialist',
+        hours: matched?.hoursText || '8am - 10pm',
+        avatar: matched?.photo || require('../../../assets/images/profile/godwin_profile_avatar.png'),
+        rating: '4.1',
+        timestamp: Date.now(),
+      };
+      return [newItem, ...prev].slice(0, 8);
+    });
+    safeRouter.push({
+      pathname: '/staff-in-progress/[id]' as any,
+      params: { id: memberId },
+    });
   };
 
   return (
-    <SafeAreaView edges={['top']} style={styles.safeContainer}>
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* ── 1:1 Figma Search Header (72px, top: 44px) ── */}
-      <View style={styles.searchHeaderContainer}>
-        <View style={styles.searchHeaderRow}>
-          {/* Back button (48x48px, radius 24px) */}
+      {/* ── Search Header (Height 72px) ── */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          {/* Back Button (48×48) */}
           <TouchableOpacity
-            activeOpacity={0.8}
             style={styles.backButton}
-            onPress={() => {
-              if (isSelectionMode) {
-                setIsSelectionMode(false);
-              } else {
-                router.back();
-              }
-            }}
+            onPress={() => safeRouter.back()}
+            activeOpacity={0.7}
+            accessibilityLabel="Go back"
           >
             <ArrowLeft02Icon size={24} color="rgba(0, 8, 20, 0.96)" />
           </TouchableOpacity>
 
-          {/* Search Bar Input (288x48px, or 230x48px in Selection Mode) */}
-          <View
-            style={[
-              styles.searchBarContainer,
-              isSelectionMode && styles.searchBarContainerWithCancel,
-            ]}
-          >
-            <View style={styles.searchInputWrap}>
-              <SearchIcon size={24} color="#000000" />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search here.."
-                placeholderTextColor="rgba(96, 96, 102, 0.96)"
-                value={searchQuery}
-                onChangeText={(text) => {
-                  setSearchQuery(text);
-                  if (isSelectionMode) setIsSelectionMode(false);
-                  if (text.trim().length > 0) {
-                    setIsSearchLoading(true);
-                    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-                    searchTimeoutRef.current = setTimeout(() => {
-                      setIsSearchLoading(false);
-                    }, 600);
-                  } else {
-                    setIsSearchLoading(false);
-                  }
-                }}
-                autoFocus={true}
-                returnKeyType="search"
-              />
-            </View>
-            {isSearching && (
+          {/* Search Bar Input (288×48px) */}
+          <View style={styles.searchInputContainer}>
+            <SearchIcon size={24} color="#000000" />
+            <TextInput
+              ref={inputRef}
+              style={styles.textInput}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search staff here.."
+              placeholderTextColor="rgba(96, 96, 102, 0.96)"
+              returnKeyType="search"
+              autoCapitalize="words"
+            />
+            {searchQuery.length > 0 && (
               <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => {
-                  setSearchQuery('');
-                  setIsSearchLoading(false);
-                }}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => setSearchQuery('')}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                activeOpacity={0.7}
               >
-                <CloseCircleIcon size={20} color="rgba(96, 96, 102, 0.96)" />
+                <CancelIcon size={20} color="rgba(96, 96, 102, 0.96)" />
               </TouchableOpacity>
             )}
           </View>
-
-          {/* Cancel button in selection mode (cancel delete state in onefile.txt) */}
-          {isSelectionMode && (
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.cancelButton}
-              onPress={handleCancelSelectionMode}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          )}
         </View>
       </View>
 
-      {/* ── Main Scroll View ── */}
+      {/* ── Main Content Area ── */}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
       >
-        {/* ── State 1: Active Search Mode ── */}
-        {isSearching ? (
-          searchResults.length > 0 ? (
-            /* Search Matches Found */
-            <View>
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Search Results</Text>
-              </View>
-              {searchResults.map((staff) => renderStaffCard(staff))}
-
-              {/* 4-Dot Search Loader centered beneath results (matching b5.png) */}
-              {isSearchLoading && (
-                <View style={styles.searchLoaderContainer}>
-                  <FourDotPulseLoader dotSize={16} spacing={20} />
-                </View>
-              )}
-            </View>
-          ) : (
-            /* 1:1 Figma No Search Found with "You mean Gavin Nwosisi" */
-            <View style={styles.noSearchFoundContainer}>
-              {/* If still loading query, show 4-dot loader */}
-              {isSearchLoading ? (
-                <View style={styles.searchLoaderContainer}>
-                  <FourDotPulseLoader dotSize={16} spacing={20} />
-                </View>
-              ) : (
-                <>
-                  {/* 150x150px Illustration */}
-                  <Image
-                    source={require('../../../assets/images/appointments/empty_search_illustration.png')}
-                    style={styles.emptyIllustration}
-                    resizeMode="contain"
-                  />
-
-                  <Text style={styles.noSearchFoundTitle}>No Search found</Text>
-
-                  {suggestedStaff && (
-                    <View style={styles.youMeanContainer}>
-                      <Text style={styles.youMeanRegular}>You mean </Text>
-                      <TouchableOpacity
-                        activeOpacity={0.8}
-                        onPress={() => handleStaffPress(suggestedStaff)}
-                      >
-                        <Text style={styles.youMeanLink}>Gavin Nwosisi</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-
-                  {/* Display suggested staff card at top: 580px */}
-                  {suggestedStaff && (
-                    <View style={styles.suggestedStaffCardWrap}>
-                      {renderStaffCard(suggestedStaff)}
-                    </View>
-                  )}
-                </>
-              )}
-            </View>
-          )
-        ) : (
-          /* ── State 2: Recent Searches / Selection Mode ── */
-          recentList.length > 0 ? (
-            <View>
-              {/* Section Header (Recent Search + Clear all / Select all / Delete search) */}
-              <View style={styles.sectionHeaderRow}>
-                <Text style={styles.sectionTitle}>Recent Search</Text>
-
-                {!isSelectionMode ? (
-                  /* Normal mode: Clear all button (89x36px) */
+        {searchQuery.trim().length === 0 ? (
+          // ── CASE A: RECENT SEARCHES OR EMPTY SEARCH HISTORY ──
+          recentSearches.length > 0 ? (
+            <View style={styles.sectionContainer}>
+              {/* Section Header: 'Recent Search' + 'Clear all' / 'Cancel' */}
+              <View style={styles.recentHeaderRow}>
+                <Text style={styles.recentHeaderTitle}>Recent Search</Text>
+                {isDeleteMode ? (
                   <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={styles.clearAllButton}
-                    onPress={handleClearAllPress}
+                    style={styles.cancelDeleteBtn}
+                    onPress={() => {
+                      triggerLightHaptic();
+                      setIsDeleteMode(false);
+                      setSelectedDeleteIds([]);
+                    }}
+                    activeOpacity={0.7}
                   >
-                    <Text style={styles.clearAllText}>Clear all</Text>
-                  </TouchableOpacity>
-                ) : selectedIds.length === 0 ? (
-                  /* Selection mode with 0 items: Select all */
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    style={styles.selectAllButton}
-                    onPress={handleSelectAll}
-                  >
-                    <Text style={styles.selectAllText}>Select all</Text>
+                    <Text style={styles.cancelDeleteText}>Cancel</Text>
                   </TouchableOpacity>
                 ) : (
-                  /* Selection mode with >= 1 items: Delete search (in Red) */
                   <TouchableOpacity
+                    style={styles.clearAllBtn}
+                    onPress={() => {
+                      triggerLightHaptic();
+                      setIsDeleteMode(true);
+                      setSelectedDeleteIds([]);
+                    }}
                     activeOpacity={0.8}
-                    style={styles.deleteSearchButton}
-                    onPress={handleDeleteSearchPress}
                   >
-                    <Text style={styles.deleteSearchText}>Delete search</Text>
+                    <Text style={styles.clearAllText}>Clear all</Text>
                   </TouchableOpacity>
                 )}
               </View>
 
-              {/* List of Recent Staff */}
-              {recentList.map((staff) => renderStaffCard(staff))}
+              {/* Recent Staff Cards List (40px gap) */}
+              <View style={styles.cardsList}>
+                {recentSearches.map((item) => {
+                  const isChecked = selectedDeleteIds.includes(item.id);
+                  return (
+                    <View key={item.id} style={styles.recentItemRow}>
+                      {isDeleteMode && (
+                        <TouchableOpacity
+                          style={styles.checkboxTouch}
+                          onPress={() => toggleSelectDelete(item.id)}
+                          activeOpacity={0.8}
+                        >
+                          <CheckmarkCircle02Icon checked={isChecked} size={24} />
+                        </TouchableOpacity>
+                      )}
+
+                      <TouchableOpacity
+                        style={[
+                          styles.compactCard,
+                          isDeleteMode && styles.compactCardWithSelect,
+                        ]}
+                        activeOpacity={0.85}
+                        onPress={() => {
+                          if (isDeleteMode) {
+                            toggleSelectDelete(item.id);
+                          } else {
+                            handleStaffCardPress(item.staffId, item.name);
+                          }
+                        }}
+                      >
+                        <Image source={item.avatar} style={styles.compactAvatar} resizeMode="cover" />
+                        <View style={styles.compactInfoCol}>
+                          <Text style={styles.compactName} numberOfLines={1}>
+                            {item.name}
+                          </Text>
+                          <View style={styles.compactFieldTimeRow}>
+                            <Text style={styles.compactRole} numberOfLines={1}>
+                              {item.role}
+                            </Text>
+                            <View style={styles.compactDot} />
+                            <Text style={styles.compactHours} numberOfLines={1}>
+                              {item.hours}
+                            </Text>
+                          </View>
+                          <View style={styles.compactTagRateRow}>
+                            <View style={styles.availableChip}>
+                              <Briefcase06Icon size={16} color="rgba(12, 121, 12, 0.96)" />
+                              <Text style={styles.availableChipText}>Available For work</Text>
+                            </View>
+                            <View style={styles.compactRatingRow}>
+                              <StarGoldIcon size={16} color="rgba(248, 155, 24, 0.96)" />
+                              <Text style={styles.compactRatingText}>{item.rating}</Text>
+                            </View>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </View>
+
+              {/* Bottom Delete Search Action Button in Delete Mode */}
+              {isDeleteMode && selectedDeleteIds.length > 0 && (
+                <View style={styles.deleteBarContainer}>
+                  <TouchableOpacity
+                    style={styles.deleteSearchActionBtn}
+                    onPress={() => {
+                      triggerLightHaptic();
+                      setConfirmModalVisible(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.deleteSearchActionText}>
+                      Delete search ({selectedDeleteIds.length})
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           ) : (
-            /* 1:1 Figma Empty Search State: No Search history (Screenshot 1) */
+            // ── EMPTY SEARCH HISTORY STATE ──
             <View style={styles.emptyHistoryContainer}>
               <Image
-                source={require('../../../assets/images/appointments/empty_search_illustration.png')}
+                source={SEARCH_NOT_FOUND_IMAGE}
                 style={styles.emptyIllustration}
                 resizeMode="contain"
               />
               <Text style={styles.emptyHistoryTitle}>No Search history</Text>
               <Text style={styles.emptyHistorySubtitle}>
-                Type on the box above to search
+                Type on search box above to search for staffs
+              </Text>
+            </View>
+          )
+        ) : (
+          // ── CASE B: LIVE SEARCH RESULTS ──
+          searchResults.length > 0 ? (
+            <View style={styles.cardsList}>
+              {searchResults.map((item) => {
+                const { member, photo, roleText, hoursText, derived } = item;
+
+                // Busy Card
+                if (derived.status === 'busy') {
+                  const serviceInfo = derived.ongoingService || {
+                    title: 'Hair wash',
+                    photo: require('../../../assets/images/appointments/hair_cut.jpg'),
+                    rating: '3.5',
+                    duration: '1hr',
+                    price: '₦22,700',
+                  };
+
+                  return (
+                    <TouchableOpacity
+                      key={member.id}
+                      style={styles.busyCard}
+                      activeOpacity={0.85}
+                      onPress={() => handleBusyCardPress(member.id, member.name)}
+                    >
+                      <View style={styles.busyTopRow}>
+                        <Image source={photo} style={styles.busyAvatar} resizeMode="cover" />
+                        <View style={styles.busyNameCol}>
+                          <Text style={styles.busyNameText} numberOfLines={1}>
+                            {member.name}
+                          </Text>
+                          <Text style={styles.busyRoleText} numberOfLines={1}>
+                            {roleText}
+                          </Text>
+                        </View>
+                        <View style={styles.busyChip}>
+                          <SeatSelectorIcon size={20} color="rgba(12, 121, 12, 0.96)" />
+                          <Text style={styles.busyChipText}>Busy</Text>
+                        </View>
+                      </View>
+                      <View style={styles.cardDivider} />
+                      <View style={styles.busyServiceRow}>
+                        <Image source={serviceInfo.photo} style={styles.servicePhoto} resizeMode="cover" />
+                        <View style={styles.serviceInfoCol}>
+                          <Text style={styles.serviceTitle} numberOfLines={1}>
+                            {serviceInfo.title}
+                          </Text>
+                          <View style={styles.serviceRatingDurationRow}>
+                            <View style={styles.serviceRatingBadge}>
+                              <StarGoldIcon size={16} color="rgba(248, 155, 24, 0.96)" />
+                              <Text style={styles.serviceRatingText}>{serviceInfo.rating}</Text>
+                            </View>
+                            <View style={styles.serviceDurationBadge}>
+                              <Time04Icon size={16} color="rgba(96, 96, 102, 0.96)" />
+                              <Text style={styles.serviceDurationText}>{serviceInfo.duration}</Text>
+                            </View>
+                          </View>
+                          <Text style={styles.servicePrice}>{serviceInfo.price}</Text>
+                        </View>
+                        <View style={styles.arrowButton}>
+                          <ArrowRight02Icon size={24} color="rgba(0, 8, 20, 0.96)" />
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }
+
+                // Compact Card
+                return (
+                  <TouchableOpacity
+                    key={member.id}
+                    style={styles.compactCard}
+                    activeOpacity={0.85}
+                    onPress={() => handleStaffCardPress(member.id, member.name)}
+                  >
+                    <Image source={photo} style={styles.compactAvatar} resizeMode="cover" />
+                    <View style={styles.compactInfoCol}>
+                      <Text style={styles.compactName} numberOfLines={1}>
+                        {member.name}
+                      </Text>
+                      <View style={styles.compactFieldTimeRow}>
+                        <Text style={styles.compactRole} numberOfLines={1}>
+                          {roleText}
+                        </Text>
+                        <View style={styles.compactDot} />
+                        <Text style={styles.compactHours} numberOfLines={1}>
+                          {hoursText}
+                        </Text>
+                      </View>
+                      <View style={styles.compactTagRateRow}>
+                        {derived.status === 'available' && (
+                          <View style={styles.availableChip}>
+                            <Briefcase06Icon size={16} color="rgba(12, 121, 12, 0.96)" />
+                            <Text style={styles.availableChipText}>Available For work</Text>
+                          </View>
+                        )}
+                        {derived.status === 'on_break' && (
+                          <View style={styles.lunchBreakChip}>
+                            <FastFoodOutlineIcon size={16} color="rgba(248, 155, 24, 0.96)" />
+                            <Text style={styles.lunchBreakChipText}>Lunch Break</Text>
+                          </View>
+                        )}
+                        {derived.status === 'closed' && (
+                          <View style={styles.closedChip}>
+                            <Home03Icon size={16} color="rgba(96, 96, 102, 0.96)" />
+                            <Text style={styles.closedChipText}>Closed</Text>
+                          </View>
+                        )}
+                        <View style={styles.compactRatingRow}>
+                          <StarGoldIcon size={16} color="rgba(248, 155, 24, 0.96)" />
+                          <Text style={styles.compactRatingText}>4.1</Text>
+                        </View>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : suggestedName ? (
+            // ── DO YOU MEAN SUGGESTION ──
+            <View style={styles.suggestedContainer}>
+              <View style={styles.suggestedRow}>
+                <Text style={styles.doYouMeanLabel}>Do you mean</Text>
+                <TouchableOpacity
+                  style={styles.suggestedTag}
+                  onPress={() => {
+                    triggerLightHaptic();
+                    setSearchQuery(suggestedName);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.suggestedText}>{suggestedName}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            // ── NO RESULTS FOUND ──
+            <View style={styles.emptyHistoryContainer}>
+              <Image
+                source={SEARCH_NOT_FOUND_IMAGE}
+                style={styles.emptyIllustration}
+                resizeMode="contain"
+              />
+              <Text style={styles.emptyHistoryTitle}>No Staff Found</Text>
+              <Text style={styles.emptyHistorySubtitle}>
+                No staff members match "{searchQuery}"
               </Text>
             </View>
           )
         )}
       </ScrollView>
 
-      {/* ── 1:1 Figma Delete Search Warning Modal (matching modal_zoom.png) ── */}
-      <Modal
-        visible={isDeleteModalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setIsDeleteModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.deleteModalContainer}>
-            {/* Warning Triangle Icon */}
-            <View style={styles.modalIconWrap}>
-              <AlertTriangleIcon size={44} />
-            </View>
+      {/* ── Native Dock Protection Spacer ── */}
+      <NativeDockSpacer />
 
-            {/* Warning Text Block */}
-            <View style={styles.modalTextWrap}>
-              <Text style={styles.modalTitle}>Delete this search?</Text>
-              <Text style={styles.modalBody}>
-                Deleting your search history will permanently erase all previous search.
-              </Text>
-            </View>
-
-            {/* Action Buttons Row */}
-            <View style={styles.modalButtonsRow}>
-              {/* Yes, Delete button (Red) */}
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={styles.modalDeleteButton}
-                onPress={handleConfirmDelete}
-              >
-                <Text style={styles.modalDeleteText}>Yes, Delete</Text>
-              </TouchableOpacity>
-
-              {/* No, Cancel it button */}
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={styles.modalCancelButton}
-                onPress={() => setIsDeleteModalVisible(false)}
-              >
-                <Text style={styles.modalCancelText}>No, Cancel it.</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── Standard Full-Screen Transition Loader ── */}
-      <DommyLoader visible={isDeleting} />
-
-      {/* ── Android Native System Dock Barrier ── */}
-      <NativeDockSpacer backgroundColor="#FFFFFF" />
+      {/* ── Delete Confirmation Modal ── */}
+      <DeleteSearchConfirmModal
+        visible={confirmModalVisible}
+        onClose={() => setConfirmModalVisible(false)}
+        onConfirm={handleConfirmDelete}
+        count={selectedDeleteIds.length}
+      />
     </SafeAreaView>
   );
 }
 
-export default ProviderStaffSearchScreen;
-
-// ── 1:1 Converter Output Stylesheet from onefile.txt ─────────────────────────
-
 const styles = StyleSheet.create({
-  safeContainer: {
+  safeArea: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  searchHeaderContainer: {
+  header: {
     height: 72,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
     backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(235, 235, 245, 0.96)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     justifyContent: 'center',
   },
-  searchHeaderRow: {
+  headerContent: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    width: '100%',
-    gap: 12,
+    gap: 16,
   },
   backButton: {
     width: 48,
@@ -889,81 +777,59 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
   },
-  searchBarContainer: {
+  searchInputContainer: {
     flex: 1,
     height: 48,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: 'rgba(192, 192, 204, 0.96)',
-    borderRadius: 24,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
-  },
-  searchBarContainerWithCancel: {
-    flex: 1,
-  },
-  searchInputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
-    gap: 10,
+    paddingHorizontal: 16,
+    gap: 12,
   },
-  searchInput: {
+  textInput: {
     flex: 1,
     fontFamily: FONT_REGULAR,
     fontSize: 16,
     lineHeight: 24,
-    letterSpacing: 0.4,
     color: 'rgba(0, 8, 20, 0.96)',
-    paddingVertical: 0,
-  },
-  cancelButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontFamily: FONT_REGULAR,
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: 0.4,
-    color: 'rgba(0, 8, 20, 0.96)',
-    textAlign: 'center',
+    padding: 0,
   },
   scrollView: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
+    alignItems: 'center',
   },
-  sectionHeaderRow: {
+  sectionContainer: {
+    width: 358,
+  },
+  recentHeaderRow: {
+    width: 358,
+    height: 36,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    height: 36,
-    marginBottom: 20,
+    marginBottom: 24,
   },
-  sectionTitle: {
+  recentHeaderTitle: {
     fontFamily: FONT_MEDIUM,
     fontSize: 20,
     lineHeight: 28,
     letterSpacing: 0.2,
     color: '#000000',
   },
-  clearAllButton: {
-    width: 89,
+  clearAllBtn: {
     height: 36,
-    paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: 'rgba(248, 249, 250, 0.98)',
     borderRadius: 24,
+    backgroundColor: 'rgba(248, 249, 250, 0.98)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -974,187 +840,61 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     color: 'rgba(0, 8, 20, 0.96)',
   },
-  selectAllButton: {
-    paddingVertical: 8,
+  cancelDeleteBtn: {
+    height: 40,
     paddingHorizontal: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  selectAllText: {
+  cancelDeleteText: {
     fontFamily: FONT_REGULAR,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 16,
+    lineHeight: 24,
     letterSpacing: 0.4,
     color: 'rgba(0, 8, 20, 0.96)',
   },
-  deleteSearchButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+  cardsList: {
+    width: 358,
+    gap: 40,
+  },
+  recentItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    width: '100%',
+  },
+  checkboxTouch: {
+    padding: 4,
+  },
+  compactCardWithSelect: {
+    flex: 1,
+    width: 'auto',
+  },
+  deleteBarContainer: {
+    width: 358,
+    alignItems: 'center',
+    marginTop: 32,
+  },
+  deleteSearchActionBtn: {
+    height: 36,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    backgroundColor: 'rgba(248, 249, 250, 0.98)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  deleteSearchText: {
+  deleteSearchActionText: {
     fontFamily: FONT_REGULAR,
     fontSize: 14,
     lineHeight: 20,
     letterSpacing: 0.4,
     color: 'rgba(204, 41, 41, 0.9)',
   },
-  cardRowContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 16,
-  },
-  checkboxTouchTarget: {
-    paddingRight: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  card: {
-    flex: 1,
-    height: 116,
-    backgroundColor: 'rgba(247, 247, 247, 0.96)',
-    borderWidth: 1,
-    borderColor: 'rgba(235, 235, 245, 0.96)',
-    borderRadius: 24,
-    padding: 16,
-  },
-  cardInSelection: {
-    flex: 1,
-  },
-  cardInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 84,
-    width: '100%',
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 16,
-    backgroundColor: '#EAEAEA',
-  },
-  infoColumn: {
-    flex: 1,
-    height: 84,
-    marginLeft: 16,
-    justifyContent: 'space-between',
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 24,
-  },
-  staffName: {
-    fontFamily: FONT_REGULAR,
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: 0.4,
-    color: '#000000',
-  },
-  roleTimeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 20,
-    gap: 8,
-  },
-  roleText: {
-    fontFamily: FONT_REGULAR,
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 0.4,
-    color: 'rgba(96, 96, 102, 0.96)',
-  },
-  dotSeparator: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: 'rgba(192, 192, 204, 0.96)',
-  },
-  hoursText: {
-    fontFamily: FONT_REGULAR,
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 0.4,
-    color: 'rgba(96, 96, 102, 0.96)',
-  },
-  tagRateRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    height: 24,
-  },
-  statusTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 16,
-    gap: 8,
-    height: 24,
-  },
-  statusTagAvailable: {
-    backgroundColor: 'rgba(238, 248, 238, 0.8)',
-  },
-  statusTagLunch: {
-    backgroundColor: 'rgba(246, 240, 230, 0.96)',
-  },
-  statusTagClosed: {
-    backgroundColor: 'rgba(229, 229, 229, 0.8)',
-  },
-  statusTagAttending: {
-    backgroundColor: 'rgba(238, 248, 238, 0.8)',
-  },
-  statusTextAvailable: {
-    fontFamily: FONT_REGULAR,
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 0.4,
-    color: 'rgba(12, 121, 12, 0.96)',
-  },
-  statusTextLunch: {
-    fontFamily: FONT_REGULAR,
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 0.4,
-    color: 'rgba(248, 155, 24, 0.96)',
-  },
-  statusTextClosed: {
-    fontFamily: FONT_REGULAR,
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 0.4,
-    color: 'rgba(96, 96, 102, 0.96)',
-  },
-  statusTextAttending: {
-    fontFamily: FONT_REGULAR,
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 0.4,
-    color: 'rgba(12, 121, 12, 0.96)',
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  ratingText: {
-    fontFamily: FONT_REGULAR,
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 0.4,
-    color: 'rgba(96, 96, 102, 0.96)',
-  },
-  loaderContainer: {
-    paddingVertical: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  /* 1:1 Figma Empty Search State (matching Screenshot 1) */
   emptyHistoryContainer: {
+    width: 358,
     alignItems: 'center',
-    paddingTop: 136,
+    marginTop: 64,
+    gap: 16,
   },
   emptyIllustration: {
     width: 150,
@@ -1167,8 +907,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     color: '#000000',
     textAlign: 'center',
-    marginTop: 16,
-    width: 150,
   },
   emptyHistorySubtitle: {
     fontFamily: FONT_REGULAR,
@@ -1177,148 +915,291 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
     textAlign: 'center',
-    marginTop: 16,
-    width: 258,
+    width: 285,
   },
-  /* 1:1 Figma No Search Found State (matching Screenshot 2) */
-  noSearchFoundContainer: {
+  suggestedContainer: {
+    width: 358,
     alignItems: 'center',
-    paddingTop: 111,
+    marginTop: 48,
   },
-  noSearchFoundTitle: {
-    fontFamily: FONT_REGULAR,
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: 0.4,
-    color: '#000000',
-    textAlign: 'center',
-    marginTop: 16,
-    width: 150,
-  },
-  youMeanContainer: {
+  suggestedRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 25,
-    height: 24,
+    gap: 8,
   },
-  youMeanRegular: {
+  doYouMeanLabel: {
     fontFamily: FONT_REGULAR,
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: 0.4,
     color: '#000000',
   },
-  youMeanLink: {
+  suggestedTag: {
+    height: 32,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  suggestedText: {
     fontFamily: FONT_REGULAR,
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: 0.4,
-    color: '#1A82FF',
-    textDecorationLine: 'underline',
-  },
-  suggestedStaffCardWrap: {
-    width: '100%',
-    marginTop: 114,
-  },
-  searchLoaderContainer: {
-    paddingVertical: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  /* 1:1 Figma Delete Warning Modal (matching modal_zoom.png) */
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 8, 20, 0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  deleteModalContainer: {
-    width: '100%',
-    maxWidth: 326,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    paddingTop: 24,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 8,
-  },
-  modalIconWrap: {
-    marginBottom: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalTextWrap: {
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  modalTitle: {
-    fontFamily: FONT_MEDIUM,
-    fontSize: 20,
-    lineHeight: 28,
-    letterSpacing: 0.2,
     color: 'rgba(0, 8, 20, 0.96)',
-    textAlign: 'center',
-    marginBottom: 8,
   },
-  modalBody: {
-    fontFamily: FONT_REGULAR,
+
+  /* ── 1:1 BUSY CARD (Large 358×208) ── */
+  busyCard: {
+    width: 358,
+    height: 208,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(235, 235, 245, 0.96)',
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    padding: 16,
+  },
+  busyTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 40,
+    width: '100%',
+  },
+  busyAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 24,
+  },
+  busyNameCol: {
+    flex: 1,
+    marginLeft: 16,
+    justifyContent: 'center',
+  },
+  busyNameText: {
+    fontFamily: FONT_MEDIUM,
     fontSize: 16,
     lineHeight: 24,
+    letterSpacing: 0.4,
+    color: 'rgba(0, 8, 20, 0.96)',
+  },
+  busyRoleText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.5,
+    color: 'rgba(96, 96, 102, 0.96)',
+  },
+  busyChip: {
+    height: 24,
+    borderRadius: 16,
+    backgroundColor: 'rgba(238, 248, 238, 0.8)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    gap: 8,
+  },
+  busyChipText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0.5,
+    color: 'rgba(12, 121, 12, 0.96)',
+  },
+  cardDivider: {
+    width: '100%',
+    height: 1,
+    backgroundColor: 'rgba(235, 235, 245, 0.96)',
+    marginTop: 16,
+    marginBottom: 16,
+  },
+  busyServiceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 72,
+    width: '100%',
+  },
+  servicePhoto: {
+    width: 72,
+    height: 72,
+    borderRadius: 16,
+  },
+  serviceInfoCol: {
+    flex: 1,
+    marginLeft: 16,
+    justifyContent: 'center',
+  },
+  serviceTitle: {
+    fontFamily: FONT_MEDIUM,
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.4,
+    color: 'rgba(0, 8, 20, 0.96)',
+  },
+  serviceRatingDurationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 4,
+  },
+  serviceRatingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  serviceRatingText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.5,
+    color: 'rgba(96, 96, 102, 0.96)',
+  },
+  serviceDurationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  serviceDurationText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.5,
+    color: 'rgba(96, 96, 102, 0.96)',
+  },
+  servicePrice: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.5,
+    color: 'rgba(0, 8, 20, 0.96)',
+    marginTop: 4,
+  },
+  arrowButton: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  /* ── 1:1 COMPACT CARD (358×116) ── */
+  compactCard: {
+    width: 358,
+    height: 116,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(235, 235, 245, 0.96)',
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  compactAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 16,
+  },
+  compactInfoCol: {
+    flex: 1,
+    marginLeft: 16,
+    justifyContent: 'center',
+  },
+  compactName: {
+    fontFamily: FONT_MEDIUM,
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.4,
+    color: '#000000',
+  },
+  compactFieldTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  compactRole: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 14,
+    lineHeight: 20,
     letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
-    textAlign: 'center',
-    paddingHorizontal: 4,
   },
-  modalButtonsRow: {
+  compactDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: 'rgba(192, 192, 204, 0.96)',
+    marginHorizontal: 8,
+  },
+  compactHours: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.4,
+    color: 'rgba(96, 96, 102, 0.96)',
+  },
+  compactTagRateRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  availableChip: {
+    height: 24,
+    borderRadius: 16,
+    backgroundColor: 'rgba(238, 248, 238, 0.8)',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    gap: 12,
+    paddingHorizontal: 8,
+    gap: 8,
   },
-  modalDeleteButton: {
-    flex: 1,
-    height: 44,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(235, 235, 245, 0.96)',
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
+  availableChipText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0.5,
+    color: 'rgba(12, 121, 12, 0.96)',
+  },
+  lunchBreakChip: {
+    height: 24,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 248, 235, 0.96)',
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 8,
+    gap: 8,
   },
-  modalDeleteText: {
+  lunchBreakChipText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0.5,
+    color: 'rgba(248, 155, 24, 0.96)',
+  },
+  closedChip: {
+    height: 24,
+    borderRadius: 16,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    gap: 8,
+  },
+  closedChipText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: 0.5,
+    color: 'rgba(96, 96, 102, 0.96)',
+  },
+  compactRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  compactRatingText: {
     fontFamily: FONT_REGULAR,
     fontSize: 14,
     lineHeight: 20,
-    letterSpacing: 0.2,
-    color: 'rgba(204, 41, 41, 0.96)',
-    textAlign: 'center',
-  },
-  modalCancelButton: {
-    flex: 1,
-    height: 44,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(235, 235, 245, 0.96)',
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalCancelText: {
-    fontFamily: FONT_REGULAR,
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 0.2,
+    letterSpacing: 0.4,
     color: 'rgba(0, 8, 20, 0.96)',
-    textAlign: 'center',
   },
 });

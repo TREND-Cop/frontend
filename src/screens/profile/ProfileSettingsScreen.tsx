@@ -5,28 +5,28 @@ import { Platform, View,
   TouchableOpacity,
   ScrollView, } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ArrowLeft } from 'lucide-react-native';
 import { ProfileChevronRight } from '../../components/profile/ProfileIcons';
 import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
 
 export const ProfileSettingsScreen = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
+    if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/profile' as any);
+      safeRouter.replace('/profile' as any);
     }
   };
 
   const handleChangeUsername = () => {
-    router.push('/change-username' as any);
+    safeRouter.push('/change-username' as any);
   };
 
   const handleChangeProfilePhoto = () => {
-    router.push('/change-profile-photo');
+    safeRouter.push('/change-profile-photo');
   };
 
   return (

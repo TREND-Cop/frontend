@@ -14,7 +14,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, MessageSquare, Mail, AlertCircle } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 
 // ── Star Loading Indicator (Figma: Star 3, 72x72px) ──
 const StarLoadingIcon = ({ size = 72, color = 'rgba(0, 8, 20, 0.96)' }: { size?: number; color?: string }) => (
@@ -39,7 +40,7 @@ const formatCountdown = (seconds: number): string => {
 };
 
 export const ProfileOtpVerificationScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { updateProfile } = useUserContext();
   const params = useLocalSearchParams<{
     method?: string;
@@ -179,9 +180,9 @@ export const ProfileOtpVerificationScreen: React.FC = () => {
       }
 
       // In-app profile flow returns cleanly to profile screen
-      router.replace('/profile' as any);
+      safeRouter.replace('/profile' as any);
     }, 1500);
-  }, [allDigitsEntered, otp, router, params, updateProfile]);
+  }, [allDigitsEntered, otp, safeRouter, params, updateProfile]);
 
   const handleResend = useCallback(() => {
     if (isTimerRunning) return;
@@ -192,10 +193,10 @@ export const ProfileOtpVerificationScreen: React.FC = () => {
   }, [isTimerRunning]);
 
   const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
+    if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/profile' as any);
+      safeRouter.replace('/profile' as any);
     }
   };
 

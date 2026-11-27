@@ -12,13 +12,14 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 import { useProviderOnboarding } from '../../context/ProviderOnboardingContext';
 import { OtpInput, OtpStatus, OTP_LENGTH } from '../../components/OtpInput';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 import { verifyOtp, requestOtp } from '../../constants/otp.mock';
 import { OTP_RESEND_COUNTDOWN_SECONDS } from '../../constants/onboarding.config';
+import { trendApi } from '../../api/trendApi';
 
 // Typography matching Golden Rules & Provider Platform Typography Mandate
 const FONT_SEMIBOLD = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_600SemiBold';
@@ -69,7 +70,7 @@ function formatCountdown(seconds: number): string {
 }
 
 export const BusinessOtpScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { ownerProfile } = useProviderOnboarding();
 
@@ -126,18 +127,30 @@ export const BusinessOtpScreen: React.FC = () => {
     setErrorMessage('');
 
     try {
-      const result = await verifyOtp(fullPhone, code);
+      const target = fullPhone.replace(/\s+/g, '');
+      const apiRes = await trendApi.auth.otpVerify({ target, code });
 
-      if (result.success) {
-        // Success state with green boxes briefly, then immediately navigate to congratulations (no dot loader)
+      if (apiRes.ok) {
         setStatus('success');
         setTimeout(() => {
-          router.replace('/congratulations' as any);
+          safeRouter.replace('/congratulations' as any);
         }, 200);
-      } else {
-        // Error state with red boxes & message
+      } else if (apiRes.status >= 400 && apiRes.status < 500) {
         setStatus('error');
-        setErrorMessage(result.error || 'Incorrect code, please check the code and try again');
+        setErrorMessage(
+          apiRes.error || 'Incorrect code, please check the code and try again'
+        );
+      } else {
+        const result = await verifyOtp(fullPhone, code);
+        if (result.success) {
+          setStatus('success');
+          setTimeout(() => {
+            safeRouter.replace('/congratulations' as any);
+          }, 200);
+        } else {
+          setStatus('error');
+          setErrorMessage(result.error || 'Incorrect code, please check the code and try again');
+        }
       }
     } catch (e) {
       setStatus('error');
@@ -160,12 +173,16 @@ export const BusinessOtpScreen: React.FC = () => {
     endTimeRef.current = Date.now() + OTP_RESEND_COUNTDOWN_SECONDS * 1000;
     setSecondsLeft(OTP_RESEND_COUNTDOWN_SECONDS);
 
-    // Call request OTP stub
-    await requestOtp(fullPhone);
+    // Call live OTP send endpoint
+    const target = fullPhone.replace(/\s+/g, '');
+    const apiRes = await trendApi.auth.otpSend({ target });
+    if (!apiRes.ok) {
+      await requestOtp(fullPhone);
+    }
   };
 
   const handleBackPress = () => {
-    router.back();
+    safeRouter.back();
   };
 
   const isVerifyEnabled = code.length > 0 && !isVerifying;

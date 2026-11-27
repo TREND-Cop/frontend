@@ -8,11 +8,12 @@ import {
   ScrollView,
   Platform,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   LayoutChangeEvent,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import * as ImagePicker from 'expo-image-picker';
 import Svg, { Path, Circle } from 'react-native-svg';
 
@@ -21,6 +22,8 @@ import { WizardStepper } from '../../components/wizard/WizardStepper';
 import { ServiceDurationSheet } from '../../components/wizard/ServiceDurationSheet';
 import { ProviderPhotoUploadSheet } from '../../components/ProviderPhotoUploadSheet';
 import { LoadingOverlay } from '../../components/LoadingOverlay';
+import { NativeDockSpacer } from '../../components/NativeDockSpacer';
+import { useNativeDock } from '../../utils/useNativeDock';
 import { triggerLightHaptic } from '../../utils/haptics';
 
 const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
@@ -156,8 +159,9 @@ function formatWithCommas(value: string): string {
  * - Next button: active only when block 1 is complete and all started blocks are complete
  */
 export const AddOnsScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
+  const { hasDock } = useNativeDock();
   const scrollViewRef = useRef<ScrollView>(null);
 
   const {
@@ -187,20 +191,68 @@ export const AddOnsScreen: React.FC = () => {
 
   // Store layout y-positions of blocks for auto-scroll
   const blockOffsets = useRef<Record<string, number>>({});
+  const activeFocusTargetRef = useRef<{ blockId: string; subOffset: number } | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
   const setBlockLayout = (id: string) => (e: LayoutChangeEvent) => {
     blockOffsets.current[id] = e.nativeEvent.layout.y;
   };
 
+  const scrollToFocusedField = useCallback((target?: { blockId: string; subOffset: number } | null) => {
+    const focusTarget = target || activeFocusTargetRef.current;
+    if (!focusTarget || !scrollViewRef.current) return;
+    const blockY = blockOffsets.current[focusTarget.blockId];
+    if (blockY === undefined) return;
+
+    const desiredScrollY = Math.max(0, blockY + focusTarget.subOffset - 60);
+    scrollViewRef.current.scrollTo({
+      y: desiredScrollY,
+      animated: true,
+    });
+  }, []);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      const kbH = e?.endCoordinates?.height || 320;
+      setKeyboardHeight(kbH);
+      if (activeFocusTargetRef.current) {
+        scrollToFocusedField(activeFocusTargetRef.current);
+        setTimeout(() => {
+          scrollToFocusedField(activeFocusTargetRef.current);
+        }, 60);
+      }
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+      activeFocusTargetRef.current = null;
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [scrollToFocusedField]);
+
+  const handleFocusField = useCallback((blockId: string, subOffset: number) => {
+    activeFocusTargetRef.current = { blockId, subOffset };
+    scrollToFocusedField({ blockId, subOffset });
+    setTimeout(() => scrollToFocusedField({ blockId, subOffset }), 80);
+    setTimeout(() => scrollToFocusedField({ blockId, subOffset }), 220);
+  }, [scrollToFocusedField]);
+
   // Back button returns to Step 2 with draft intact
   const handleBack = () => {
     triggerLightHaptic();
-    router.back();
+    safeRouter.back();
   };
 
   // Header "?" tutorial guide
   const handleHeaderHelp = () => {
     triggerLightHaptic();
-    router.push('/guide/general' as any);
+    safeRouter.push('/guide/general' as any);
   };
 
   // ── Photo Upload Handlers ───────────────────────────────────────────────────
@@ -216,9 +268,9 @@ export const AddOnsScreen: React.FC = () => {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        quality: 0.8,
-        allowsEditing: true,
-        aspect: [360, 221],
+        mediaTypes: ['images'] as any,
+        quality: 0.85,
+        allowsEditing: false,
       });
 
       if (!result.canceled && result.assets && result.assets[0]) {
@@ -242,9 +294,9 @@ export const AddOnsScreen: React.FC = () => {
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'] as any,
-        quality: 0.8,
-        allowsEditing: true,
-        aspect: [360, 221],
+        quality: 0.85,
+        allowsMultipleSelection: false,
+        allowsEditing: false,
       });
 
       if (!result.canceled && result.assets && result.assets[0]) {
@@ -289,7 +341,7 @@ export const AddOnsScreen: React.FC = () => {
     // Skip means "no add-ons": clear draft's addOns
     setAddOns([]);
     // Directly navigate to Review placeholder with NO loading overlay
-    router.push('/business-services-review' as any);
+    safeRouter.push('/business-services-review' as any);
   };
 
   // ── Next Button Handler ─────────────────────────────────────────────────────
@@ -320,7 +372,7 @@ export const AddOnsScreen: React.FC = () => {
     // TODO (Backend): Replace with real API dispatch
     setTimeout(() => {
       setIsLoading(false);
-      router.push('/business-services-review' as any);
+      safeRouter.push('/business-services-review' as any);
     }, 1000);
   };
 
@@ -366,7 +418,10 @@ export const AddOnsScreen: React.FC = () => {
         <ScrollView
           ref={scrollViewRef}
           style={styles.scrollContainer}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: (keyboardHeight > 0 ? keyboardHeight : 340) + 160 },
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -391,10 +446,23 @@ export const AddOnsScreen: React.FC = () => {
                     onPress={() => setPhotoUploadTargetId(firstBlock.id)}
                     accessibilityLabel="Replace photo"
                   >
+                    {/* Ambient blurred backdrop preserving full aspect ratio */}
+                    <Image
+                      source={{ uri: firstBlock.imageUri }}
+                      style={StyleSheet.absoluteFill}
+                      resizeMode="cover"
+                      blurRadius={25}
+                    />
+                    <View
+                      style={[
+                        StyleSheet.absoluteFill,
+                        { backgroundColor: 'rgba(0, 8, 20, 0.25)' },
+                      ]}
+                    />
                     <Image
                       source={{ uri: firstBlock.imageUri }}
                       style={styles.filledImage}
-                      resizeMode="cover"
+                      resizeMode="contain"
                     />
                   </TouchableOpacity>
 
@@ -436,6 +504,7 @@ export const AddOnsScreen: React.FC = () => {
                 placeholderTextColor="rgba(192, 192, 204, 0.96)"
                 value={firstBlock.name}
                 onChangeText={(text) => updateAddOn(firstBlock.id, { name: text })}
+                onFocus={() => handleFocusField(firstBlock.id, 240)}
                 accessibilityLabel="Add-ons Name"
               />
             </View>
@@ -450,6 +519,7 @@ export const AddOnsScreen: React.FC = () => {
                   placeholderTextColor="rgba(192, 192, 204, 0.96)"
                   value={firstBlock.description}
                   onChangeText={(text) => updateAddOn(firstBlock.id, { description: text.slice(0, 50) })}
+                  onFocus={() => handleFocusField(firstBlock.id, 340)}
                   maxLength={50}
                   multiline
                   textAlignVertical="top"
@@ -481,7 +551,11 @@ export const AddOnsScreen: React.FC = () => {
                       placeholderTextColor="rgba(192, 192, 204, 0.96)"
                       value={firstBlock.priceRaw ? formatWithCommas(firstBlock.priceRaw) : ''}
                       onChangeText={(t) => handlePriceChange(firstBlock.id, t)}
+                      onFocus={() => handleFocusField(firstBlock.id, 470)}
                       keyboardType="numeric"
+                      multiline={false}
+                      numberOfLines={1}
+                      scrollEnabled={true}
                       accessibilityLabel="Add-on Price"
                     />
                   </View>
@@ -492,7 +566,10 @@ export const AddOnsScreen: React.FC = () => {
                   <Text style={styles.fieldLabelMedGrey}>Service Duration</Text>
                   <TouchableOpacity
                     activeOpacity={0.7}
-                    style={styles.dropdownField}
+                    style={[
+                      styles.dropdownField,
+                      !firstBlock.duration && styles.dropdownFieldInactive,
+                    ]}
                     onPress={() => {
                       triggerLightHaptic();
                       setActiveDurationTargetId(firstBlock.id);
@@ -507,31 +584,17 @@ export const AddOnsScreen: React.FC = () => {
                     >
                       {firstBlock.duration || '1 hr'}
                     </Text>
-                    <ArrowDown01Icon size={24} color="rgba(0, 8, 20, 0.96)" />
+                    <ArrowDown01Icon
+                      size={24}
+                      color={firstBlock.duration ? 'rgba(0, 8, 20, 0.96)' : 'rgba(192, 192, 204, 0.96)'}
+                    />
                   </TouchableOpacity>
                 </View>
               </View>
             </View>
           </View>
 
-          {/* ── 4. "Add more add-ons" Section Row ── */}
-          <View style={styles.addMoreSection}>
-            <Text style={styles.subHeadingMed}>Add more add-ons</Text>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              style={styles.addMoreCard}
-              onPress={handleAddMoreBlock}
-              accessibilityRole="button"
-              accessibilityLabel="Add more add-ons"
-            >
-              <Text style={styles.addMoreCardLabel}>Add-ons</Text>
-              <View style={styles.addMorePlusButton}>
-                <PlusIcon size={24} color="#141B34" />
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          {/* ── 5. Extra Add-on Blocks Stacked Below ── */}
+          {/* ── 4. Extra Add-on Blocks Stacked Below ── */}
           {extraBlocks.map((block, index) => (
             <View
               key={block.id}
@@ -550,10 +613,23 @@ export const AddOnsScreen: React.FC = () => {
                       onPress={() => setPhotoUploadTargetId(block.id)}
                       accessibilityLabel="Replace photo"
                     >
+                      {/* Ambient blurred backdrop preserving full aspect ratio */}
+                      <Image
+                        source={{ uri: block.imageUri }}
+                        style={StyleSheet.absoluteFill}
+                        resizeMode="cover"
+                        blurRadius={25}
+                      />
+                      <View
+                        style={[
+                          StyleSheet.absoluteFill,
+                          { backgroundColor: 'rgba(0, 8, 20, 0.25)' },
+                        ]}
+                      />
                       <Image
                         source={{ uri: block.imageUri }}
                         style={styles.filledImage}
-                        resizeMode="cover"
+                        resizeMode="contain"
                       />
                     </TouchableOpacity>
 
@@ -593,6 +669,7 @@ export const AddOnsScreen: React.FC = () => {
                   placeholderTextColor="rgba(192, 192, 204, 0.96)"
                   value={block.name}
                   onChangeText={(text) => updateAddOn(block.id, { name: text })}
+                  onFocus={() => handleFocusField(block.id, 240)}
                   accessibilityLabel="Add-ons Name"
                 />
               </View>
@@ -607,6 +684,7 @@ export const AddOnsScreen: React.FC = () => {
                     placeholderTextColor="rgba(192, 192, 204, 0.96)"
                     value={block.description}
                     onChangeText={(text) => updateAddOn(block.id, { description: text.slice(0, 50) })}
+                    onFocus={() => handleFocusField(block.id, 340)}
                     maxLength={50}
                     multiline
                     textAlignVertical="top"
@@ -638,7 +716,11 @@ export const AddOnsScreen: React.FC = () => {
                         placeholderTextColor="rgba(192, 192, 204, 0.96)"
                         value={block.priceRaw ? formatWithCommas(block.priceRaw) : ''}
                         onChangeText={(t) => handlePriceChange(block.id, t)}
+                        onFocus={() => handleFocusField(block.id, 470)}
                         keyboardType="numeric"
+                        multiline={false}
+                        numberOfLines={1}
+                        scrollEnabled={true}
                         accessibilityLabel="Add-on Price"
                       />
                     </View>
@@ -649,7 +731,10 @@ export const AddOnsScreen: React.FC = () => {
                     <Text style={styles.fieldLabelMedGrey}>Service Duration</Text>
                     <TouchableOpacity
                       activeOpacity={0.7}
-                      style={styles.dropdownField}
+                      style={[
+                        styles.dropdownField,
+                        !block.duration && styles.dropdownFieldInactive,
+                      ]}
                       onPress={() => {
                         triggerLightHaptic();
                         setActiveDurationTargetId(block.id);
@@ -664,7 +749,10 @@ export const AddOnsScreen: React.FC = () => {
                       >
                         {block.duration || '1 hr'}
                       </Text>
-                      <ArrowDown01Icon size={24} color="rgba(0, 8, 20, 0.96)" />
+                      <ArrowDown01Icon
+                        size={24}
+                        color={block.duration ? 'rgba(0, 8, 20, 0.96)' : 'rgba(192, 192, 204, 0.96)'}
+                      />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -672,12 +760,34 @@ export const AddOnsScreen: React.FC = () => {
             </View>
           ))}
 
+          {/* ── 5. "Add more add-ons" Section Row (Always below all add-on blocks) ── */}
+          <View style={styles.addMoreSection}>
+            <Text style={styles.subHeadingMed}>Add more add-ons</Text>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.addMoreCard}
+              onPress={handleAddMoreBlock}
+              accessibilityRole="button"
+              accessibilityLabel="Add more add-ons"
+            >
+              <Text style={styles.addMoreCardLabel}>Add-ons</Text>
+              <View style={styles.addMorePlusButton}>
+                <PlusIcon size={24} color="#141B34" />
+              </View>
+            </TouchableOpacity>
+          </View>
+
           {/* Bottom spacer before sticky footer */}
           <View style={{ height: 100 }} />
         </ScrollView>
 
         {/* ── 6. Sticky Footer (Skip + Next) ── */}
-        <View style={[styles.stickyFooter, { paddingBottom: Math.max(insets.bottom, 14) }]}>
+        <View
+          style={[
+            styles.stickyFooter,
+            { paddingBottom: hasDock ? 14 : Math.max(insets.bottom, 14) },
+          ]}
+        >
           {/* Skip Button (112x48px, light grey pill) */}
           <TouchableOpacity
             activeOpacity={0.7}
@@ -750,6 +860,8 @@ export const AddOnsScreen: React.FC = () => {
         overlayOpacity={0.1}
         dotColor="rgba(0, 8, 20, 0.96)"
       />
+
+      <NativeDockSpacer backgroundColor="#FFFFFF" />
     </SafeAreaView>
   );
 };
@@ -881,11 +993,13 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     position: 'relative',
     overflow: 'hidden',
+    backgroundColor: '#000814',
   },
   imageTouchable: {
     width: '100%',
     height: '100%',
     borderRadius: 24,
+    overflow: 'hidden',
   },
   filledImage: {
     width: '100%',
@@ -957,9 +1071,11 @@ const styles = StyleSheet.create({
   },
   columnItem: {
     flex: 1,
+    minWidth: 0,
     gap: 8,
   },
   priceInputField: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     height: 48,
@@ -968,9 +1084,12 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     paddingHorizontal: 16,
     gap: 8,
+    overflow: 'hidden',
+    minWidth: 0,
   },
   currencyPrefixContainer: {
     justifyContent: 'center',
+    flexShrink: 0,
   },
   currencyPrefixText: {
     fontFamily: FONT_REGULAR,
@@ -981,14 +1100,17 @@ const styles = StyleSheet.create({
     width: 1,
     height: 20,
     backgroundColor: 'rgba(235, 235, 245, 0.96)',
+    flexShrink: 0,
   },
   nairaSymbol: {
     fontFamily: FONT_REGULAR,
     fontSize: 16,
     color: 'rgba(0, 8, 20, 0.96)',
+    flexShrink: 0,
   },
   priceTextInput: {
     flex: 1,
+    minWidth: 0,
     fontFamily: FONT_REGULAR,
     fontSize: 16,
     color: 'rgba(0, 8, 20, 0.96)',
@@ -1004,6 +1126,11 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(192, 192, 204, 0.96)',
     borderRadius: 24,
     paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+  },
+  dropdownFieldInactive: {
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderColor: 'rgba(247, 247, 247, 0.96)',
   },
   dropdownText: {
     fontFamily: FONT_REGULAR,
@@ -1013,7 +1140,7 @@ const styles = StyleSheet.create({
     color: 'rgba(0, 8, 20, 0.96)',
   },
   placeholderText: {
-    color: 'rgba(0, 8, 20, 0.96)',
+    color: 'rgba(192, 192, 204, 0.96)',
   },
 
   // 5. "Add more add-ons" Section (height: 56px, background #F7F7F7)

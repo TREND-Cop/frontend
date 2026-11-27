@@ -165,27 +165,29 @@ export const DashedPhotoSlot: React.FC<DashedPhotoSlotProps> = ({
       testID={testID}
     >
       {/* 1:1 Mathematical Rounded Dashed Border via SVG */}
-      <Svg
-        style={StyleSheet.absoluteFill}
-        width={dimensions.width}
-        height={dimensions.height}
-        pointerEvents="none"
-      >
-        <Rect
-          x={1}
-          y={1}
-          width={Math.max(0, dimensions.width - 2)}
-          height={Math.max(0, dimensions.height - 2)}
-          rx={borderRadius}
-          stroke={strokeColor}
-          strokeWidth={1.2}
-          strokeDasharray="5 5"
-          fill="#FFFFFF"
-        />
-      </Svg>
+      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+        <Svg
+          width={dimensions.width}
+          height={dimensions.height}
+        >
+          <Rect
+            x={1}
+            y={1}
+            width={Math.max(0, dimensions.width - 2)}
+            height={Math.max(0, dimensions.height - 2)}
+            rx={borderRadius}
+            stroke={strokeColor}
+            strokeWidth={1.2}
+            strokeDasharray="5 5"
+            fill="#FFFFFF"
+          />
+        </Svg>
+      </View>
 
       {/* Centered Camera Icon */}
-      <Camera01Icon size={cameraSize} color="#141B34" />
+      <View style={styles.centerIconWrapper} pointerEvents="none">
+        <Camera01Icon size={cameraSize} color="#141B34" />
+      </View>
     </TouchableOpacity>
   );
 };
@@ -202,6 +204,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'relative',
     backgroundColor: 'transparent',
+    overflow: 'hidden',
+  },
+  centerIconWrapper: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   touchable: {
     width: '100%',

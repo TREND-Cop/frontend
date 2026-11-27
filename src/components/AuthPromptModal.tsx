@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../utils/safeNavigation';
 import { useNativeDock } from '../utils/useNativeDock';
 
 const CloseXIcon = ({
@@ -73,7 +73,7 @@ export const AuthPromptModal: React.FC<AuthPromptModalProps> = ({
   title = 'Sign Up to Book',
   subtitle = 'Create an account or sign in to book your appointment and connect with top beauty specialists.',
 }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { hasDock, dockHeight } = useNativeDock();
   const screenHeight = Dimensions.get('window').height;
@@ -87,12 +87,12 @@ export const AuthPromptModal: React.FC<AuthPromptModalProps> = ({
 
   const handleSignUp = () => {
     onClose();
-    router.push('/sign-up' as any);
+    safeRouter.push('/sign-up' as any);
   };
 
   const handleSignIn = () => {
     onClose();
-    router.push('/sign-in' as any);
+    safeRouter.push('/sign-in' as any);
   };
 
   const translateY = useRef(new Animated.Value(0)).current;

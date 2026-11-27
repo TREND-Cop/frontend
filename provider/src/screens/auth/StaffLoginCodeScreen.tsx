@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,11 @@ import {
   Image,
   Platform,
   KeyboardAvoidingView,
+  BackHandler,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { isUnifiedPartnerRouting, useSafeRouter } from '../../utils/safeNavigation';
 import { OtpInput, OtpStatus } from '../../components/OtpInput';
 import { useStaffLoginStore } from '../../context/StaffLoginContext';
 import {
@@ -19,13 +20,30 @@ import {
   MOCK_CODE_VERIFY_DELAY_MS,
   CODE_SUCCESS_PAUSE_MS,
 } from '../../constants/staffLogin.config';
+import { trendApi } from '../../api/trendApi';
 
 const STAFF_WELCOME_ILLUSTRATION = require('../../../assets/images/staff/staff_welcome_illustration.png');
 
 export function StaffLoginCodeScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { setVerifiedCode } = useStaffLoginStore();
+
+  const isWebLanding = Platform.OS === 'web' || isUnifiedPartnerRouting();
+
+  // Hardware back press returns to Role Selection on unified web landing, or Partner root on native
+  useEffect(() => {
+    const onBackPress = () => {
+      if (isUnifiedPartnerRouting()) {
+        safeRouter.exitToUnifiedRoot();
+      } else {
+        safeRouter.replace({ pathname: '/', params: { tab: 'login' } } as any);
+      }
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [safeRouter]);
 
   const [code, setCode] = useState('');
   const [status, setStatus] = useState<OtpStatus>('default');
@@ -39,29 +57,42 @@ export function StaffLoginCodeScreen() {
     }
   }, [status]);
 
+  const isSubmittingRef = useRef(false);
+
   const handleSubmit = useCallback(async () => {
-    if (code.length < 4 || isVerifying) {
+    if (code.length < 4 || isVerifying || isSubmittingRef.current) {
       // With fewer than 4 digits it does nothing (no error designed)
       return;
     }
 
+    isSubmittingRef.current = true;
     setIsVerifying(true);
 
-    // Mock check: TODO (Backend) verify staff login code with backend endpoint
-    setTimeout(() => {
-      setIsVerifying(false);
-      if (DEV_STAFF_CODE_ALWAYS_FAIL) {
+    if (DEV_STAFF_CODE_ALWAYS_FAIL) {
+      setTimeout(() => {
+        setIsVerifying(false);
         setStatus('error');
-      } else {
-        setStatus('success');
-        setVerifiedCode(code);
-        // Short pause on green state (~500ms) per prompt spec before navigating
-        setTimeout(() => {
-          router.push('/staff-login-form' as any);
-        }, CODE_SUCCESS_PAUSE_MS);
-      }
-    }, MOCK_CODE_VERIFY_DELAY_MS);
-  }, [code, isVerifying, setVerifiedCode, router]);
+        isSubmittingRef.current = false;
+      }, MOCK_CODE_VERIFY_DELAY_MS);
+      return;
+    }
+
+    const res = await trendApi.auth.staffLogin({ code: code.trim() });
+    setIsVerifying(false);
+
+    if (!res.ok) {
+      setStatus('error');
+      isSubmittingRef.current = false;
+      return;
+    }
+
+    setStatus('success');
+    setVerifiedCode(code.trim());
+    // Short pause on green state (~500ms) per prompt spec before navigating
+    setTimeout(() => {
+      safeRouter.push('/staff-login-form' as any);
+    }, CODE_SUCCESS_PAUSE_MS);
+  }, [code, isVerifying, setVerifiedCode, safeRouter]);
 
   return (
     <KeyboardAvoidingView
@@ -94,7 +125,9 @@ export function StaffLoginCodeScreen() {
           <View style={styles.titleGroup}>
             <Text style={styles.screenTitle}>Staff Login Code</Text>
             <Text style={styles.screenSubtitle}>
-              Meet the business owner to get your staff login code.
+              {isWebLanding
+                ? 'Meet the business owner to get staff login code'
+                : 'Meet the business owner to get your staff login code.'}
             </Text>
           </View>
 
@@ -127,7 +160,7 @@ export function StaffLoginCodeScreen() {
               activeOpacity={0.85}
               disabled={isVerifying}
             >
-              <Text style={styles.submitButtonText}>Submit</Text>
+              <Text style={styles.submitButtonText}>{isWebLanding ? 'Login' : 'Submit'}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -141,6 +174,9 @@ export function StaffLoginCodeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: '100%',
+    maxWidth: Platform.OS === 'web' ? 420 : undefined,
+    alignSelf: 'center',
     backgroundColor: '#FFFFFF',
   },
 

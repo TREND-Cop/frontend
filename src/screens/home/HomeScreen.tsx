@@ -14,15 +14,19 @@ import {
   NativeScrollEvent,
   StatusBar as RNStatusBar,
   Animated,
+  BackHandler,
+  ToastAndroid,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useFocusEffect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MapPin, Search, BellRing, LayoutGrid, Check, User } from 'lucide-react-native';
 import { theme } from '../../constants/theme';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { useUserContext } from '../../store/UserContext';
 import { bookingStore } from '../../utils/bookingStore';
 import { useNativeDock } from '../../utils/useNativeDock';
+import { useNativeBackExitGuard } from '../../utils/exitAppGuard';
 
 import { GridCardList } from '../../components/ui/GridCardList';
 import { HorizontalCardList } from '../../components/ui/HorizontalCardList';
@@ -60,6 +64,7 @@ import {
   Category
 } from './mockData';
 import { previewStore } from '../../utils/previewStore';
+import { useLiveCatalog } from '../../hooks/useLiveCatalog';
 
 // Helper to chunk data into columns
 const chunkData = (data: any[], size: number) => {
@@ -122,7 +127,7 @@ const SearchList02Icon = ({ color, size = 24, strokeWidth = 1.8, fill = 'none', 
 
 const ServiceCategoryGrid = ({ category }: { category: Category }) => {
   const data = category === 'men' ? MEN_SERVICES : WOMEN_SERVICES;
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   
   return (
     <View style={styles.gridContainer}>
@@ -133,12 +138,12 @@ const ServiceCategoryGrid = ({ category }: { category: Category }) => {
           activeOpacity={0.7}
           onPress={() => {
             if (item.isMore) {
-              router.push('/home/category');
+              safeRouter.push('/home/category');
             } else {
               const salonTitle = item.name.toLowerCase().includes('salon')
                 ? item.name
                 : `${item.name} Salons`;
-              router.push({
+              safeRouter.push({
                 pathname: `/salon-listing/${item.id}`,
                 params: { id: item.id, name: salonTitle },
               } as any);
@@ -164,7 +169,7 @@ const ServiceCategoryGrid = ({ category }: { category: Category }) => {
 };
 
 export const HomeScreen = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const topInset = insets.top > 0 ? insets.top : (Platform.OS === 'android' ? (RNStatusBar.currentHeight || 28) : 20);
   const { hasDock, dockHeight } = useNativeDock();
@@ -221,6 +226,13 @@ export const HomeScreen = () => {
     };
   }, [screenWidth]);
 
+  // Android Native Back Button Guard for Home:
+  // - Prompts user with in-built Exit Confirmation Dialog; NEVER pops back to login/signup/onboarding!
+  useNativeBackExitGuard();
+  const { feedCards: liveFeedCards } = useLiveCatalog();
+  const trendingFeedData =
+    liveFeedCards.length > 0 ? [...liveFeedCards, ...TRENDING_DATA] : TRENDING_DATA;
+
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = e.nativeEvent.contentOffset.x;
     const width = e.nativeEvent.layoutMeasurement?.width || screenWidth;
@@ -251,7 +263,7 @@ export const HomeScreen = () => {
 
   const handleServiceCardPress = (item: any, categoryTitle?: string) => {
     if (item.route) {
-      router.push(item.route as any);
+      safeRouter.push(item.route as any);
       return;
     }
 
@@ -298,7 +310,7 @@ export const HomeScreen = () => {
     bookingStore.setDuration(item.duration || '1hr');
 
     // Route to Style Details for Services
-    router.push({
+    safeRouter.push({
       pathname: '/professional/style-details',
       params: {
         id: item.id || 'srv_1',
@@ -319,7 +331,7 @@ export const HomeScreen = () => {
 
   const handleRankedPlacePress = (item: any) => {
     const salonId = item.id || 'tr1';
-    router.push({
+    safeRouter.push({
       pathname: '/salon/[id]',
       params: {
         id: salonId,
@@ -413,7 +425,7 @@ export const HomeScreen = () => {
               <Text style={styles.dealDiscount}>{HERO_DEAL.title}</Text>
               <TouchableOpacity 
                 style={styles.dealButton} 
-                onPress={() => router.push(HERO_DEAL.route as any)} 
+                onPress={() => safeRouter.push(HERO_DEAL.route as any)} 
                 activeOpacity={0.8}
               >
                 <Text style={styles.dealButtonText}>{HERO_DEAL.buttonText}</Text>
@@ -433,7 +445,7 @@ export const HomeScreen = () => {
               activeOpacity={0.8}
               onPress={() => {
                 if (profileData.isLoggedIn) {
-                  router.push('/profile' as any);
+                  safeRouter.push('/profile' as any);
                 } else {
                   setIsAuthPromptOpen(true);
                 }
@@ -478,7 +490,7 @@ export const HomeScreen = () => {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.notificationButton} activeOpacity={0.7} onPress={() => router.push('/notifications')}>
+            <TouchableOpacity style={styles.notificationButton} activeOpacity={0.7} onPress={() => safeRouter.push('/notifications')}>
               <BellRing size={20} color={theme.colors.appBackground} strokeWidth={1.5} />
               <View style={styles.notificationBadge} />
             </TouchableOpacity>
@@ -489,7 +501,7 @@ export const HomeScreen = () => {
             <TouchableOpacity 
               style={styles.searchBar} 
               activeOpacity={0.7}
-              onPress={() => router.push('/search')}
+              onPress={() => safeRouter.push('/search')}
             >
               <Search size={20} color={theme.colors.barberPrimary} />
               <Text style={styles.searchText}>Search</Text>
@@ -548,7 +560,7 @@ export const HomeScreen = () => {
           title="Now Trending"
           icon="fire"
           cardGap={37}
-          data={TRENDING_DATA}
+          data={trendingFeedData}
           onItemPress={handleServiceCardPress}
         />
 
@@ -556,7 +568,7 @@ export const HomeScreen = () => {
           title="Popular Amongst Men"
           subtitle="Join the groove with others"
           showSeeAll={true}
-          onSeeAllPress={() => router.push('/popular-men')}
+          onSeeAllPress={() => safeRouter.push('/popular-men')}
           cardGap={32}
           data={POPULAR_DATA}
           onItemPress={handleServiceCardPress}
@@ -573,7 +585,7 @@ export const HomeScreen = () => {
           image={require('../../../assets/images/banner/promo_salon.png')}
           title={"Get quality\ncustomer services"}
           buttonText="Review"
-          onPress={() => router.push('/home/category')}
+          onPress={() => safeRouter.push('/home/category')}
         />
 
         {/* Havana */}
@@ -581,7 +593,7 @@ export const HomeScreen = () => {
           title="Havana"
           subtitle="Block stress points around your body"
           showSeeAll={true}
-          onSeeAllPress={() => router.push('/see-all/havana-body-work')}
+          onSeeAllPress={() => safeRouter.push('/see-all/havana-body-work')}
           cardGap={32}
           data={BODY_WORK_DATA}
           onItemPress={handleServiceCardPress}
@@ -601,7 +613,7 @@ export const HomeScreen = () => {
                 undefined,
                 require('../../../assets/videos/generate_a_sec_video_on_beau.mp4')
               );
-              router.push({
+              safeRouter.push({
                 pathname: '/video',
                 params: {
                   title: 'Body Improvement Therapy',
@@ -614,7 +626,7 @@ export const HomeScreen = () => {
               } as any);
             }}
             onBookNowPress={() => {
-              router.push({
+              safeRouter.push({
                 pathname: '/professional/style-details',
                 params: {
                   title: 'Full Body Therapy Treatment',
@@ -666,7 +678,7 @@ export const HomeScreen = () => {
           image={require('../../../assets/images/banner/promo_salon.png')}
           title={"Get quality\ncustomer services"}
           buttonText="Review"
-          onPress={() => router.push('/home/category')}
+          onPress={() => safeRouter.push('/home/category')}
         />
 
         {/* Hair Removal Treatments */}
@@ -675,7 +687,7 @@ export const HomeScreen = () => {
             title="Hair Removal Treatments" 
             subtitle="Best in getting rid of unwanted hairs"
             showSeeAll={true}
-            onSeeAllPress={() => router.push('/see-all/hair-removal')}
+            onSeeAllPress={() => safeRouter.push('/see-all/hair-removal')}
           />
           <View style={styles.tagsContainer}>
             {HAIR_REMOVAL_DATA.map((item) => (
@@ -756,7 +768,7 @@ export const HomeScreen = () => {
           image={require('../../../assets/images/banner/promo_salon.png')}
           title={"Get quality\ncustomer services"}
           buttonText="Review"
-          onPress={() => router.push('/home/category')}
+          onPress={() => safeRouter.push('/home/category')}
         />
 
 
@@ -766,7 +778,7 @@ export const HomeScreen = () => {
           title="Special For The Ladies" 
           subtitle="Top choices services for the women"
           showSeeAll={true}
-          onSeeAllPress={() => router.push('/see-all/special-ladies')}
+          onSeeAllPress={() => safeRouter.push('/see-all/special-ladies')}
           data={SPECIAL_LADIES_DATA}
           onItemPress={handleServiceCardPress}
         />
@@ -787,7 +799,7 @@ export const HomeScreen = () => {
               isAvailable={item.isAvailable}
               image={item.image}
               onPress={() =>
-                router.push({
+                safeRouter.push({
                   pathname: `/professional/${item.id}`,
                   params: {
                     id: item.id,
@@ -809,7 +821,7 @@ export const HomeScreen = () => {
           title="Beauty Plus" 
           subtitle="Extra touches to make you look vibrant"
           showSeeAll={true}
-          onSeeAllPress={() => router.push('/see-all/beauty-plus')}
+          onSeeAllPress={() => safeRouter.push('/see-all/beauty-plus')}
           data={BEAUTY_PLUS_DATA}
           onItemPress={handleServiceCardPress}
         />
@@ -819,7 +831,7 @@ export const HomeScreen = () => {
           image={require('../../../assets/images/banner/promo_salon.png')}
           title={"Get quality\ncustomer services"}
           buttonText="Review"
-          onPress={() => router.push('/home/category')}
+          onPress={() => safeRouter.push('/home/category')}
         />
 
         {/* Non-Surgical Aesthetic */}
@@ -827,7 +839,7 @@ export const HomeScreen = () => {
           title="Non-Surgical Aesthetic" 
           subtitle="Surgery free services and still look natural"
           showSeeAll={true}
-          onSeeAllPress={() => router.push('/see-all/non-surgical')}
+          onSeeAllPress={() => safeRouter.push('/see-all/non-surgical')}
           data={NON_SURGICAL_DATA}
           onItemPress={handleServiceCardPress}
         />
@@ -837,7 +849,7 @@ export const HomeScreen = () => {
           title="Premium Ladies Looks" 
           subtitle="Little improvements that looks like noting happend"
           showSeeAll={true}
-          onSeeAllPress={() => router.push('/see-all/premium-ladies')}
+          onSeeAllPress={() => safeRouter.push('/see-all/premium-ladies')}
           data={PREMIUM_LADIES_LOOKS_DATA}
           onItemPress={handleServiceCardPress}
         />
@@ -847,7 +859,7 @@ export const HomeScreen = () => {
           title="Male Aesthetic" 
           subtitle="Improvements for the gentlemen"
           showSeeAll={true}
-          onSeeAllPress={() => router.push('/see-all/male-aesthetic')}
+          onSeeAllPress={() => safeRouter.push('/see-all/male-aesthetic')}
           data={MALE_AESTHETIC_DATA}
           onItemPress={handleServiceCardPress}
         />

@@ -1,9 +1,10 @@
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect, useRouter, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  BackHandler,
   Dimensions,
   Image,
   KeyboardAvoidingView,
@@ -13,6 +14,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  ToastAndroid,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -20,22 +22,34 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { BusinessStatusSwitch } from '../../components/BusinessStatusSwitch';
 import { CategoryFourDotLoader } from '../../components/CategoryFourDotLoader';
+import { DashboardCard } from '../../components/DashboardCard';
+import { LoadingOverlay } from '../../components/LoadingOverlay';
+import { PayoutTermsNotice } from '../../components/payout/PayoutTermsNotice';
 import { ProviderDashboardSkeleton } from '../../components/ProviderDashboardSkeleton';
+import { ConnectAccountModal } from '../../components/tutorial/ConnectAccountModal';
+import { SpotlightOverlay } from '../../components/tutorial/SpotlightOverlay';
+import { TrialNoticeModal } from '../../components/tutorial/TrialNoticeModal';
+import { TutorialTarget } from '../../components/tutorial/TutorialTarget';
+import { TutorialVideoModal } from '../../components/tutorial/TutorialVideoModal';
+import { WelcomeCard } from '../../components/tutorial/WelcomeCard';
+import { deriveStaffStatus } from '../../constants/staffStatus.config';
+import { FORCE_FIRST_TIME_FLOW } from '../../constants/tutorial.config';
+import { OWNER_TUTORIAL_VIDEOS, TUTORIAL_STEPS } from '../../constants/tutorialSteps';
+import { useNativeBackExitGuard } from '../../utils/exitAppGuard';
+import { useFirstTime } from '../../context/FirstTimeContext';
+import { useProviderOnboarding } from '../../context/ProviderOnboardingContext';
+import { useProviderProfile } from '../../context/ProviderProfileContext';
+import { useStaffStore as useStaffContextStore } from '../../context/StaffContext';
+import { useWorkPhotos } from '../../context/WorkPhotosContext';
+import { useReviews } from '../../context/ReviewsContext';
+import { useServices } from '../../hooks/useServices';
 import { useAppointments, useOngoingAppointments } from '../../store/appointmentStore';
 import { useBusinessStore } from '../../store/businessStore';
 import { useStaffStore } from '../../store/staffStore';
-import { useFirstTime } from '../../context/FirstTimeContext';
-import { WelcomeCard } from '../../components/tutorial/WelcomeCard';
-import { SpotlightOverlay } from '../../components/tutorial/SpotlightOverlay';
-import { TutorialTarget } from '../../components/tutorial/TutorialTarget';
-import { ConnectAccountModal } from '../../components/tutorial/ConnectAccountModal';
-import { TrialNoticeModal } from '../../components/tutorial/TrialNoticeModal';
-import { PayoutTermsNotice } from '../../components/payout/PayoutTermsNotice';
-import { LoadingOverlay } from '../../components/LoadingOverlay';
-import { DashboardCard } from '../../components/DashboardCard';
-import { useProviderOnboarding } from '../../context/ProviderOnboardingContext';
-import { TUTORIAL_TIMINGS, FORCE_FIRST_TIME_FLOW } from '../../constants/tutorial.config';
+import { useBottomInset } from '../../utils/bottomInset';
 import { triggerLightHaptic } from '../../utils/haptics';
+import { useSafeRouter } from '../../utils/safeNavigation';
+import { formatDisplayLocation } from '../../utils/locationFormatter';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -291,17 +305,17 @@ function ProfileNavIcon({ size = 24, active = false }: { size?: number; active?:
 
 // ── Screen Component ─────────────────────────────────────────────────────────
 
+// Persistent module-level scroll offset to restore exact user position upon returning to Dashboard
+let lastDashboardScrollOffset = 0;
+
 export const ProviderDashboardScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
-  // Locked Bottom Navigation Bar offset:
-  // Strictly locked at its designated bottom coordinate so it never moves when scrolling.
-  // On iOS: safely above the Home Indicator (Math.max(insets.bottom, 20)).
-  // On Android: safely above the Android 3-button system dock / gesture pill (Math.max(insets.bottom, 56) + 16).
-  const lockedBottomOffset = Platform.OS === 'android'
-    ? Math.max(insets.bottom, 56) + 16
-    : Math.max(insets.bottom, 20);
+  // Bottom Navigation Bar calculations via centralized useBottomInset:
+  // With no native dock (insets.bottom === 0): completely flush with screen bottom (bottom: 0).
+  // With native dock: sits comfortably above it with DOCK_GAP (24px).
+  const { tabBottomOffset, tabScrollPadding, bottomFadeHeight } = useBottomInset();
   const { business, toggleIsOpen, updateProfile } = useBusinessStore();
   const { appointments } = useAppointments();
   const { ongoingAppointments } = useOngoingAppointments();
@@ -327,21 +341,44 @@ export const ProviderDashboardScreen: React.FC = () => {
     setIsEditModalVisible(false);
   };
 
+  const { services } = useServices();
+  const { photos: workPhotos } = useWorkPhotos();
+  const { staff: contextStaff } = useStaffContextStore();
+  const { reviews } = useReviews();
+
   const pendingAppointmentsCount = appointments.length;
   const ongoingAppointmentsCount = ongoingAppointments.length;
-  const onDutyStaffCount = staffList.filter((s) => s.statusCode !== 'closed').length;
-  const totalStaffCount = staffList.length;
+  const totalStaffCount = contextStaff.length > 0 ? contextStaff.length : staffList.length;
+  const onDutyStaffCount = useMemo(() => {
+    if (!business.isOpen) return 0;
+    if (contextStaff.length > 0) {
+      return contextStaff.filter((s) => deriveStaffStatus(s, undefined, undefined, business.isOpen).status !== 'closed').length;
+    }
+    return staffList.filter((s) => s.statusCode !== 'closed').length;
+  }, [contextStaff, staffList, business.isOpen]);
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'messages' | 'profile'>('dashboard');
   const [isDashboardLoading, setIsDashboardLoading] = useState(true);
   const [showCategoryOverlay, setShowCategoryOverlay] = useState(false);
+  const [showAddServiceOverlay, setShowAddServiceOverlay] = useState(false);
+  const isNavigatingRef = useRef(false);
 
   const {
     phase,
+    tutorialCompletedAt,
+    hasDismissedPayoutPrompt,
+    triggerConnectPrompt,
     currentStep,
     hasSeenFirstTime,
+    hasCompletedTour,
     startFirstTimeFlow,
     handleGetStarted,
+    handleNextStep,
+    handlePrevStep,
+    openVideo,
+    closeVideo,
+    finishTour,
+    handleCloseCompletion,
     isSpotlightTarget,
     registerScrollView,
     handleScroll,
@@ -354,7 +391,7 @@ export const ProviderDashboardScreen: React.FC = () => {
   } = useFirstTime();
 
   const scrollViewRef = useRef<ScrollView>(null);
-  const confettiFiredRef = useRef(false);
+  const hasInitiatedSignupTourRef = useRef(false);
 
   useEffect(() => {
     setScreenInsets({ top: insets.top, bottom: insets.bottom });
@@ -363,6 +400,7 @@ export const ProviderDashboardScreen: React.FC = () => {
   // Payouts First-Time Flow states
   const params = useLocalSearchParams<{ fromSignup?: string }>();
   const {
+    ownerProfile,
     payoutMethod,
     showDashboardOverlayAfterPayout,
     setShowDashboardOverlayAfterPayout,
@@ -371,7 +409,17 @@ export const ProviderDashboardScreen: React.FC = () => {
     justSignedUp,
     setJustSignedUp,
   } = useProviderOnboarding();
+  const { ownerName: profileOwnerName } = useProviderProfile();
   const [isPayoutTermsOpen, setIsPayoutTermsOpen] = useState(false);
+
+  const resolvedOwnerName =
+    (ownerProfile?.fullName && ownerProfile.fullName.trim().length > 0)
+      ? ownerProfile.fullName.trim()
+      : (profileOwnerName && profileOwnerName.trim().length > 0)
+      ? profileOwnerName.trim()
+      : (business.name && business.name.trim().length > 0)
+      ? business.name.trim()
+      : '';
 
   useEffect(() => {
     if (showDashboardOverlayAfterPayout) {
@@ -392,11 +440,23 @@ export const ProviderDashboardScreen: React.FC = () => {
   }, [showDashboardOverlayAfterReport, setShowDashboardOverlayAfterReport]);
 
   const hasOverlayReturn = showDashboardOverlayAfterPayout || showDashboardOverlayAfterReport;
+  const isFromSignup = params.fromSignup === 'true' || justSignedUp;
 
   // Figma Annotation: "All screens returning back to the dashboard should go through a skeleton loader beforing seeing the dashboard"
   // Note: Return from Report Review Success or Payouts Success specifically requests normal 4-dot loader instead of skeleton.
+  // Note: During active tutorial phases or signup arrival, skeleton loader is suppressed so content and targets stay mounted.
   useFocusEffect(
     useCallback(() => {
+      isNavigatingRef.current = false;
+      setShowCategoryOverlay(false);
+      setShowAddServiceOverlay(false);
+
+      // If tutorial is currently in progress (welcome, tour, video, completion), do not show skeleton and do not re-trigger flow
+      if (phase !== 'idle' && phase !== 'done') {
+        setIsDashboardLoading(false);
+        return;
+      }
+
       if (hasOverlayReturn) {
         setIsDashboardLoading(false);
         return;
@@ -409,31 +469,95 @@ export const ProviderDashboardScreen: React.FC = () => {
         clearTimeout(timer);
         setIsDashboardLoading(true);
       };
-    }, [hasOverlayReturn])
+    }, [hasOverlayReturn, phase])
   );
 
-  const isFromSignup = params.fromSignup === 'true' || justSignedUp;
-
+  // Trigger tutorial welcome card and spotlight flow ONLY ONCE when arriving from sign-up
   useEffect(() => {
-    if (!isDashboardLoading && !confettiFiredRef.current) {
-      confettiFiredRef.current = true;
-      // Only launch the tutorial if coming directly after signup and has not seen it yet
-      if (isFromSignup && (!hasSeenFirstTime || FORCE_FIRST_TIME_FLOW)) {
-        setJustSignedUp(false);
-        if (params.fromSignup) {
-          router.setParams({ fromSignup: undefined });
-        }
-        startFirstTimeFlow();
-      }
+    if (isFromSignup && !hasInitiatedSignupTourRef.current && phase === 'idle') {
+      hasInitiatedSignupTourRef.current = true;
+      setJustSignedUp(false);
+      setIsDashboardLoading(false);
+      startFirstTimeFlow(true);
     }
-  }, [isDashboardLoading, isFromSignup, hasSeenFirstTime, startFirstTimeFlow, setJustSignedUp, params.fromSignup, router]);
+  }, [isFromSignup, phase, startFirstTimeFlow, setJustSignedUp]);
+
+  // Android Native Back Button Guard for Root Dashboard:
+  // - Closes overlays or modals if open.
+  // - During active tutorial, FirstTimeContext manages step rollback / modal dismiss.
+  // - Otherwise, prompts user with in-built Exit Confirmation Dialog; NEVER pops back to login/signup/auth!
+  useNativeBackExitGuard({
+    closeActiveModal: () => {
+      if (phase === 'welcome' || phase === 'tour' || phase === 'completion' || phase === 'video') {
+        return true;
+      }
+      if (isEditModalVisible) {
+        setIsEditModalVisible(false);
+        return true;
+      }
+      if (showCategoryOverlay) {
+        setShowCategoryOverlay(false);
+        return true;
+      }
+      if (showAddServiceOverlay) {
+        setShowAddServiceOverlay(false);
+        return true;
+      }
+      return false;
+    },
+  });
+
+  // Scroll restoration: when dashboard loading resolves, immediately restore last scroll position
+  useEffect(() => {
+    if (!isDashboardLoading && lastDashboardScrollOffset > 0) {
+      const t1 = setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: lastDashboardScrollOffset, animated: false });
+      }, 50);
+      const t2 = setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: lastDashboardScrollOffset, animated: false });
+      }, 180);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    }
+  }, [isDashboardLoading]);
+
+  const safeNavigate = (route: string) => {
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
+    safeRouter.push(route as any);
+    setTimeout(() => {
+      isNavigatingRef.current = false;
+    }, 700);
+  };
 
   const handleCategoriesPress = () => {
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
     setShowCategoryOverlay(true);
     setTimeout(() => {
-      router.push('/category' as any);
+      safeRouter.push('/category' as any);
       setTimeout(() => {
         setShowCategoryOverlay(false);
+        isNavigatingRef.current = false;
+      }, 350);
+    }, 850);
+  };
+
+  const handleAddServicePress = () => {
+    if (isNavigatingRef.current) return;
+    if (!payoutMethod) {
+      triggerConnectPrompt();
+      return;
+    }
+    isNavigatingRef.current = true;
+    setShowAddServiceOverlay(true);
+    setTimeout(() => {
+      safeRouter.push('/services' as any);
+      setTimeout(() => {
+        setShowAddServiceOverlay(false);
+        isNavigatingRef.current = false;
       }, 350);
     }, 850);
   };
@@ -453,260 +577,271 @@ export const ProviderDashboardScreen: React.FC = () => {
           }}
           scrollEnabled={true}
           scrollEventThrottle={16}
-          onScroll={(e) => handleScroll(e.nativeEvent.contentOffset.y)}
-          onContentSizeChange={handleContentSizeChange}
+          onScroll={(e) => {
+            const y = e.nativeEvent.contentOffset.y;
+            if (y >= 0) {
+              lastDashboardScrollOffset = y;
+            }
+            handleScroll(y);
+          }}
+          onContentSizeChange={(w, h) => {
+            handleContentSizeChange(w, h);
+            if (lastDashboardScrollOffset > 0) {
+              scrollViewRef.current?.scrollTo({ y: lastDashboardScrollOffset, animated: false });
+            }
+          }}
           style={styles.scrollView}
           contentContainerStyle={[
             styles.scrollContent,
             {
               paddingTop: Math.max(insets.top + 16, 56),
               paddingBottom:
-                80 + 36 + lockedBottomOffset + insets.bottom + (phase === 'tour' ? 360 : 64),
+                tabScrollPadding + (phase === 'tour' ? 360 : 0),
             },
           ]}
           showsVerticalScrollIndicator={false}
         >
-        {/* ── Business Name and Open/Closed Button (width: 358px, height: 52px) ── */}
-        <View style={styles.businessHeader}>
-          {/* Dashboard and Date / Address Info (Interactive - Tap to edit) */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={styles.businessInfoColumn}
-            disabled={phase === 'tour'}
-            onPress={handleOpenEditModal}
-          >
-            {/* Luminous Lux (Full dynamic name) */}
-            <Text style={styles.businessName} numberOfLines={1}>
-              {business.name}
-            </Text>
-
-            {/* Business Address Row */}
-            <View style={styles.addressRow}>
-              <Location01Icon size={16} color="rgba(96, 96, 102, 0.96)" />
-              <Text style={styles.addressText} numberOfLines={1}>
-                {business.address}
+          {/* ── Business Name and Open/Closed Button (width: 358px, height: 52px) ── */}
+          <View style={styles.businessHeader}>
+            {/* Dashboard and Date / Address Info (Interactive - Tap to edit) */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.businessInfoColumn}
+              disabled={phase === 'tour'}
+              onPress={handleOpenEditModal}
+            >
+              {/* Luminous Lux (Full dynamic name) */}
+              <Text style={styles.businessName} numberOfLines={1}>
+                {business.name}
               </Text>
+
+              {/* Business Address Row */}
+              <View style={styles.addressRow}>
+                <Location01Icon size={16} color="rgba(96, 96, 102, 0.96)" />
+                <Text style={styles.addressText} numberOfLines={1}>
+                  {formatDisplayLocation(business.address)}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Closed / Open Business Switch Toggle (width: 104px, height: 40px) */}
+            <TutorialTarget id="business_status_switch" borderRadius={32}>
+              <BusinessStatusSwitch
+                isOpen={business.isOpen}
+                onToggle={toggleIsOpen}
+                disabled={phase === 'tour'}
+              />
+            </TutorialTarget>
+          </View>
+
+          {/* ── Staff Dashboard Section (width: 358px) ── */}
+          <View style={styles.sectionContainer}>
+            {/* Section Heading: Appointment Dashboard */}
+            <Text style={styles.sectionTitle}>Appointment Dashboard</Text>
+
+            {/* Booking Dashboard 2x2 Grid (358px wide, 24px col gap, 40px row gap) */}
+            <View style={styles.cardsGrid}>
+              {/* ── Card 1: Appointments (167x120) with Notification Badge ── */}
+              <DashboardCard
+                targetId="appointments_card"
+                cardHeight={120}
+                title="Appointments"
+                count={isSpotlightTarget('appointments_card') ? '0' : pendingAppointmentsCount}
+                label="Pending"
+                icon={
+                  <Image
+                    source={require('../../../assets/images/dashboard/appointments_calendar.png')}
+                    style={styles.calendarIconImage}
+                    resizeMode="contain"
+                  />
+                }
+                badge={
+                  !isSpotlightTarget('appointments_card') ? (
+                    <View style={styles.notificationBadge} pointerEvents="none">
+                      <Text style={styles.notificationBadgeText}>
+                        {business.notificationBadgeCount || pendingAppointmentsCount + ongoingAppointmentsCount}
+                      </Text>
+                    </View>
+                  ) : null
+                }
+                onPress={() => safeNavigate('/appointments')}
+                disabled={phase === 'tour'}
+              />
+
+              {/* ── Card 2: In Progress (167x120) ── */}
+              <DashboardCard
+                targetId="in_progress_card"
+                cardHeight={120}
+                title="In Progress"
+                count={isSpotlightTarget('in_progress_card') ? '0' : ongoingAppointmentsCount}
+                label="Ongoing"
+                icon={
+                  <Image
+                    source={require('../../../assets/images/dashboard/in_progress_spinner.png')}
+                    style={{ width: 26, height: 26, transform: [{ rotate: '67.75deg' }] }}
+                    resizeMode="contain"
+                  />
+                }
+                onPress={() => safeNavigate('/ongoing-appointments')}
+                disabled={phase === 'tour'}
+              />
+
+              {/* ── Card 3: My Staffs (167x120) ── */}
+              <DashboardCard
+                targetId="staff_status_card"
+                cardHeight={120}
+                title="Staff Status"
+                count={isSpotlightTarget('staff_status_card') ? '0' : onDutyStaffCount}
+                label="On Duty"
+                icon={
+                  <Image
+                    source={require('../../../assets/images/dashboard/my_staffs_group.png')}
+                    style={{ width: 32, height: 32 }}
+                    resizeMode="contain"
+                  />
+                }
+                onPress={() => safeNavigate('/staff-status')}
+                disabled={phase === 'tour'}
+              />
+
+              {/* ── Card 4: Categories (167x120) ── */}
+              <DashboardCard
+                targetId="appointment_history_card"
+                cardHeight={120}
+                title="Appointment History"
+                label="More Options"
+                icon={
+                  <Image
+                    source={require('../../../assets/images/dashboard/categories_grid.png')}
+                    style={{ width: 26, height: 26 }}
+                    resizeMode="contain"
+                  />
+                }
+                onPress={handleCategoriesPress}
+                disabled={phase === 'tour'}
+              />
             </View>
-          </TouchableOpacity>
+          </View>
 
-          {/* Closed / Open Business Switch Toggle (width: 104px, height: 40px) */}
-          <TutorialTarget id="business_status_switch" borderRadius={32}>
-            <BusinessStatusSwitch
-              isOpen={business.isOpen}
-              onToggle={toggleIsOpen}
-              disabled={phase === 'tour'}
-            />
-          </TutorialTarget>
-        </View>
+          {/* ── Ads Banner Frame 1000006443 (width: 358px, height: 116px, radius: 24px) ── */}
+          <View style={styles.adsBanner}>
+            <Text style={styles.adsText}>Ads</Text>
+          </View>
 
-        {/* ── Staff Dashboard Section (width: 358px) ── */}
-        <View style={styles.sectionContainer}>
-          {/* Section Heading: Appointment Dashboard */}
-          <Text style={styles.sectionTitle}>Appointment Dashboard</Text>
+          {/* ── Business Dashboard Section (width: 358px) ── */}
+          <View style={styles.sectionContainer}>
+            {/* Section Heading: Business Dashboard */}
+            <Text style={styles.sectionTitle}>Business Dashboard</Text>
 
-          {/* Booking Dashboard 2x2 Grid (358px wide, 24px col gap, 40px row gap) */}
-          <View style={styles.cardsGrid}>
-            {/* ── Card 1: Appointments (167x120) with Notification Badge ── */}
-            <DashboardCard
-              targetId="appointments_card"
-              cardHeight={120}
-              title="Appointments"
-              count={isSpotlightTarget('appointments_card') ? '0' : pendingAppointmentsCount}
-              label="Pending"
-              icon={
-                <Image
-                  source={require('../../../assets/images/dashboard/appointments_calendar.png')}
-                  style={styles.calendarIconImage}
-                  resizeMode="contain"
-                />
-              }
-              badge={
-                !isSpotlightTarget('appointments_card') ? (
-                  <View style={styles.notificationBadge} pointerEvents="none">
-                    <Text style={styles.notificationBadgeText}>
-                      {business.notificationBadgeCount || pendingAppointmentsCount + ongoingAppointmentsCount}
-                    </Text>
+            {/* Business Dashboard 3x2 Grid (358px wide, 24px col gap, 40px row gap) */}
+            <View style={styles.cardsGrid}>
+              {/* ── Card 1: Manage Business Service (167x136) ── */}
+              <DashboardCard
+                targetId="add_service_card"
+                cardHeight={136}
+                title="Add Service"
+                count={isSpotlightTarget('add_service_card') ? '0' : services.length}
+                label="Added Services"
+                icon={
+                  <Image
+                    source={require('../../../assets/images/dashboard/manage_service_add.png')}
+                    style={{ width: 35, height: 35 }}
+                    resizeMode="contain"
+                  />
+                }
+                onPress={handleAddServicePress}
+                disabled={phase === 'tour'}
+              />
+
+              {/* ── Card 2: Post Service Photos (167x136) ── */}
+              <DashboardCard
+                targetId="post_work_card"
+                cardHeight={136}
+                title="Post Work"
+                count={isSpotlightTarget('post_work_card') ? '0' : workPhotos.length}
+                label="Posts"
+                icon={
+                  <Image
+                    source={require('../../../assets/images/dashboard/post_photos_camera.png')}
+                    style={{ width: 31, height: 22 }}
+                    resizeMode="contain"
+                  />
+                }
+                onPress={() => safeNavigate('/post-work')}
+                disabled={phase === 'tour'}
+              />
+
+              {/* ── Card 3: Staff Management (167x136) ── */}
+              <DashboardCard
+                targetId="staff_management_card"
+                cardHeight={136}
+                title="Staff Management"
+                count={isSpotlightTarget('staff_management_card') ? '0' : totalStaffCount}
+                label="Hired Staff"
+                icon={
+                  <Image
+                    source={require('../../../assets/images/dashboard/staff_management_users.png')}
+                    style={{ width: 32, height: 32 }}
+                    resizeMode="contain"
+                  />
+                }
+                onPress={() => safeNavigate('/staffs')}
+                disabled={phase === 'tour'}
+              />
+
+              {/* ── Card 4: Business Statistics (167x136) ── */}
+              <DashboardCard
+                targetId="business_statistics_card"
+                cardHeight={136}
+                title="Business Statistics"
+                label="Today"
+                icon={
+                  <View style={styles.performanceStake}>
+                    <TriangleIcon size={12} />
+                    <Text style={styles.performancePercentText}>{business.performanceStake}</Text>
                   </View>
-                ) : null
-              }
-              onPress={() => router.push('/appointments' as any)}
-              disabled={phase === 'tour'}
-            />
+                }
+                onPress={() => safeNavigate('/business-statistics')}
+                disabled={phase === 'tour'}
+              />
 
-            {/* ── Card 2: In Progress (167x120) ── */}
-            <DashboardCard
-              targetId="in_progress_card"
-              cardHeight={120}
-              title="In Progress"
-              count={isSpotlightTarget('in_progress_card') ? '0' : ongoingAppointmentsCount}
-              label="Ongoing"
-              icon={
-                <Image
-                  source={require('../../../assets/images/dashboard/in_progress_spinner.png')}
-                  style={{ width: 26, height: 26, transform: [{ rotate: '67.75deg' }] }}
-                  resizeMode="contain"
-                />
-              }
-              onPress={() => router.push('/ongoing-appointments')}
-              disabled={phase === 'tour'}
-            />
+              {/* ── Card 5: Client review (167x136) ── */}
+              <DashboardCard
+                targetId="clients_review_card"
+                cardHeight={136}
+                title="Client review"
+                count={isSpotlightTarget('clients_review_card') ? '0' : reviews.length}
+                label="Reviews"
+                icon={
+                  <Image
+                    source={require('../../../assets/images/dashboard/reviews_chat_bubbles.png')}
+                    style={{ width: 32, height: 32 }}
+                    resizeMode="contain"
+                  />
+                }
+                onPress={() => safeNavigate('/clients-review')}
+                disabled={phase === 'tour'}
+              />
 
-            {/* ── Card 3: My Staffs (167x120) ── */}
-            <DashboardCard
-              targetId="staff_status_card"
-              cardHeight={120}
-              title="Staff Status"
-              count={isSpotlightTarget('staff_status_card') ? '0' : onDutyStaffCount}
-              label="On Duty"
-              icon={
-                <Image
-                  source={require('../../../assets/images/dashboard/my_staffs_group.png')}
-                  style={{ width: 32, height: 32 }}
-                  resizeMode="contain"
-                />
-              }
-              onPress={() => router.push('/staffs')}
-              disabled={phase === 'tour'}
-            />
-
-            {/* ── Card 4: Categories (167x120) ── */}
-            <DashboardCard
-              targetId="appointment_history_card"
-              cardHeight={120}
-              title="Appointment History"
-              label="More Options"
-              icon={
-                <Image
-                  source={require('../../../assets/images/dashboard/categories_grid.png')}
-                  style={{ width: 26, height: 26 }}
-                  resizeMode="contain"
-                />
-              }
-              onPress={handleCategoriesPress}
-              disabled={phase === 'tour'}
-            />
+              {/* ── Card 6: Business Management (167x136) ── */}
+              <DashboardCard
+                targetId="edit_business_profile_card"
+                cardHeight={136}
+                title="Edit Business Profile"
+                label="Edit Information"
+                icon={
+                  <Image
+                    source={require('../../../assets/images/dashboard/business_folder.png')}
+                    style={{ width: 30, height: 30 }}
+                    resizeMode="contain"
+                  />
+                }
+                onPress={() => safeNavigate('/edit-business-profile')}
+                disabled={phase === 'tour'}
+              />
+            </View>
           </View>
-        </View>
-
-        {/* ── Ads Banner Frame 1000006443 (width: 358px, height: 116px, radius: 24px) ── */}
-        <View style={styles.adsBanner}>
-          <Text style={styles.adsText}>Ads</Text>
-        </View>
-
-        {/* ── Business Dashboard Section (width: 358px) ── */}
-        <View style={styles.sectionContainer}>
-          {/* Section Heading: Business Dashboard */}
-          <Text style={styles.sectionTitle}>Business Dashboard</Text>
-
-          {/* Business Dashboard 3x2 Grid (358px wide, 24px col gap, 40px row gap) */}
-          <View style={styles.cardsGrid}>
-            {/* ── Card 1: Manage Business Service (167x136) ── */}
-            <DashboardCard
-              targetId="add_service_card"
-              cardHeight={136}
-              title="Add Service"
-              count={isSpotlightTarget('add_service_card') ? '0' : business.servicesCount}
-              label="Added Services"
-              icon={
-                <Image
-                  source={require('../../../assets/images/dashboard/manage_service_add.png')}
-                  style={{ width: 35, height: 35 }}
-                  resizeMode="contain"
-                />
-              }
-              onPress={() => router.push('/services' as any)}
-              disabled={phase === 'tour'}
-            />
-
-            {/* ── Card 2: Post Service Photos (167x136) ── */}
-            <DashboardCard
-              targetId="post_work_card"
-              cardHeight={136}
-              title="Post Work"
-              count={isSpotlightTarget('post_work_card') ? '0' : business.photosCount}
-              label="Posts"
-              icon={
-                <Image
-                  source={require('../../../assets/images/dashboard/post_photos_camera.png')}
-                  style={{ width: 31, height: 22 }}
-                  resizeMode="contain"
-                />
-              }
-              onPress={() => router.push('/post-work' as any)}
-              disabled={phase === 'tour'}
-            />
-
-            {/* ── Card 3: Staff Management (167x136) ── */}
-            <DashboardCard
-              targetId="staff_management_card"
-              cardHeight={136}
-              title="Staff Management"
-              count={isSpotlightTarget('staff_management_card') ? '0' : totalStaffCount}
-              label="Hired Staff"
-              icon={
-                <Image
-                  source={require('../../../assets/images/dashboard/staff_management_users.png')}
-                  style={{ width: 32, height: 32 }}
-                  resizeMode="contain"
-                />
-              }
-              onPress={() => router.push('/staffs' as any)}
-              disabled={phase === 'tour'}
-            />
-
-            {/* ── Card 4: Business Statistics (167x136) ── */}
-            <DashboardCard
-              targetId="business_statistics_card"
-              cardHeight={136}
-              title="Business Statistics"
-              label="Today"
-              icon={
-                <View style={styles.performanceStake}>
-                  <TriangleIcon size={12} />
-                  <Text style={styles.performancePercentText}>{business.performanceStake}</Text>
-                </View>
-              }
-              onPress={() => router.push('/business-statistics' as any)}
-              disabled={phase === 'tour'}
-            />
-
-            {/* ── Card 5: Clients Reviews and Comments (167x136) ── */}
-            <DashboardCard
-              targetId="clients_review_card"
-              cardHeight={136}
-              title="Clients Reviews"
-              count={isSpotlightTarget('clients_review_card') ? '0' : business.reviewsCount}
-              label="Reviews"
-              icon={
-                <Image
-                  source={require('../../../assets/images/dashboard/reviews_chat_bubbles.png')}
-                  style={{ width: 32, height: 32 }}
-                  resizeMode="contain"
-                />
-              }
-              onPress={() => router.push('/clients-review' as any)}
-              disabled={phase === 'tour'}
-            />
-
-            {/* ── Card 6: Business Management (167x136) ── */}
-            <DashboardCard
-              targetId="edit_business_profile_card"
-              cardHeight={136}
-              title="Edit Business Profile"
-              label="Edit Information"
-              icon={
-                <Image
-                  source={require('../../../assets/images/dashboard/business_folder.png')}
-                  style={{ width: 30, height: 30 }}
-                  resizeMode="contain"
-                />
-              }
-              onPress={() => router.push('/edit-business-profile' as any)}
-              disabled={phase === 'tour'}
-            />
-          </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
       )}
 
       {/* ── Fixed Bottom Navigation Container (Locked at bottom, 100% stationary) ── */}
@@ -719,7 +854,7 @@ export const ProviderDashboardScreen: React.FC = () => {
           style={[
             styles.bottomBackdropShield,
             {
-              height: lockedBottomOffset + 80 + 36,
+              height: bottomFadeHeight,
             },
           ]}
           pointerEvents="none"
@@ -745,7 +880,7 @@ export const ProviderDashboardScreen: React.FC = () => {
           style={[
             styles.bottomNavContainer,
             {
-              bottom: lockedBottomOffset,
+              bottom: tabBottomOffset,
             },
           ]}
         >
@@ -785,7 +920,7 @@ export const ProviderDashboardScreen: React.FC = () => {
               disabled={phase === 'tour'}
               onPress={() => {
                 triggerLightHaptic();
-                router.push('/messages' as any);
+                safeRouter.replace('/messages' as any);
               }}
             >
               <View style={styles.navTabContent}>
@@ -812,7 +947,7 @@ export const ProviderDashboardScreen: React.FC = () => {
               disabled={phase === 'tour'}
               onPress={() => {
                 triggerLightHaptic();
-                router.push('/profile' as any);
+                safeRouter.replace('/profile' as any);
               }}
             >
               <View style={styles.navTabContent}>
@@ -835,8 +970,8 @@ export const ProviderDashboardScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* ── Category 4-Dot Loader Overlay (displayed over screen, not a new page) ── */}
-      <CategoryFourDotLoader visible={showCategoryOverlay} />
+      {/* ── 4-Dot Loader Overlay (displayed over screen, not a new page) ── */}
+      <CategoryFourDotLoader visible={showCategoryOverlay || showAddServiceOverlay} />
 
       {/* ── Edit Business Details Modal ── */}
       <Modal
@@ -900,15 +1035,40 @@ export const ProviderDashboardScreen: React.FC = () => {
         visible={phase === 'welcome'}
         onGetStarted={handleGetStarted}
       />
+
+      {/* ── Completion Card Overlay & Confetti (Reuses WelcomeCard with transparent backdrop & close X) ── */}
+      <WelcomeCard
+        visible={phase === 'completion'}
+        onClose={handleCloseCompletion}
+        title="Onboarding Tutorial"
+        subtitle="Onboarding tutorial successfully completed"
+        showCloseButton={true}
+        hideActionButton={true}
+        cardHeight={345}
+        transparentBackdrop={true}
+      />
+
+      {/* ── 11-Step Spotlight Tour & Tooltip Bubble ── */}
       <SpotlightOverlay />
+
+      {/* ── 'How it works' Video Screen Modal (1:1 with Staff & Figma) ── */}
+      <TutorialVideoModal
+        visible={phase === 'video'}
+        step={currentStep}
+        onBack={closeVideo}
+        onNext={handleNextStep}
+        totalSteps={TUTORIAL_STEPS.length}
+        videoSources={OWNER_TUTORIAL_VIDEOS}
+      />
 
       {/* ── First-Time Flow Closing Cards: Connect Account & Trial Notice ── */}
       <ConnectAccountModal
         visible={phase === 'connectPrompt'}
+        ownerName={resolvedOwnerName}
         onConnectAccount={() => {
           handleConnectAccount();
           if (payoutMethod) {
-            router.push('/payout-method' as any);
+            safeRouter.push('/payout-method' as any);
           } else {
             setIsPayoutTermsOpen(true);
           }
@@ -925,7 +1085,7 @@ export const ProviderDashboardScreen: React.FC = () => {
         visible={isPayoutTermsOpen}
         onAgree={() => {
           setIsPayoutTermsOpen(false);
-          router.push('/payout-form' as any);
+          safeRouter.push('/payout-form' as any);
         }}
         onDecline={() => {
           setIsPayoutTermsOpen(false);
@@ -1029,7 +1189,8 @@ const styles = StyleSheet.create({
 
   /* ── Cards Grid (2-column layout) ── */
   cardsGrid: {
-    width: 358,
+    width: '100%',
+    maxWidth: 358,
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
@@ -1275,21 +1436,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     ...Platform.select({
       ios: {
-        shadowColor: 'rgba(133, 139, 148, 0.08)',
-        shadowOffset: { width: 4, height: 10 },
-        shadowOpacity: 0.16,
+        shadowColor: 'rgba(133, 139, 148, 0.12)',
+        shadowOffset: { width: 0, height: 16 },
+        shadowOpacity: 0.12,
         shadowRadius: 24,
       },
       android: {
-        elevation: 12,
+        elevation: 10,
       },
       web: {
-        shadowColor: 'rgba(133, 139, 148, 0.08)',
-        shadowOffset: { width: 4, height: 10 },
-        shadowOpacity: 0.16,
+        shadowColor: 'rgba(133, 139, 148, 0.12)',
+        shadowOffset: { width: 0, height: 16 },
+        shadowOpacity: 0.12,
         shadowRadius: 24,
       },
     }),
+    borderWidth: 1,
+    borderColor: 'rgba(235, 235, 245, 0.96)',
   },
 
   navTabItem: {

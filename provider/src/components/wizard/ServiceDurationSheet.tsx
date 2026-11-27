@@ -291,7 +291,7 @@ export const ServiceDurationSheet: React.FC<ServiceDurationSheetProps> = ({
         <View
           style={[
             styles.sheetContainer,
-            { paddingBottom: Math.max(insets.bottom, 24) },
+            { paddingBottom: insets.bottom + 16 },
           ]}
         >
           {/* ── Header ── */}

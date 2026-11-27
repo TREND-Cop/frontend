@@ -41,7 +41,6 @@ export interface StaffPackageInfo {
 
 export interface StaffSummaryInfo {
   appointmentCost: string;
-  trendPoints: string;
   paymentType: string;
   total: string;
 }
@@ -122,8 +121,7 @@ export const INITIAL_STAFF_DATA: StaffMember[] = [
       items: ['Hair Washing', 'Conditioning & Wash', 'Beard Trim'],
     },
     summary: {
-      appointmentCost: '₦34,700',
-      trendPoints: '-₦2,700',
+      appointmentCost: '₦32,000',
       paymentType: 'Opay (Transfer)',
       total: '₦32,000',
     },
@@ -180,8 +178,7 @@ export const INITIAL_STAFF_DATA: StaffMember[] = [
       items: ['Hair Washing', 'Conditioning & Wash', 'Manicure'],
     },
     summary: {
-      appointmentCost: '₦52,700',
-      trendPoints: '-₦2,700',
+      appointmentCost: '₦50,000',
       paymentType: 'Opay (Transfer)',
       total: '₦50,000',
     },
@@ -237,8 +234,7 @@ export const INITIAL_STAFF_DATA: StaffMember[] = [
       items: ['Nail Polish', 'Cuticle Cleanse', 'Hand Massage'],
     },
     summary: {
-      appointmentCost: '₦26,500',
-      trendPoints: '-₦1,500',
+      appointmentCost: '₦25,000',
       paymentType: 'Card (POS)',
       total: '₦25,000',
     },
@@ -293,8 +289,7 @@ export const INITIAL_STAFF_DATA: StaffMember[] = [
       items: ['Nail Repair', 'Buffing'],
     },
     summary: {
-      appointmentCost: '₦20,000',
-      trendPoints: '-₦1,000',
+      appointmentCost: '₦19,000',
       paymentType: 'Opay (Transfer)',
       total: '₦19,000',
     },
@@ -349,8 +344,7 @@ export const INITIAL_STAFF_DATA: StaffMember[] = [
       items: ['Foot Soak', 'Pedicure Cleanse'],
     },
     summary: {
-      appointmentCost: '₦18,000',
-      trendPoints: '-₦1,000',
+      appointmentCost: '₦17,000',
       paymentType: 'Bank Transfer',
       total: '₦17,000',
     },
@@ -406,8 +400,7 @@ export const INITIAL_STAFF_DATA: StaffMember[] = [
       items: ['Gel Extension', 'Chrome Polish', 'Cuticle Oil'],
     },
     summary: {
-      appointmentCost: '₦33,500',
-      trendPoints: '-₦1,500',
+      appointmentCost: '₦32,000',
       paymentType: 'Opay (Transfer)',
       total: '₦32,000',
     },
@@ -464,8 +457,7 @@ export const SUGGESTED_STAFF_GAVIN: StaffMember = {
     items: ['Nail Repair', 'Buffing'],
   },
   summary: {
-    appointmentCost: '₦20,000',
-    trendPoints: '-₦1,000',
+    appointmentCost: '₦19,000',
     paymentType: 'Opay (Transfer)',
     total: '₦19,000',
   },

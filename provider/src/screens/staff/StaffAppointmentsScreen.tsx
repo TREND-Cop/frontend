@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import { useStaffAppointments } from '../../context/StaffAppointmentsContext';
@@ -21,6 +22,7 @@ import {
   formatNaira,
 } from '../../utils/staffAppointmentFormatters';
 import { LoadingOverlay } from '../../components/LoadingOverlay';
+import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 import { triggerLightHaptic } from '../../utils/haptics';
 
 // ── 1:1 Vector Icons ──────────────────────────────────────────────────────────
@@ -63,7 +65,7 @@ function StarIcon({ size = 18 }: { size?: number }) {
 
 export function StaffAppointmentsScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { appointments, isRefreshing, refreshAppointments } = useStaffAppointments();
 
   // Shared 1-second ticker that ONLY runs while this screen is focused
@@ -87,14 +89,14 @@ export function StaffAppointmentsScreen() {
     return () => clearInterval(interval);
   }, [isFocused]);
 
-  // Per prompt: in-progress appointments are hidden from this waiting list until confirmed
-  const visibleAppointments = appointments.filter((a) => a.status !== 'in-progress');
+  // Show only pending/waiting appointments for this screen
+  const visibleAppointments = appointments.filter((a) => a.status === 'waiting');
 
   const countText = `${visibleAppointments.length} Appointment${visibleAppointments.length === 1 ? '' : 's'}`;
 
   const handleCardPress = (appointment: StaffAppointment) => {
     triggerLightHaptic();
-    router.push({
+    safeRouter.push({
       pathname: STAFF_ROUTES.APPOINTMENT_DETAIL as any,
       params: { id: appointment.id },
     });
@@ -117,7 +119,7 @@ export function StaffAppointmentsScreen() {
             activeOpacity={0.7}
             onPress={() => {
               triggerLightHaptic();
-              router.back();
+              safeRouter.back();
             }}
             accessibilityLabel="Back"
           >
@@ -255,6 +257,8 @@ export function StaffAppointmentsScreen() {
           })}
         </ScrollView>
       )}
+
+      <NativeDockSpacer />
 
       {/* ── 3. Dimmed Refresh Loading Overlay (Centered 4-dot loader) ── */}
       <LoadingOverlay

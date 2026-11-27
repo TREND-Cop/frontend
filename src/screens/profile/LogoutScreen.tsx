@@ -26,7 +26,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { SafeImage } from '../../components/ui/SafeImage';
 import { useUserContext } from '../../store/UserContext';
 
@@ -35,13 +35,13 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const scaleY = SCREEN_HEIGHT / 844;
 
 export const LogoutScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { logout } = useUserContext();
 
   const handleExplore = () => {
     // Navigate to explore screen
-    router.replace('/home/explore' as any);
+    safeRouter.replace('/home/explore' as any);
   };
 
   const handleLogout = async () => {
@@ -50,7 +50,7 @@ export const LogoutScreen: React.FC = () => {
     } catch (e) {
       console.warn('Error during logout:', e);
     }
-    router.replace('/sign-in' as any);
+    safeRouter.resetRoot('/sign-in');
   };
 
   return (

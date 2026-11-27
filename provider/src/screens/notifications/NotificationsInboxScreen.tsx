@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
 
 import { useNotifications, NotificationItem } from '../../context/NotificationsContext';
@@ -42,59 +42,19 @@ function ArrowLeftIcon({ size = 24, color = '#000814' }: { size?: number; color?
   );
 }
 
+const EMPTY_NOTIFICATIONS_IMAGE = require('../../../assets/images/notifications/empty_notifications.png');
+
 /**
  * 1:1 Figma Empty Notification Stacked Illustration (150x150px)
  * Frame at (120px, 255px) in (2650, 134)
  */
 function EmptyNotificationIllustration({ size = 150 }: { size?: number }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 150 150" fill="none">
-      {/* Background stacked card 1 (tilted left) */}
-      <Rect
-        x="24"
-        y="42"
-        width="82"
-        height="96"
-        rx="16"
-        transform="rotate(-10 24 42)"
-        fill="#EBEBF5"
-        opacity={0.6}
-      />
-      {/* Foreground card */}
-      <Rect
-        x="36"
-        y="28"
-        width="88"
-        height="104"
-        rx="20"
-        fill="#F7F7F7"
-        stroke="#EBEBF5"
-        strokeWidth="1.5"
-      />
-      {/* Muted bell icon container */}
-      <Circle cx="80" cy="80" r="30" fill="#FFFFFF" />
-      <Path
-        d="M80 62c-6.627 0-12 5.373-12 12v8.54l-3.4 5.1A2 2 0 0066.26 91h27.48a2 2 0 001.66-3.1L92 82.54V74c0-6.627-5.373-12-12-12z"
-        stroke="#C0C0CC"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M75 97a5 5 0 0010 0"
-        stroke="#C0C0CC"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* Diagonal slash for muted/off indicator */}
-      <Path
-        d="M66 64l28 32"
-        stroke="#C0C0CC"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-      />
-    </Svg>
+    <Image
+      source={EMPTY_NOTIFICATIONS_IMAGE}
+      style={{ width: size, height: size }}
+      resizeMode="contain"
+    />
   );
 }
 
@@ -153,7 +113,7 @@ interface GroupedNotifications {
 }
 
 export const NotificationsInboxScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { notifications, markAsRead } = useNotifications();
 
@@ -179,7 +139,7 @@ export const NotificationsInboxScreen: React.FC = () => {
 
   const handleNotificationPress = (item: NotificationItem) => {
     markAsRead(item.id);
-    router.push(`/notification-detail/${item.id}` as any);
+    safeRouter.push(`/notification-detail/${item.id}` as any);
   };
 
   const isEmpty = notifications.length === 0;
@@ -190,7 +150,7 @@ export const NotificationsInboxScreen: React.FC = () => {
       <View style={styles.header}>
         <TouchableOpacity
           activeOpacity={0.7}
-          onPress={() => router.back()}
+          onPress={() => safeRouter.back()}
           style={styles.backButton}
           accessibilityLabel="Go back"
           accessibilityRole="button"

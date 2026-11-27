@@ -7,15 +7,14 @@ import {
   ScrollView,
   Platform,
   Alert,
-  Modal,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { SafeImage } from '../../components/ui/SafeImage';
 import { bookingStore } from '../../utils/bookingStore';
 import { InAppShareModal } from '../../components/InAppShareModal';
-import { AppointmentTypeModal, AppointmentBookingType } from '../../components/AppointmentTypeModal';
 import { EmptyBookedItemScreen } from './EmptyBookedItemScreen';
 import { useBookingContext } from '../../store/BookingContext';
 import { getServiceByIdOrName } from '../../constants/serviceCatalog';
@@ -144,18 +143,9 @@ const ClockGreyIcon = ({ size = 24, color = 'rgba(192, 192, 204, 0.96)' }: { siz
   </Svg>
 );
 
-// ── Star Loading Indicator (Figma: Star 3, 72x72px) ──
-const StarLoadingIcon = ({ size = 72, color = 'rgba(0, 8, 20, 0.96)' }: { size?: number; color?: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 72 72" fill="none">
-    <Path
-      d="M36 6L44.5 25.5L66 27.5L50 42L54.5 63.5L36 53L17.5 63.5L22 42L6 27.5L27.5 25.5L36 6Z"
-      fill={color}
-    />
-  </Svg>
-);
 
 export const OngoingAppointmentScreen = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const bottomInset = Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16);
   const params = useLocalSearchParams();
@@ -180,8 +170,8 @@ export const OngoingAppointmentScreen = () => {
     return (
       <EmptyBookedItemScreen
         title="Ongoing Appointment"
-        onGoBack={() => router.replace('/home/bookings' as any)}
-        onExploreLocations={() => router.replace('/home' as any)}
+        onGoBack={() => safeRouter.replace('/home/bookings' as any)}
+        onExploreLocations={() => safeRouter.replace('/home' as any)}
       />
     );
   }
@@ -212,8 +202,6 @@ export const OngoingAppointmentScreen = () => {
   // Live Timer: 30 seconds
   const [secondsRemaining, setSecondsRemaining] = useState<number>(30);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [isAppointmentTypeModalOpen, setIsAppointmentTypeModalOpen] = useState(false);
-  const [isCompletingService, setIsCompletingService] = useState(false);
 
   useEffect(() => {
     if (secondsRemaining <= 0) return;
@@ -237,11 +225,11 @@ export const OngoingAppointmentScreen = () => {
   };
 
   const handleGoBack = () => {
-    router.replace('/home/bookings' as any);
+    safeRouter.replace('/home/bookings' as any);
   };
 
   const handleReviewAppointment = () => {
-    router.push({
+    safeRouter.push({
       pathname: '/review-appointment',
       params: {
         id: params.id,
@@ -255,26 +243,6 @@ export const OngoingAppointmentScreen = () => {
         address: locationAddress,
         paymentOption: params.paymentOption,
         paymentMethod: params.paymentMethod,
-      },
-    } as any);
-  };
-
-  const [selectedBookingType, setSelectedBookingType] = useState<AppointmentBookingType | null>(null);
-
-  const handleBookAgain = () => {
-    if (!isCompleted) return;
-    setIsAppointmentTypeModalOpen(true);
-  };
-
-  const handleSelectAppointmentType = (type: AppointmentBookingType) => {
-    setSelectedBookingType(type);
-    setIsAppointmentTypeModalOpen(false);
-    router.push({
-      pathname: '/appointment-time',
-      params: {
-        appointmentType: type,
-        serviceName: serviceName,
-        price: price,
       },
     } as any);
   };
@@ -296,34 +264,32 @@ export const OngoingAppointmentScreen = () => {
       return;
     }
 
-    // Show star loading indicator, then transition to Customer Review Screen
-    setIsCompletingService(true);
-    setTimeout(async () => {
-      if (targetAppointment) {
-        await updateAppointmentStatus(targetAppointment.id, 'completed');
-      }
-      setIsCompletingService(false);
-      router.replace({
-        pathname: '/customer-review',
-        params: {
-          salonName: targetAppointment?.salonName || 'Luminous Lux',
-          specialistName: targetAppointment?.specialist?.name || (targetAppointment?.specialists && targetAppointment.specialists[0]?.name) || 'Precious Emmanuel',
-          specialistRole: targetAppointment?.specialist?.role || (targetAppointment?.specialists && targetAppointment.specialists[0]?.role) || 'Hair stylist',
-          name: serviceName,
-          price: price,
-          duration: duration,
-          rating: rating,
-          ticketNumber: ticketNumber,
-          date: bookedDate,
-          time: bookedTime,
-          address: locationAddress,
-        },
-      } as any);
-    }, 1200);
+    if (targetAppointment) {
+      updateAppointmentStatus(targetAppointment.id, 'completed').catch(() => {});
+    }
+
+    // Instant smooth transition to Customer Review Screen (Option A)
+    safeRouter.replace({
+      pathname: '/customer-review',
+      params: {
+        salonName: targetAppointment?.salonName || 'Luminous Lux',
+        specialistName: targetAppointment?.specialist?.name || (targetAppointment?.specialists && targetAppointment.specialists[0]?.name) || 'Precious Emmanuel',
+        specialistRole: targetAppointment?.specialist?.role || (targetAppointment?.specialists && targetAppointment.specialists[0]?.role) || 'Hair stylist',
+        name: serviceName,
+        price: price,
+        duration: duration,
+        rating: rating,
+        ticketNumber: ticketNumber,
+        date: bookedDate,
+        time: bookedTime,
+        address: locationAddress,
+        celebrate: '1',
+      },
+    } as any);
   };
 
   const handleLocationPress = () => {
-    router.push({
+    safeRouter.push({
       pathname: '/salon/location',
       params: {
         salonId: (params.salonId as string) || (activeAppointment as any)?.salonId || 'salon2',
@@ -479,25 +445,6 @@ export const OngoingAppointmentScreen = () => {
               <Text style={styles.reviewAppointmentLinkText}>Review Appointment</Text>
             </TouchableOpacity>
           </View>
-
-          {/* Book Again Inner Button */}
-          <TouchableOpacity
-            style={[
-              styles.bookAgainInnerButton,
-              isCompleted && styles.bookAgainInnerButtonActive,
-            ]}
-            activeOpacity={isCompleted ? 0.85 : 1}
-            onPress={handleBookAgain}
-            disabled={!isCompleted}
-          >
-            {isCompleted ? (
-              <Text style={styles.bookAgainInnerButtonActiveText}>
-                Book Again
-              </Text>
-            ) : (
-              <Text style={styles.bookAgainInnerButtonDisabledText}>Book Again</Text>
-            )}
-          </TouchableOpacity>
         </View>
 
         {/* ── 3. Service Complete Note Warning Section ── */}
@@ -540,24 +487,6 @@ export const OngoingAppointmentScreen = () => {
         onClose={() => setIsShareModalOpen(false)}
         title="Ongoing Appointment"
         url={`https://trend.app/ongoing/${ticketNumber}`}
-      />
-
-      {/* ── Star Loading Indicator Overlay (Figma: Star 3, 72x72) ── */}
-      <Modal visible={isCompletingService} transparent animationType="fade">
-        <View style={styles.starLoadingBackdrop}>
-          <View style={styles.starLoadingContainer}>
-            <StarLoadingIcon size={72} color="rgba(0, 8, 20, 0.96)" />
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── Appointment Type Modal (for Book Again 10% OFF) ── */}
-      <AppointmentTypeModal
-        visible={isAppointmentTypeModalOpen}
-        selectedType={selectedBookingType}
-        onClose={() => setIsAppointmentTypeModalOpen(false)}
-        onSelectType={handleSelectAppointmentType}
-        basePrice={22700}
       />
     </SafeAreaView>
   );
@@ -831,37 +760,6 @@ const styles = StyleSheet.create({
     color: 'rgba(0, 8, 20, 0.96)',
   },
 
-  // ── Book Again Inner Button ──
-  bookAgainInnerButton: {
-    width: '100%',
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: 'rgba(235, 235, 245, 0.96)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  bookAgainInnerButtonActive: {
-    backgroundColor: 'rgba(0, 8, 20, 0.96)',
-    borderColor: 'transparent',
-  },
-  bookAgainInnerButtonDisabledText: {
-    ...typography.button,
-    fontSize: 15,
-    lineHeight: 22,
-    color: 'rgba(192, 192, 204, 0.96)',
-  },
-  bookAgainInnerButtonActiveText: {
-    ...typography.button,
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#FFFFFF',
-  },
-  bookAgainGoldText: {
-    color: 'rgba(248, 155, 24, 0.96)',
-  },
-
   // ── 3. Service Complete Note Section ──
   noteSection: {
     gap: 8,
@@ -926,21 +824,6 @@ const styles = StyleSheet.create({
   },
   serviceCompleteButtonTextActive: {
     color: '#FFFFFF',
-  },
-
-  // ── Star Loading Indicator (Figma: Star 3, 72x72) ──
-  starLoadingBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  starLoadingContainer: {
-    width: 88,
-    height: 88,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });
 

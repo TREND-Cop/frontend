@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Camera, Image as ImageIcon, Folder, X, User, Check } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { useUserContext } from '../../store/UserContext';
 
 // ── Star Loading Indicator (Figma: Star 3, 72x72px) ──
@@ -32,7 +32,7 @@ const DEFAULT_AVATAR =
   require('../../../assets/images/profile/05fc2d4379598a2d970225e7fdac24e129516033.jpg');
 
 export function ChangeProfilePhotoScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { profileData, setAvatarUri } = useUserContext();
 
   const existingAvatar = profileData.avatarUri || null;
@@ -61,10 +61,10 @@ export function ChangeProfilePhotoScreen() {
   }, [isSaving]);
 
   const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
+    if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/profile' as any);
+      safeRouter.replace('/profile' as any);
     }
   };
 
@@ -128,7 +128,7 @@ export function ChangeProfilePhotoScreen() {
       setShowSuccessToast(true);
 
       setTimeout(() => {
-        router.replace('/profile' as any);
+        safeRouter.replace('/profile' as any);
       }, 500);
     }, 350);
   };

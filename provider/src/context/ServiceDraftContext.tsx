@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from 'react';
+import {
+  loadFromStorage,
+  saveToStorage,
+  removeFromStorage,
+  STORAGE_KEYS,
+} from '../utils/providerStorage';
+
+export const MIN_SERVICE_IMAGES = 3;
 
 export interface SelectedCategory {
   id: string;
@@ -145,6 +153,7 @@ interface ServiceDraftContextType {
   updatePackage: (id: string, updates: Partial<ServicePackageItem>) => void;
   addPackageImage: (packageId: string, uri: string) => void;
   replacePackageImage: (packageId: string, index: number, uri: string) => void;
+  removePackageImage: (packageId: string, index: number) => void;
   toggleStaffId: (id: string) => void;
   setStaffIds: (ids: string[]) => void;
   removeStaffId: (id: string) => void;
@@ -166,6 +175,34 @@ export const ServiceDraftProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [draft, setDraft] = useState<ServiceDraft>(() =>
     DEV_SEED_DRAFT ? SEEDED_DRAFT : INITIAL_DRAFT
   );
+
+  // Hydrate draft from storage / browser memory on mount
+  useEffect(() => {
+    let isMounted = true;
+    loadFromStorage<ServiceDraft | null>(STORAGE_KEYS.SERVICE_DRAFT, null).then((saved) => {
+      if (isMounted && saved) {
+        setDraft(saved);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Auto-save draft changes to storage / browser memory
+  useEffect(() => {
+    const hasContent =
+      draft.name.trim() !== '' ||
+      draft.images.length > 0 ||
+      draft.category !== null ||
+      draft.price !== null ||
+      draft.packages.length > 0 ||
+      draft.addOns.length > 0;
+
+    if (hasContent) {
+      saveToStorage(STORAGE_KEYS.SERVICE_DRAFT, draft);
+    }
+  }, [draft]);
 
   const commitWorkingCopy = useCallback((updates: Partial<ServiceDraft>) => {
     setDraft((prev) => ({
@@ -275,6 +312,17 @@ export const ServiceDraftProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }));
   }, []);
 
+  const removePackageImage = useCallback((packageId: string, index: number) => {
+    setDraft((prev) => ({
+      ...prev,
+      packages: prev.packages.map((pkg) =>
+        pkg.id === packageId
+          ? { ...pkg, images: pkg.images.filter((_, i) => i !== index) }
+          : pkg
+      ),
+    }));
+  }, []);
+
   const toggleStaffId = useCallback((id: string) => {
     setDraft((prev) => {
       const exists = prev.staffIds.includes(id);
@@ -352,6 +400,7 @@ export const ServiceDraftProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
 
   const resetDraft = useCallback(() => {
+    removeFromStorage(STORAGE_KEYS.SERVICE_DRAFT);
     setDraft(DEV_SEED_DRAFT ? SEEDED_DRAFT : INITIAL_DRAFT);
   }, []);
 
@@ -359,8 +408,15 @@ export const ServiceDraftProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const missingFieldList = useMemo(() => {
     const missing: { key: string; label: string }[] = [];
 
-    if (draft.images.length === 0) {
-      missing.push({ key: 'image', label: 'Service image not added' });
+    const validImagesCount = draft.images.filter(Boolean).length;
+    if (validImagesCount < MIN_SERVICE_IMAGES) {
+      missing.push({
+        key: 'image',
+        label:
+          validImagesCount === 0
+            ? 'Service images not added'
+            : `Upload at least ${MIN_SERVICE_IMAGES} service images (${validImagesCount}/${MIN_SERVICE_IMAGES})`,
+      });
     }
     if (!draft.category || !draft.category.itemName) {
       missing.push({ key: 'category', label: 'Service category not added' });
@@ -444,6 +500,7 @@ export const ServiceDraftProvider: React.FC<{ children: React.ReactNode }> = ({ 
       updatePackage,
       addPackageImage,
       replacePackageImage,
+      removePackageImage,
       toggleStaffId,
       setStaffIds,
       removeStaffId,
@@ -470,6 +527,7 @@ export const ServiceDraftProvider: React.FC<{ children: React.ReactNode }> = ({ 
       updatePackage,
       addPackageImage,
       replacePackageImage,
+      removePackageImage,
       toggleStaffId,
       setStaffIds,
       removeStaffId,

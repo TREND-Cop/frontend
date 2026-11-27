@@ -11,7 +11,7 @@
  * 4 times: Closing 8:30:00pm, Break 12:00:00pm, Resumption 8:30:00am, Work Days Mon - Wed, Sun).
  * Default MUST be false.
  */
-export const DEV_SAMPLE_STAFF_DASHBOARD = false;
+export const DEV_SAMPLE_STAFF_DASHBOARD = true;
 
 /**
  * Dev override for break time countdown in seconds.

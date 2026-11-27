@@ -1,26 +1,28 @@
-import React, { useState, useMemo } from 'react';
+import { useSafeRouter } from '../../utils/safeNavigation';
+import React, { useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
   Platform,
-  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
-import { useServiceDraft } from '../../context/ServiceDraftContext';
-import { useStaff, StaffMember } from '../../hooks/useStaff';
-import { WizardStepper } from '../../components/wizard/WizardStepper';
 import { LoadingOverlay } from '../../components/LoadingOverlay';
-import { getServicePricing, formatDurationCompact, formatNaira } from '../../utils/servicePricing';
-import { triggerLightHaptic } from '../../utils/haptics';
-import { ReviewServiceCard } from '../../components/wizard/ReviewServiceCard';
+import { NativeDockSpacer } from '../../components/NativeDockSpacer';
+import { useNativeDock } from '../../utils/useNativeDock';
 import { ReviewAddOnsSection } from '../../components/wizard/ReviewAddOnsSection';
 import { ReviewPackageSection } from '../../components/wizard/ReviewPackageSection';
+import { ReviewServiceCard } from '../../components/wizard/ReviewServiceCard';
+import { WizardStepper } from '../../components/wizard/WizardStepper';
+import { useServiceDraft } from '../../context/ServiceDraftContext';
+import { addCreatedService, Service } from '../../hooks/useServices';
+import { StaffMember, useStaff } from '../../hooks/useStaff';
+import { triggerLightHaptic } from '../../utils/haptics';
+import { formatDurationCompact, getServicePricing } from '../../utils/servicePricing';
 
 const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
 const FONT_REGULAR = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular';
@@ -155,8 +157,9 @@ function DarkCheckCircleIcon({ size = 20 }: { size?: number }) {
  * - Validation guard & submission to Congratulations screen
  */
 export const ReviewScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
+  const { hasDock } = useNativeDock();
 
   const {
     draft,
@@ -172,14 +175,17 @@ export const ReviewScreen: React.FC = () => {
   // Back button returns to Step 3 (Add-ons) with draft intact per Figma flow
   const handleBack = () => {
     triggerLightHaptic();
-    router.back();
+    safeRouter.back();
   };
 
   // Header "?" tutorial guide
   const handleHeaderHelp = () => {
     triggerLightHaptic();
-    router.push('/guide/general' as any);
+    safeRouter.push('/guide/general' as any);
   };
+
+  // Calculate pricing & discount
+  const pricing = getServicePricing(draft.price, draft.discount);
 
   // Submit button handler
   const handlePressSubmit = () => {
@@ -187,26 +193,49 @@ export const ReviewScreen: React.FC = () => {
 
     // Guard: ensure step 1 and step 2 requirements are satisfied
     if (!isStep1Valid) {
-      router.push('/business-services-wizard' as any);
+      safeRouter.push('/business-services-wizard' as any);
       return;
     }
     if (!isStep2Valid) {
-      router.push('/business-services-staff' as any);
+      safeRouter.push('/business-services-staff' as any);
       return;
     }
 
     setIsLoading(true);
 
+    // Persist newly created service to browser memory / AsyncStorage
+    const newService: Service = {
+      id: `service_${Date.now()}`,
+      name: draft.name.trim(),
+      imageUri: draft.images.length > 0 ? draft.images[0] : null,
+      images: draft.images || [],
+      createdAt: new Date().toISOString(),
+      isNew: true,
+      price: pricing.discountedPriceNumber || draft.price || 0,
+      duration: draft.duration || '1hr',
+      discount: draft.discount,
+      category: draft.category,
+      description: draft.description,
+      staff: selectedStaffMembers,
+      addOns: (draft.addOns || []).filter(
+        (item) => item.name?.trim() || (item.price !== null && item.price > 0) || item.imageUri
+      ),
+      packages: (draft.packages || []).filter(
+        (pkg) =>
+          pkg.contents?.trim() ||
+          (pkg.price !== null && pkg.price > 0) ||
+          (pkg.images && pkg.images.length > 0)
+      ),
+    };
+    addCreatedService(newService);
+
     // Mock API submission delay (~1200ms)
     // TODO (Backend): submitService(draft) to backend API
     setTimeout(() => {
       setIsLoading(false);
-      router.replace('/congratulations-service' as any);
+      safeRouter.resetRoot('/congratulations-service' as any);
     }, 1200);
   };
-
-  // Calculate pricing & discount
-  const pricing = getServicePricing(draft.price, draft.discount);
 
   // Compact duration
   const compactDuration = formatDurationCompact(draft.duration);
@@ -294,11 +323,11 @@ export const ReviewScreen: React.FC = () => {
           showDiscountRibbon={pricing.hasDiscount}
           onEditService={() => {
             triggerLightHaptic();
-            router.push('/wizard/edit/service' as any);
+            safeRouter.push('/wizard/edit/service' as any);
           }}
           onAddStaff={() => {
             triggerLightHaptic();
-            router.push('/wizard/edit/staff' as any);
+            safeRouter.push('/wizard/edit/staff' as any);
           }}
           onRemoveStaffId={(id) => {
             removeStaffId(id);
@@ -315,7 +344,7 @@ export const ReviewScreen: React.FC = () => {
             readOnly={false}
             onEdit={() => {
               triggerLightHaptic();
-              router.push('/wizard/edit/addons' as any);
+              safeRouter.push('/wizard/edit/addons' as any);
             }}
           />
         )}
@@ -330,7 +359,7 @@ export const ReviewScreen: React.FC = () => {
             readOnly={false}
             onEdit={() => {
               triggerLightHaptic();
-              router.push('/wizard/edit/package' as any);
+              safeRouter.push('/wizard/edit/package' as any);
             }}
           />
         )}
@@ -340,7 +369,12 @@ export const ReviewScreen: React.FC = () => {
       </ScrollView>
 
       {/* ── 4. Sticky Footer (Add service Button) ── */}
-      <View style={[styles.stickyFooter, { paddingBottom: Math.max(insets.bottom, 14) }]}>
+      <View
+        style={[
+          styles.stickyFooter,
+          { paddingBottom: hasDock ? 14 : Math.max(insets.bottom, 14) },
+        ]}
+      >
         <TouchableOpacity
           activeOpacity={0.85}
           style={styles.submitButton}
@@ -361,6 +395,8 @@ export const ReviewScreen: React.FC = () => {
         overlayOpacity={0.1}
         dotColor="rgba(0, 8, 20, 0.96)"
       />
+
+      <NativeDockSpacer backgroundColor="#FFFFFF" />
     </SafeAreaView>
   );
 };
@@ -756,6 +792,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
+    width: 296,
+    maxWidth: '100%',
+    alignSelf: 'center',
+    justifyContent: 'flex-start',
   },
   packageImageCell: {
     width: 140,

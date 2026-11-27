@@ -2,9 +2,11 @@ import React from 'react';
 import { View, StyleSheet, ScrollView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SkeletonBox } from './ProviderDashboardSkeleton';
+import { useBottomInset } from '../utils/bottomInset';
 
 export const ProviderMessagesSkeleton: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const { tabScrollPadding } = useBottomInset();
 
   const skeletonRows = [
     { id: 1, nameWidth: 140, msgWidth: 210, hasBadge: true },
@@ -17,9 +19,10 @@ export const ProviderMessagesSkeleton: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* ── Top Header Skeleton: Message (matches Dashboard paddingTop exactly) ── */}
-      <View style={[styles.headerContainer, { paddingTop: Math.max(insets.top + 16, 56) }]}>
+      {/* ── Top Header Skeleton: Message + Search bar ── */}
+      <View style={styles.headerContainer}>
         <SkeletonBox width={120} height={28} borderRadius={6} />
+        <SkeletonBox width="100%" height={48} borderRadius={24} />
       </View>
 
       {/* ── Line 135: Top Divider ── */}
@@ -31,11 +34,7 @@ export const ProviderMessagesSkeleton: React.FC = () => {
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingBottom:
-              160 +
-              (Platform.OS === 'android'
-                ? Math.max(insets.bottom, 56)
-                : Math.max(insets.bottom, 16)),
+            paddingBottom: tabScrollPadding,
           },
         ]}
         showsVerticalScrollIndicator={false}
@@ -84,8 +83,10 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     paddingHorizontal: 16,
+    paddingTop: 12,
     paddingBottom: 16,
     backgroundColor: '#FFFFFF',
+    gap: 16,
   },
   topDivider: {
     width: '100%',

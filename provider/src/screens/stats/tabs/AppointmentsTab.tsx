@@ -15,12 +15,17 @@ import { InteractiveAreaChart } from '../../../components/stats/InteractiveAreaC
 import { RadialChart } from '../../../components/stats/RadialChart';
 import { StatsEmptyState } from '../../../components/stats/StatsEmptyState';
 import { useAppointmentStats } from '../../../api/statsApi';
+import { useStaffStatistics } from '../../../context/StaffStatisticsContext';
 import { formatCount } from '../../../utils/statsFormatters';
 import {
   getTrendTone,
   getPreviousValueTone,
   TREND_COLORS,
 } from '../../../utils/trendUtils';
+
+export interface AppointmentsTabProps {
+  isStaff?: boolean;
+}
 
 const FONT_HEADER = Platform.select({
   ios: 'SF Pro',
@@ -73,14 +78,16 @@ function TrendArrowIcon({
   );
 }
 
-export const AppointmentsTab: React.FC = () => {
+export const AppointmentsTab: React.FC<AppointmentsTabProps> = ({ isStaff = false }) => {
   // Periods for 3 separate sections per Figma A1, A2, A4
   const { period: countPeriod } = useStatsPeriod('appointments.count');
   const { period: statusPeriod } = useStatsPeriod('appointments.status');
   const { period: busiestPeriod } = useStatsPeriod('appointments.busiest');
 
-  // Appointment stats data hook
-  const appointmentStats = useAppointmentStats(countPeriod);
+  // Appointment stats data
+  const ownerAppointmentStats = useAppointmentStats(countPeriod);
+  const staffStats = useStaffStatistics();
+  const appointmentStats = isStaff ? staffStats.getStaffAppointments(countPeriod) : ownerAppointmentStats;
 
   // Selected key state for A1 interactive chart
   const [selectedDayKey, setSelectedDayKey] = useState<string>('');

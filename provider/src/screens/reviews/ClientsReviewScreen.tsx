@@ -9,17 +9,18 @@ import {
   Animated,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 
 import { useReviews } from '../../context/ReviewsContext';
-import { Review, CLIENTS_REVIEW_SKELETON_MS } from '../../constants/reviews.config';
-import { useSkeletonCadence } from '../../hooks/useSkeletonCadence';
+import { useStaffReviews } from '../../context/StaffReviewsContext';
+import { Review, MOCK_SAMPLE_REVIEWS } from '../../constants/reviews.config';
+import { MOCK_SAMPLE_STAFF_REVIEWS } from '../../constants/staffReviews.config';
+import { markStaffSubScreenNavigation } from '../../hooks/useStaffDashboardSkeleton';
 import { ReviewItem } from '../../components/reviews/ReviewItem';
 import { ReplyComposerModal } from '../../components/reviews/ReplyComposerModal';
 import { ReportCommentBottomSheet } from '../../components/reviews/ReportCommentBottomSheet';
 import { SuccessToast } from '../../components/reviews/SuccessToast';
-import { ClientsReviewSkeleton } from '../../components/reviews/ClientsReviewSkeleton';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 
 const FONT_HEADER = Platform.select({
@@ -70,7 +71,7 @@ function ArrowLeft02Icon({
  * ClientsReviewScreen (/clients-review)
  *
  * Implements:
- * - Back button with router.back() (triggers dashboard entry cadence)
+ * - Back button with safeRouter.back() (triggers dashboard entry cadence)
  * - Header title "Clients Review"
  * - Skeleton cadence loader on every entry (useSkeletonCadence)
  * - Smooth fade-in of reviews list with 0 flash of stale content
@@ -81,13 +82,20 @@ function ArrowLeft02Icon({
  * - Report Comment bottom sheet (Frame P2) triggered via ⋮ menu
  * - Minimal theme empty state when no reviews exist
  */
-export const ClientsReviewScreen: React.FC = () => {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { reviews, postReply } = useReviews();
+export interface ClientsReviewScreenProps {
+  isStaff?: boolean;
+}
 
-  // Skeleton cadence for screen entry & returns
-  const isSkeletonLoading = useSkeletonCadence(CLIENTS_REVIEW_SKELETON_MS);
+export const ClientsReviewScreen: React.FC<ClientsReviewScreenProps> = ({ isStaff = false }) => {
+  const safeRouter = useSafeRouter();
+  const insets = useSafeAreaInsets();
+  const ownerReviews = useReviews();
+  const staffReviews = useStaffReviews();
+
+  const rawReviews = isStaff ? staffReviews.reviews : ownerReviews.reviews;
+  const fallbackReviews = isStaff ? MOCK_SAMPLE_STAFF_REVIEWS : MOCK_SAMPLE_REVIEWS;
+  const reviews = rawReviews && rawReviews.length > 0 ? rawReviews : fallbackReviews;
+  const postReply = ownerReviews.postReply;
 
   // Composer state
   const [selectedReviewForReply, setSelectedReviewForReply] = useState<Review | null>(null);
@@ -101,13 +109,17 @@ export const ClientsReviewScreen: React.FC = () => {
   const [isToastVisible, setIsToastVisible] = useState(false);
 
   const handleBack = useCallback(() => {
-    router.back();
-  }, [router]);
+    if (isStaff) {
+      markStaffSubScreenNavigation();
+    }
+    safeRouter.back();
+  }, [safeRouter, isStaff]);
 
   const handleOpenReplyComposer = useCallback((review: Review) => {
+    if (isStaff) return;
     setSelectedReviewForReply(review);
     setIsComposerVisible(true);
-  }, []);
+  }, [isStaff]);
 
   const handleCloseReplyComposer = useCallback(() => {
     setIsComposerVisible(false);
@@ -124,9 +136,10 @@ export const ClientsReviewScreen: React.FC = () => {
   );
 
   const handlePressMenu = useCallback((review: Review) => {
+    if (isStaff) return;
     setSelectedReviewForMenu(review);
     setIsMenuSheetVisible(true);
-  }, []);
+  }, [isStaff]);
 
   const handleCloseMenuSheet = useCallback(() => {
     setIsMenuSheetVisible(false);
@@ -138,21 +151,23 @@ export const ClientsReviewScreen: React.FC = () => {
     const targetId = selectedReviewForMenu.id;
     setIsMenuSheetVisible(false);
     setSelectedReviewForMenu(null);
-    router.push({
+    safeRouter.push({
       pathname: '/clients-review/report',
       params: { id: targetId },
     } as any);
-  }, [router, selectedReviewForMenu]);
+  }, [safeRouter, selectedReviewForMenu]);
 
   const renderItem = useCallback(
     ({ item }: { item: Review }) => (
       <ReviewItem
         review={item}
-        onPressReply={handleOpenReplyComposer}
-        onPressMenu={handlePressMenu}
+        onPressReply={isStaff ? undefined : handleOpenReplyComposer}
+        onPressMenu={isStaff ? undefined : handlePressMenu}
+        hideReplyButton={isStaff}
+        hideMenu={isStaff}
       />
     ),
-    [handleOpenReplyComposer, handlePressMenu]
+    [isStaff, handleOpenReplyComposer, handlePressMenu]
   );
 
   const renderItemSeparator = useCallback(() => <View style={styles.separatorLine} />, []);
@@ -176,13 +191,13 @@ export const ClientsReviewScreen: React.FC = () => {
             <ArrowLeft02Icon size={24} />
           </TouchableOpacity>
 
-          {/* Centered Title: "Clients Review" */}
+          {/* Centered Title: "Client review" */}
           <Text
             style={styles.headerTitle}
             numberOfLines={1}
             accessibilityRole="header"
           >
-            Clients Review
+            Client review
           </Text>
 
           {/* Invisible 48x48 Spacer (matching Figma header share button opacity: 0) */}
@@ -190,19 +205,19 @@ export const ClientsReviewScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* ── Success Toast Notification (Frame L4) ── */}
-      <SuccessToast
-        visible={isToastVisible}
-        message="Comment posted"
-        onDismiss={() => setIsToastVisible(false)}
-        topOffset={insets.top + 72}
-      />
+      {/* ── Success Toast Notification (Frame L4, Owner only) ── */}
+      {!isStaff && (
+        <SuccessToast
+          visible={isToastVisible}
+          message="Comment posted"
+          onDismiss={() => setIsToastVisible(false)}
+          topOffset={insets.top + 72}
+        />
+      )}
 
-      {/* ── Body Content: Skeleton or FlatList ── */}
+      {/* ── Body Content: FlatList or Empty State ── */}
       <View style={styles.contentBody}>
-        {isSkeletonLoading ? (
-          <ClientsReviewSkeleton count={4} />
-        ) : reviews.length === 0 ? (
+        {reviews.length === 0 ? (
           /* Empty State (when DEV_SAMPLE_REVIEWS = false or no reviews) */
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconCircle}>
@@ -222,7 +237,9 @@ export const ClientsReviewScreen: React.FC = () => {
             </View>
             <Text style={styles.emptyTitle}>No reviews yet</Text>
             <Text style={styles.emptySubtitle}>
-              When clients leave reviews about your salon and services, they will appear here.
+              {isStaff
+                ? 'When clients leave reviews about your services, they will appear here.'
+                : 'When clients leave reviews about your salon and services, they will appear here.'}
             </Text>
           </View>
         ) : (
@@ -244,21 +261,25 @@ export const ClientsReviewScreen: React.FC = () => {
       {/* Golden Rule #7: Android native dock spacer */}
       <NativeDockSpacer />
 
-      {/* ── Reply Composer Modal (Frame L2) ── */}
-      <ReplyComposerModal
-        visible={isComposerVisible}
-        review={selectedReviewForReply}
-        onClose={handleCloseReplyComposer}
-        onSendReply={handleSendReply}
-        onPressMenu={handlePressMenu}
-      />
+      {/* ── Reply Composer Modal (Frame L2, Owner only) ── */}
+      {!isStaff && (
+        <ReplyComposerModal
+          visible={isComposerVisible}
+          review={selectedReviewForReply}
+          onClose={handleCloseReplyComposer}
+          onSendReply={handleSendReply}
+          onPressMenu={handlePressMenu}
+        />
+      )}
 
-      {/* ── Report Comment Bottom Sheet (Frame P2) ── */}
-      <ReportCommentBottomSheet
-        visible={isMenuSheetVisible}
-        onClose={handleCloseMenuSheet}
-        onSelectReport={handleSelectReport}
-      />
+      {/* ── Report Comment Bottom Sheet (Frame P2, Owner only) ── */}
+      {!isStaff && (
+        <ReportCommentBottomSheet
+          visible={isMenuSheetVisible}
+          onClose={handleCloseMenuSheet}
+          onSelectReport={handleSelectReport}
+        />
+      )}
     </SafeAreaView>
   );
 };

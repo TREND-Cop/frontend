@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { MapPin, Heart, Users, Star } from 'lucide-react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { SafeImage } from '../../components/ui/SafeImage';
@@ -92,14 +92,14 @@ export const EmptyCompletedAppointmentScreen: React.FC<EmptyCompletedAppointment
   onGoBack,
   showRecommendations = true,
 }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
 
   const handleGoBack = () => {
     if (onGoBack) {
       onGoBack();
     } else {
-      router.replace('/home/bookings' as any);
+      safeRouter.replace('/home/bookings' as any);
     }
   };
 
@@ -109,12 +109,12 @@ export const EmptyCompletedAppointmentScreen: React.FC<EmptyCompletedAppointment
     } else if (onBookNow) {
       onBookNow();
     } else {
-      router.replace('/home' as any);
+      safeRouter.replace('/home' as any);
     }
   };
 
   const handleServiceCardPress = (service: (typeof LOW_BUDGET_SERVICES)[0]) => {
-    router.push({
+    safeRouter.push({
       pathname: '/professional/style-details',
       params: {
         id: service.id,

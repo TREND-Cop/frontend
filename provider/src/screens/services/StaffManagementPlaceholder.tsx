@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, BackHandler } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 import { useServiceDraft } from '../../context/ServiceDraftContext';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
@@ -34,15 +34,14 @@ function ArrowLeft02Icon({ size = 24 }: { size?: number }) {
  * it should take them back to the dashboard and restart the process."
  */
 export const StaffManagementPlaceholder: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { resetDraft } = useServiceDraft();
 
   const handleReturnToDashboard = () => {
     triggerLightHaptic();
     // Clear draft to restart wizard process
     resetDraft();
-    // TODO (Skeleton): Trigger global skeleton on dashboard return when prompt is implemented
-    router.replace('/' as any);
+    safeRouter.replace('/dashboard' as any);
   };
 
   useEffect(() => {

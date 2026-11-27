@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,37 +7,35 @@ import {
   Platform,
   StatusBar,
   Animated,
-  Dimensions,
-  Image,
+  useWindowDimensions,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useVideoPlayer, VideoView } from 'expo-video';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { useUserContext } from '../../store/UserContext';
-
-// Video source from assets/videos/
-const VIDEO_SOURCE = require('../../../assets/videos/lv_0_20260903090731.mp4');
+import { OnboardingHeroVideo } from '../../components/OnboardingHeroVideo';
+import { WebMobileViewport } from '../../components/WebMobileViewport';
 
 // ── Animated TREND Title ──
-const AnimatedTrendTitle = () => {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const translateYAnim = useRef(new Animated.Value(8)).current;
+const AnimatedTrendTitle = ({ isWebLanding }: { isWebLanding: boolean }) => {
+  const fadeAnim = useRef(new Animated.Value(isWebLanding ? 1 : 0)).current;
+  const translateYAnim = useRef(new Animated.Value(isWebLanding ? 0 : 8)).current;
 
   useEffect(() => {
+    if (isWebLanding) return;
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 450,
-        useNativeDriver: Platform.OS !== 'web',
+        useNativeDriver: true,
       }),
       Animated.timing(translateYAnim, {
         toValue: 0,
         duration: 450,
-        useNativeDriver: Platform.OS !== 'web',
+        useNativeDriver: true,
       }),
     ]).start();
-  }, [fadeAnim, translateYAnim]);
+  }, [fadeAnim, translateYAnim, isWebLanding]);
 
   return (
     <Animated.View
@@ -49,7 +47,7 @@ const AnimatedTrendTitle = () => {
         },
       ]}
     >
-      <Text style={styles.brandTitle}>TREND</Text>
+      <Text style={isWebLanding ? styles.brandTitleWeb : styles.brandTitle}>TREND</Text>
     </Animated.View>
   );
 };
@@ -58,87 +56,36 @@ export const OnboardingScreen = ({
   onSignUp,
   onSignIn,
   onDismiss,
-  navigation,
+  onGetStarted,
 }: {
   onSignUp?: () => void;
   onSignIn?: () => void;
   onDismiss?: () => void;
+  onGetStarted?: () => void;
   navigation?: any;
 }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
-  const screenHeight = Dimensions.get('window').height;
+  const { height: windowHeight } = useWindowDimensions();
+  const screenHeight = windowHeight > 0 ? windowHeight : 844;
+  const isWebLanding = Platform.OS === 'web';
 
-  // Resolve video URI safely for web & native without calling Image.resolveAssetSource blindly
-  const videoUri = useMemo(() => {
-    if (typeof VIDEO_SOURCE === 'string') return VIDEO_SOURCE;
-    if (VIDEO_SOURCE && typeof VIDEO_SOURCE === 'object') {
-      if ((VIDEO_SOURCE as any).uri) return (VIDEO_SOURCE as any).uri;
-      if ((VIDEO_SOURCE as any).default) {
-        return typeof (VIDEO_SOURCE as any).default === 'string'
-          ? (VIDEO_SOURCE as any).default
-          : (VIDEO_SOURCE as any).default?.uri || '/assets/assets/videos/lv_0_20260903090731.mp4';
-      }
-    }
-    return '/assets/assets/videos/lv_0_20260903090731.mp4';
-  }, []);
-
-  // Safe native source calculation to prevent null pointer exceptions in release builds
-  const safeNativeSource = useMemo(() => {
-    if (Platform.OS === 'web') return null;
-    try {
-      if (typeof VIDEO_SOURCE === 'number') {
-        const resolved = Image.resolveAssetSource(VIDEO_SOURCE);
-        if (resolved && resolved.uri) {
-          return { uri: resolved.uri };
-        }
-      }
-      return VIDEO_SOURCE;
-    } catch {
-      return null;
-    }
-  }, []);
-
-  // Web video DOM ref for direct autoplay handling
-  const webVideoRef = useRef<any>(null);
-
-  // Native player initialization with safe fallback
-  const player = useVideoPlayer(safeNativeSource, (p) => {
-    try {
-      p.loop = true;
-      p.muted = true;
-      p.play();
-    } catch (e) {
-      console.warn('Video player init callback error:', e);
-    }
-  });
-
-  // Ensure playback starts on both platforms
+  // Lock Android hardware back at the customer root onboarding screen so it exits/minimizes app
   useEffect(() => {
-    if (Platform.OS === 'web' && webVideoRef.current) {
-      webVideoRef.current.muted = true;
-      webVideoRef.current.defaultMuted = true;
-      webVideoRef.current.loop = true;
-      webVideoRef.current.playsInline = true;
-      webVideoRef.current.play?.().catch(() => {
-        // Retry on interaction if needed
-      });
-    } else if (player) {
-      try {
-        player.muted = true;
-        player.loop = true;
-        player.play();
-      } catch (e) {
-        console.warn('Video player playback error:', e);
-      }
-    }
-  }, [player]);
+    if (Platform.OS !== 'android') return;
+    const onBackPress = () => {
+      BackHandler.exitApp();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, []);
 
   const handleSignUp = () => {
     if (onSignUp) {
       onSignUp();
     } else {
-      router.push('/sign-up' as any);
+      safeRouter.push('/sign-up' as any);
     }
   };
 
@@ -146,7 +93,15 @@ export const OnboardingScreen = ({
     if (onSignIn) {
       onSignIn();
     } else {
-      router.push('/sign-in' as any);
+      safeRouter.push('/sign-in' as any);
+    }
+  };
+
+  const handleGetStarted = () => {
+    if (onGetStarted) {
+      onGetStarted();
+    } else {
+      safeRouter.push('/role-selection' as any);
     }
   };
 
@@ -159,104 +114,78 @@ export const OnboardingScreen = ({
     if (onDismiss) {
       onDismiss();
     } else {
-      router.replace('/home' as any);
+      safeRouter.replace('/home' as any);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+    <WebMobileViewport>
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
-      {/* ── Top Hero Video Frame (Figma: width 391px, height 514px, top 0) ── */}
-      <View style={[styles.heroFrame, { height: Math.min(screenHeight * 0.6, 514) }]}>
-        {Platform.OS === 'web' ? (
-          React.createElement('video', {
-            ref: webVideoRef,
-            src: videoUri,
-            autoPlay: true,
-            loop: true,
-            muted: true,
-            playsInline: true,
-            style: {
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              border: 0,
-              backgroundColor: '#000000',
-            },
-          })
-        ) : player && safeNativeSource ? (
-          <VideoView
-            player={player}
-            style={StyleSheet.absoluteFill}
-            contentFit="cover"
-            nativeControls={false}
-          />
-        ) : (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000814' }]} />
-        )}
+        {/* ── Top Hero Video Frame (Figma: width 391px, height 514px, top 0) ── */}
+        <OnboardingHeroVideo height={Math.min(screenHeight * 0.609, 514)}>
+          {!isWebLanding && (
+            <TouchableOpacity
+              style={[styles.skipButton, { top: Math.max(insets.top + 8, 53) }]}
+              onPress={handleDismiss}
+              activeOpacity={0.75}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Text style={styles.skipButtonText}>Skip</Text>
+            </TouchableOpacity>
+          )}
+        </OnboardingHeroVideo>
 
-        {/* ── Gradient Overlay Blend (Figma Frame 1000006447: height 110px, top 427px) ── */}
-        <LinearGradient
-          colors={[
-            'rgba(255, 255, 255, 0)',
-            'rgba(255, 255, 255, 0.45)',
-            'rgba(255, 255, 255, 0.88)',
-            '#FFFFFF',
-          ]}
-          locations={[0, 0.35, 0.72, 1]}
-          style={styles.gradient}
-          pointerEvents="none"
-        />
+        {/* ── Bottom Content & CTA Section ── */}
+        <SafeAreaView style={styles.bottomSection} edges={['bottom']}>
+          <View style={isWebLanding ? styles.contentWrapperWeb : styles.contentWrapper}>
+            {/* ── Brand Info Group (Figma Frame 1000006445: gap 24px, width 358px) ── */}
+            <View style={isWebLanding ? styles.textBlockWeb : styles.textBlock}>
+              <AnimatedTrendTitle isWebLanding={isWebLanding} />
+              <Text style={isWebLanding ? styles.brandDescriptionWeb : styles.brandDescription}>
+                {isWebLanding
+                  ? 'Your one stop beauty platform, discover services and manage your business online with ease.'
+                  : 'Your one-stop beauty platform, discover beauty services and book them in seconds.'}
+              </Text>
+            </View>
 
-        {/* ── Skip Button (Replaces X button) ── */}
-        <TouchableOpacity
-          style={[styles.skipButton, { top: Math.max(insets.top + 8, 53) }]}
-          onPress={handleDismiss}
-          activeOpacity={0.75}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <Text style={styles.skipButtonText}>Skip</Text>
-        </TouchableOpacity>
+            {/* ── Action CTA Area ── */}
+            {isWebLanding ? (
+              <View style={styles.webCtaWrapper}>
+                <TouchableOpacity
+                  style={styles.getStartedButton}
+                  onPress={handleGetStarted}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel="Get started"
+                >
+                  <Text style={styles.getStartedText}>Get started</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.buttonsContainer}>
+                <TouchableOpacity
+                  style={styles.signUpButton}
+                  onPress={handleSignUp}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.signUpText}>Sign Up</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.signInButton}
+                  onPress={handleSignIn}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.signInText}>Sign In</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </SafeAreaView>
       </View>
-
-      {/* ── Bottom Content & CTA Section ── */}
-      <SafeAreaView style={styles.bottomSection} edges={['bottom']}>
-        <View style={styles.contentWrapper}>
-          {/* ── Brand Info Group (Figma Frame 1000006445: gap 24px) ── */}
-          <View style={styles.textBlock}>
-            <AnimatedTrendTitle />
-            <Text style={styles.brandDescription}>
-              Your one-stop beauty platform, discover beauty services and book them in seconds.
-            </Text>
-          </View>
-
-          {/* ── Action Buttons (Figma: buttons, left 16px, height 128px, gap 32px / responsive 16px) ── */}
-          <View style={styles.buttonsContainer}>
-            {/* Sign Up Button (Figma: Filled action Button, 358x48, radius 24px, background rgba(0, 8, 20, 0.96)) */}
-            <TouchableOpacity
-              style={styles.signUpButton}
-              onPress={handleSignUp}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.signUpText}>Sign Up</Text>
-            </TouchableOpacity>
-
-            {/* Sign In Button (Figma: Filled action Button, 358x48, radius 24px, background rgba(247, 247, 247, 0.96), border 1px solid rgba(192, 192, 204, 0.96)) */}
-            <TouchableOpacity
-              style={styles.signInButton}
-              onPress={handleSignIn}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.signInText}>Sign In</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </SafeAreaView>
-    </View>
+    </WebMobileViewport>
   );
 };
 
@@ -266,24 +195,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
 
-  // ── Hero Video Frame (Figma: width 391px, height 514px, top 0) ──
-  heroFrame: {
-    width: '100%',
-    position: 'relative',
-    overflow: 'hidden',
-    backgroundColor: '#000000',
-  },
-
-  // ── Gradient Overlay Blend (Figma: Frame 1000006447, height 110px) ──
-  gradient: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 110,
-  },
-
-  // ── Skip Button (Replaces X button, top right 16px) ──
   skipButton: {
     position: 'absolute',
     top: 53,
@@ -313,7 +224,6 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 
-  // ── Bottom Section ──
   bottomSection: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -327,14 +237,25 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'ios' ? 24 : 32,
     justifyContent: 'space-between',
   },
+  contentWrapperWeb: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 11,
+    paddingBottom: 45,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
 
-  // ── Text Block (Figma Frame 1000006445: gap 24px, width 358px) ──
   textBlock: {
     gap: 16,
     paddingTop: 4,
   },
+  textBlockWeb: {
+    width: '100%',
+    maxWidth: 358,
+    gap: 24,
+  },
 
-  // ── Brand Title (DM Sans Bold, 24px, line-height 28px, letter-spacing 0.3px) ──
   brandTitleContainer: {
     alignSelf: 'flex-start',
   },
@@ -352,8 +273,17 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     includeFontPadding: false,
   },
+  // Figma CSS Screen 1: font-weight 590 -> 600, 32px, line-height 32px, letter-spacing 0.6px
+  brandTitleWeb: {
+    color: 'rgba(0, 8, 20, 0.96)',
+    fontFamily: "'DM Sans', DMSans_700Bold, sans-serif",
+    fontWeight: '600',
+    fontSize: 32,
+    lineHeight: 32,
+    letterSpacing: 0.6,
+    includeFontPadding: false,
+  },
 
-  // ── Subtitle (16px, line-height 24px, letter-spacing 0.2px Android / 0.4px iOS, weight 400) ──
   brandDescription: {
     fontFamily: Platform.select({
       ios: 'SF Pro',
@@ -367,13 +297,49 @@ const styles = StyleSheet.create({
     letterSpacing: Platform.OS === 'ios' ? 0.4 : 0.2,
     color: 'rgba(0, 8, 20, 0.96)',
   },
+  // Figma CSS Screen 1: Body text Regular, 16px, line-height 24px, letter-spacing 0.4px
+  brandDescriptionWeb: {
+    fontFamily: "'DM Sans', sans-serif",
+    fontWeight: '400',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.4,
+    color: 'rgba(0, 8, 20, 0.96)',
+  },
 
-  // ── Action Buttons Container (Increased for comfortable touch targets) ──
+  webCtaWrapper: {
+    width: '100%',
+    maxWidth: 358,
+    paddingTop: 16,
+  },
+  getStartedButton: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    height: 48,
+    backgroundColor: 'rgba(0, 8, 20, 0.96)',
+    borderRadius: 24,
+    shadowColor: 'rgba(133, 139, 148, 0.08)',
+    shadowOffset: { width: 4, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 4,
+  },
+  getStartedText: {
+    fontFamily: 'Inter_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.15,
+    color: '#FFFFFF',
+    includeFontPadding: false,
+  },
+
   buttonsContainer: {
     gap: 32,
   },
 
-  // ── Sign Up Button (Figma: Filled action Button, 358x48, radius 24px, background rgba(0, 8, 20, 0.96)) ──
   signUpButton: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -399,7 +365,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  // ── Sign In Button (Figma: Filled action Button, 358x48, radius 24px, background rgba(247, 247, 247, 0.96), border 1px solid rgba(192, 192, 204, 0.96)) ──
   signInButton: {
     flexDirection: 'row',
     justifyContent: 'center',

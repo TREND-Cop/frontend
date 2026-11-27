@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 import Svg, { Path, Circle } from 'react-native-svg';
 import { ServicePackageItem } from '../../context/ServiceDraftContext';
 import { DashedPhotoSlot } from './DashedPhotoSlot';
+import { ImageUploadGrid } from '../ImageUploadGrid';
 import { triggerLightHaptic } from '../../utils/haptics';
 
 const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
@@ -128,8 +129,8 @@ export interface PackageBlockListProps {
   onRemoveImage?: (pkgId: string, slotIdx: number) => void;
   onOpenGuide?: (topic: string) => void;
   onDurationPress: (pkgId: string) => void;
-  onFocusContents?: (pkgId: string) => void;
-  onFocusPrice?: (pkgId: string) => void;
+  onFocusContents?: (pkgId: string, offsetInPackage?: number) => void;
+  onFocusPrice?: (pkgId: string, offsetInPackage?: number) => void;
   errors?: Record<string, boolean>;
   testID?: string;
 }
@@ -159,6 +160,9 @@ export const PackageBlockList: React.FC<PackageBlockListProps> = ({
   errors = {},
   testID,
 }) => {
+  const contentsOffsets = useRef<Record<string, number>>({});
+  const priceOffsets = useRef<Record<string, number>>({});
+
   const handlePriceChange = (pkgId: string, text: string) => {
     const numericOnly = text.replace(/[^0-9]/g, '');
     const num = numericOnly ? parseInt(numericOnly, 10) : null;
@@ -189,123 +193,131 @@ export const PackageBlockList: React.FC<PackageBlockListProps> = ({
           <Text style={styles.packageImagesLabel}>Package images</Text>
 
           {/* 6 Image Slots (3x2 grid) */}
-          <View style={styles.imageGrid}>
-            {[0, 1, 2, 3, 4, 5].map((slotIdx) => {
-              const imgUri = pkg.images[slotIdx];
-
-              return (
-                <DashedPhotoSlot
-                  key={slotIdx}
-                  imageUri={imgUri}
-                  showRemoveBadge={showRemoveBadge}
-                  onPress={() => onSlotPress(pkg.id, slotIdx)}
-                  onRemove={() => {
-                    if (onRemoveImage) {
-                      onRemoveImage(pkg.id, slotIdx);
-                    } else {
-                      const nextImages = pkg.images.filter((_, idx) => idx !== slotIdx);
-                      onUpdatePackage(pkg.id, { images: nextImages });
-                    }
-                  }}
-                  accessibilityLabel={
-                    imgUri
-                      ? `Replace package photo ${slotIdx + 1}`
-                      : `Upload package photo slot ${slotIdx + 1}`
-                  }
-                />
-              );
-            })}
-          </View>
+          <ImageUploadGrid
+            images={pkg.images}
+            maxImages={6}
+            columns={3}
+            columnGap={24}
+            rowGap={16}
+            borderRadius={24}
+            cameraSize={24}
+            showRemoveBadge={showRemoveBadge}
+            onSlotPress={(slotIdx) => onSlotPress(pkg.id, slotIdx)}
+            onRemoveImage={(slotIdx) => {
+              if (onRemoveImage) {
+                onRemoveImage(pkg.id, slotIdx);
+              } else {
+                const nextImages = pkg.images.filter((_, idx) => idx !== slotIdx);
+                onUpdatePackage(pkg.id, { images: nextImages });
+              }
+            }}
+            accessibilityLabelPrefix="Package photo"
+          />
 
           {/* 2. Package Contents ⓘ */}
-          <View style={styles.labelWithInfoRow}>
-            <Text style={styles.fieldLabel}>Package Contents</Text>
-            {onOpenGuide && (
-              <TouchableOpacity
-                activeOpacity={0.7}
-                onPress={() => onOpenGuide('package-contents')}
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                accessibilityLabel="Learn about package contents"
-              >
-                <InfoCircleIcon size={20} />
-              </TouchableOpacity>
-            )}
-          </View>
           <View
-            style={[
-              styles.descriptionBox,
-              errors[`pkg_contents_${pkg.id}`] && styles.inputErrorBorder,
-            ]}
+            onLayout={(e) => {
+              contentsOffsets.current[pkg.id] = e.nativeEvent.layout.y;
+            }}
           >
-            <TextInput
-              style={styles.descriptionInput}
-              placeholder="What service will this package feature?"
-              placeholderTextColor="rgba(192, 192, 204, 0.96)"
-              value={pkg.contents}
-              onChangeText={(text) => onUpdatePackage(pkg.id, { contents: text })}
-              onFocus={() => onFocusContents?.(pkg.id)}
-              multiline
-              textAlignVertical="top"
-              accessibilityLabel="Package contents"
-            />
+            <View style={styles.labelWithInfoRow}>
+              <Text style={styles.fieldLabel}>Package Contents</Text>
+              {onOpenGuide && (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => onOpenGuide('package-contents')}
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                  accessibilityLabel="Learn about package contents"
+                >
+                  <InfoCircleIcon size={20} />
+                </TouchableOpacity>
+              )}
+            </View>
+            <View
+              style={[
+                styles.descriptionBox,
+                errors[`pkg_contents_${pkg.id}`] && styles.inputErrorBorder,
+              ]}
+            >
+              <TextInput
+                style={styles.descriptionInput}
+                placeholder="What service will this package feature?"
+                placeholderTextColor="rgba(192, 192, 204, 0.96)"
+                value={pkg.contents}
+                onChangeText={(text) => onUpdatePackage(pkg.id, { contents: text })}
+                onFocus={() => onFocusContents?.(pkg.id, contentsOffsets.current[pkg.id] || 240)}
+                multiline
+                textAlignVertical="top"
+                accessibilityLabel="Package contents"
+              />
+            </View>
           </View>
 
           {/* 3. Package Price & Duration */}
-          <Text style={styles.subSectionHeaderLabel}>Package Price & Duration</Text>
-          <View style={styles.twoColumnRow}>
-            {/* Left: Price */}
-            <View style={styles.columnItem}>
-              <Text style={styles.subFieldLabel}>Price</Text>
-              <View
-                style={[
-                  styles.priceInputField,
-                  errors[`pkg_price_${pkg.id}`] && styles.inputErrorBorder,
-                ]}
-              >
-                <View style={styles.currencyPrefixContainer}>
-                  <Text style={styles.currencyPrefixText}>NGN</Text>
-                </View>
-                <View style={styles.priceDivider} />
-                <Text style={styles.nairaSymbol}>₦</Text>
-                <TextInput
-                  style={styles.priceTextInput}
-                  placeholder="0.00"
-                  placeholderTextColor="rgba(192, 192, 204, 0.96)"
-                  value={pkg.priceRaw ? formatWithCommas(pkg.priceRaw) : ''}
-                  onChangeText={(t) => handlePriceChange(pkg.id, t)}
-                  onFocus={() => onFocusPrice?.(pkg.id)}
-                  keyboardType="numeric"
-                  accessibilityLabel="Package price in Naira"
-                />
-              </View>
-            </View>
-
-            {/* Right: Duration */}
-            <View style={styles.columnItem}>
-              <Text style={styles.subFieldLabel}>Service Duration</Text>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                style={[
-                  styles.dropdownField,
-                  errors[`pkg_duration_${pkg.id}`] && styles.inputErrorBorder,
-                ]}
-                onPress={() => {
-                  triggerLightHaptic();
-                  onDurationPress(pkg.id);
-                }}
-                accessibilityLabel="Select package duration"
-                accessibilityRole="button"
-              >
-                <Text
+          <View
+            onLayout={(e) => {
+              priceOffsets.current[pkg.id] = e.nativeEvent.layout.y;
+            }}
+          >
+            <Text style={styles.subSectionHeaderLabel}>Package Price & Duration</Text>
+            <View style={styles.twoColumnRow}>
+              {/* Left: Price */}
+              <View style={styles.columnItem}>
+                <Text style={styles.subFieldLabel}>Price</Text>
+                <View
                   style={[
-                    styles.dropdownText,
-                    pkg.duration ? styles.filledText : styles.placeholderText,
+                    styles.priceInputField,
+                    errors[`pkg_price_${pkg.id}`] && styles.inputErrorBorder,
                   ]}
                 >
-                  {pkg.duration || '1:30 hr'}
-                </Text>
-                <ArrowDown01Icon size={24} color="rgba(0, 8, 20, 0.96)" />
-              </TouchableOpacity>
+                  <View style={styles.currencyPrefixContainer}>
+                    <Text style={styles.currencyPrefixText}>NGN</Text>
+                  </View>
+                  <View style={styles.priceDivider} />
+                  <Text style={styles.nairaSymbol}>₦</Text>
+                  <TextInput
+                    style={styles.priceTextInput}
+                    placeholder="0.00"
+                    placeholderTextColor="rgba(192, 192, 204, 0.96)"
+                    value={pkg.priceRaw ? formatWithCommas(pkg.priceRaw) : ''}
+                    onChangeText={(t) => handlePriceChange(pkg.id, t)}
+                    onFocus={() => onFocusPrice?.(pkg.id, priceOffsets.current[pkg.id] || 440)}
+                    keyboardType="numeric"
+                    multiline={false}
+                    numberOfLines={1}
+                    scrollEnabled={true}
+                    accessibilityLabel="Package price in Naira"
+                  />
+                </View>
+              </View>
+
+              {/* Right: Duration */}
+              <View style={styles.columnItem}>
+                <Text style={styles.subFieldLabel}>Service Duration</Text>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={[
+                    styles.dropdownField,
+                    errors[`pkg_duration_${pkg.id}`] && styles.inputErrorBorder,
+                  ]}
+                  onPress={() => {
+                    triggerLightHaptic();
+                    onDurationPress(pkg.id);
+                  }}
+                  accessibilityLabel="Select package duration"
+                  accessibilityRole="button"
+                >
+                  <Text
+                    style={[
+                      styles.dropdownText,
+                      pkg.duration ? styles.filledText : styles.placeholderText,
+                    ]}
+                  >
+                    {pkg.duration || '1:30 hr'}
+                  </Text>
+                  <ArrowDown01Icon size={24} />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
@@ -465,6 +477,7 @@ const styles = StyleSheet.create({
   },
   columnItem: {
     flex: 1,
+    minWidth: 0,
   },
   subFieldLabel: {
     fontFamily: FONT_REGULAR,
@@ -476,6 +489,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   priceInputField: {
+    width: '100%',
     height: 48,
     borderRadius: 24,
     borderWidth: 1,
@@ -484,11 +498,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+    minWidth: 0,
   },
   currencyPrefixContainer: {
     justifyContent: 'center',
     alignItems: 'center',
     paddingRight: 6,
+    flexShrink: 0,
   },
   currencyPrefixText: {
     fontFamily: FONT_REGULAR,
@@ -503,6 +520,7 @@ const styles = StyleSheet.create({
     height: 24,
     backgroundColor: 'rgba(235, 235, 245, 0.96)',
     marginHorizontal: 4,
+    flexShrink: 0,
   },
   nairaSymbol: {
     fontFamily: FONT_REGULAR,
@@ -512,9 +530,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     color: 'rgba(0, 8, 20, 0.96)',
     marginRight: 2,
+    flexShrink: 0,
   },
   priceTextInput: {
     flex: 1,
+    minWidth: 0,
     fontFamily: FONT_MEDIUM,
     fontWeight: '500',
     fontSize: 16,

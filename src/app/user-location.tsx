@@ -3,19 +3,19 @@
  */
 
 import React from 'react';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../utils/safeNavigation';
 import { UserLocationScreen } from '../screens/profile-setup/UserLocationScreen';
 
 export default function UserLocationRoute() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   return (
     <UserLocationScreen
       navigation={{
         navigate: (screen: string) => {
-          if (screen === 'UserProfile') router.push('/user-profile');
+          if (screen === 'UserProfile') safeRouter.push('/user-profile');
         },
-        goBack: () => router.back(),
+        goBack: () => safeRouter.back(),
       }}
     />
   );

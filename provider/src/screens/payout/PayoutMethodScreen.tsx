@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,15 +6,20 @@ import {
   StyleSheet,
   Image,
   Platform,
+  Modal,
+  Animated,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 import { useProviderOnboarding, SavedPayoutMethod } from '../../context/ProviderOnboardingContext';
 import { ReplacePayoutDialog } from '../../components/payout/ReplacePayoutDialog';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
+import { AnimatedHourglassLoader } from '../../components/ui/AnimatedHourglassLoader';
 import { fontFamilies } from '../../constants/theme';
+import { trendApi, getAuthToken } from '../../api/trendApi';
 
 const ZENITH_LOGO = require('../../../assets/images/payout/zenith_bank_logo.png');
 
@@ -76,23 +81,103 @@ const DEFAULT_MOCK_METHOD: SavedPayoutMethod = {
   verified: true,
 };
 
+function ThreeDotsLoader() {
+  const dot1 = useRef(new Animated.Value(0.3)).current;
+  const dot2 = useRef(new Animated.Value(0.3)).current;
+  const dot3 = useRef(new Animated.Value(0.3)).current;
+  const useNative = Platform.OS !== 'web';
+
+  useEffect(() => {
+    const createAnim = (anim: Animated.Value) =>
+      Animated.sequence([
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 350,
+          useNativeDriver: useNative,
+        }),
+        Animated.timing(anim, {
+          toValue: 0.3,
+          duration: 350,
+          useNativeDriver: useNative,
+        }),
+      ]);
+
+    const loop = Animated.loop(
+      Animated.stagger(150, [createAnim(dot1), createAnim(dot2), createAnim(dot3)])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [dot1, dot2, dot3, useNative]);
+
+  return (
+    <View style={styles.dotsRow}>
+      {[dot1, dot2, dot3].map((anim, idx) => (
+        <Animated.View
+          key={idx}
+          style={[
+            styles.dot,
+            {
+              opacity: anim,
+              transform: [
+                {
+                  scale: anim.interpolate({
+                    inputRange: [0.3, 1],
+                    outputRange: [0.85, 1.2],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
 /**
  * 1:1 Figma Payout Method Screen (Part B)
  * Frame: Payout screen (width: 390px, height: 1333px)
  */
 export const PayoutMethodScreen: React.FC = () => {
-  const router = useRouter();
-  const { payoutMethod } = useProviderOnboarding();
+  const safeRouter = useSafeRouter();
+  const params = useLocalSearchParams<{ fromOption?: string }>();
+  const { payoutMethod, setPayoutMethod, isPayoutDeleted, setIsPayoutDeleted } =
+    useProviderOnboarding();
   const [isReplaceDialogOpen, setIsReplaceDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (deleteTimerRef.current) {
+        clearTimeout(deleteTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Safety guard: if payout account was already deleted and not replaced, do not display a deleted/fallback card
+  useEffect(() => {
+    if (isPayoutDeleted && !payoutMethod && !isDeleting) {
+      safeRouter.replace({
+        pathname: '/payout-form',
+        params: {
+          fromDeleted: 'true',
+          ...(params.fromOption ? { fromOption: params.fromOption } : {}),
+        },
+      } as any);
+    }
+  }, [isPayoutDeleted, payoutMethod, isDeleting, params.fromOption, safeRouter]);
 
   // Use saved payout method from state, or fallback during testing
   const activeMethod = payoutMethod || DEFAULT_MOCK_METHOD;
 
   const handleBackPress = () => {
-    router.back();
+    if (isDeleting) return;
+    safeRouter.back();
   };
 
   const handleOpenReplaceDialog = () => {
+    if (isDeleting) return;
     setIsReplaceDialogOpen(true);
   };
 
@@ -101,10 +186,25 @@ export const PayoutMethodScreen: React.FC = () => {
   };
 
   const handleConfirmReplace = () => {
+    if (isDeleting) return;
     setIsReplaceDialogOpen(false);
-    // Skips terms notice and routes directly to the Payouts form
-    // TODO (Backend): Old method is kept until new method is verified successfully
-    router.push('/payout-form' as any);
+    setIsDeleting(true);
+
+    getAuthToken('business')
+      .then((token) => (token ? trendApi.business.deletePayout() : null))
+      .catch(() => {});
+
+    // Deliberate processing state so the user clearly sees their existing payout wallet
+    // is being deleted before transitioning to the "Account successfully deleted" screen.
+    deleteTimerRef.current = setTimeout(() => {
+      setPayoutMethod(null);
+      setIsPayoutDeleted(true);
+      setIsDeleting(false);
+      safeRouter.replace({
+        pathname: '/payout-deleted',
+        params: params.fromOption ? { fromOption: params.fromOption } : {},
+      } as any);
+    }, 1800);
   };
 
   return (
@@ -123,7 +223,7 @@ export const PayoutMethodScreen: React.FC = () => {
             <ArrowLeftIcon />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>Payouts</Text>
+          <Text style={styles.headerTitle}>Payout Wallet</Text>
 
           {/* Invisible spacer balancing the 48px back button so title is perfectly centered */}
           <View style={styles.headerRightSpacer} />
@@ -132,8 +232,8 @@ export const PayoutMethodScreen: React.FC = () => {
 
       {/* ── Main Content Container ── */}
       <View style={styles.contentContainer}>
-        {/* Section Heading: "Payout Method" (16px Medium, left: 16px, top: 132px) */}
-        <Text style={styles.sectionTitle}>Payout Method</Text>
+        {/* Section Heading: "Payout Wallet" (17px Medium, left: 16px, top: 132px) */}
+        <Text style={styles.sectionTitle}>Payout Wallet</Text>
 
         {/* ── Saved Method Card (358x87, radius 24) ── */}
         <View style={styles.payoutCard}>
@@ -162,14 +262,14 @@ export const PayoutMethodScreen: React.FC = () => {
           <ShieldCheckBadge size={40} />
         </View>
 
-        {/* ── "Create new payout method" Pill Action Button ── */}
+        {/* ── "Create new payout wallet" Pill Action Button ── */}
         <View style={styles.buttonWrapper}>
           <TouchableOpacity
             style={styles.createButton}
             activeOpacity={0.8}
             onPress={handleOpenReplaceDialog}
           >
-            <Text style={styles.createButtonText}>Create new payout method</Text>
+            <Text style={styles.createButtonText}>Create new payout wallet</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -180,6 +280,32 @@ export const PayoutMethodScreen: React.FC = () => {
         onCancel={handleCancelReplace}
         onConfirm={handleConfirmReplace}
       />
+
+      {/* ── Deleting Payout Wallet Progress Overlay ── */}
+      <Modal
+        visible={isDeleting}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => {}}
+      >
+        <View style={styles.deletingBackdrop}>
+          <View style={styles.deletingPopupCard}>
+            <AnimatedHourglassLoader
+              width={88}
+              height={100}
+              style={styles.popupIllustration}
+            />
+            <Text style={styles.popupTitle}>Deleting payout wallet</Text>
+            <Text style={styles.popupSubtitle}>
+              We&apos;re removing your existing payout account. Please hold on while we update your details.
+            </Text>
+            <View style={styles.popupLoaderWrap}>
+              <ThreeDotsLoader />
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Android System Navigation Bar & Native Dock Protection */}
       <NativeDockSpacer backgroundColor="#FFFFFF" />
@@ -200,8 +326,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 64,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#EBEBF5',
     justifyContent: 'center',
     paddingHorizontal: 16,
     zIndex: 10,
@@ -243,9 +367,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: FONT_MEDIUM,
     fontWeight: '500',
-    fontSize: 16,
+    fontSize: 17,
     lineHeight: 24,
-    color: '#000000',
+    letterSpacing: 0.2,
+    color: 'rgba(0, 8, 20, 0.96)',
     marginBottom: 16,
     includeFontPadding: false,
   },
@@ -327,11 +452,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   createButton: {
-    width: 244,
+    minWidth: 232,
     height: 48,
     backgroundColor: 'rgba(247, 247, 247, 0.96)',
     borderWidth: 1,
-    borderColor: '#EBEBF5',
+    borderColor: 'rgba(235, 235, 245, 0.96)',
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
@@ -344,5 +469,72 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: '#000814',
     includeFontPadding: false,
+  },
+
+  /* ── Deleting Processing Overlay Modal (matches PayoutsFormScreen 1:1) ── */
+  deletingBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  deletingPopupCard: {
+    width: 326,
+    minHeight: 329,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    paddingTop: 32,
+    paddingBottom: 28,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 10,
+  },
+  popupIllustration: {
+    marginBottom: 8,
+  },
+  popupTitle: {
+    fontFamily: FONT_MEDIUM,
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.2,
+    color: 'rgba(0, 8, 20, 0.96)',
+    textAlign: 'center',
+    marginTop: 18,
+    includeFontPadding: false,
+  },
+  popupSubtitle: {
+    width: 281,
+    fontFamily: FONT_REGULAR,
+    fontWeight: '400',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.4,
+    color: 'rgba(96, 96, 102, 0.96)',
+    textAlign: 'center',
+    marginTop: 8,
+    includeFontPadding: false,
+  },
+  popupLoaderWrap: {
+    marginTop: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: 'rgba(0, 8, 20, 0.96)',
   },
 });

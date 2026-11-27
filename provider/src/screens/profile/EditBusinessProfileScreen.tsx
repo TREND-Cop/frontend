@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { Country as CountryData, State as StateData } from 'country-state-city';
 import { useEditProfileDraft } from '../../context/EditProfileDraftContext';
@@ -163,10 +163,11 @@ const GENDER_OPTIONS: SelectionOption[] = [
 ];
 
 export const EditBusinessProfileScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const {
     workingCopy,
+    changedFields,
     updateField,
     setWorkingCopy,
     isDirty,
@@ -186,19 +187,30 @@ export const EditBusinessProfileScreen: React.FC = () => {
   const [showStateSheet, setShowStateSheet] = useState(false);
   const [showGenderSheet, setShowGenderSheet] = useState(false);
 
+  // Focus state for text inputs to toggle between inactive default style and active edited style
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  const isNameActive = focusedField === 'businessName' || changedFields.includes('businessName');
+  const isHoursActive = changedFields.includes('operatingHours');
+  const isDaysActive = changedFields.includes('operatingDays');
+  const isAddressActive = focusedField === 'address' || changedFields.includes('address');
+  const isCountryActive = changedFields.includes('country');
+  const isStateActive = changedFields.includes('state');
+  const isGenderActive = changedFields.includes('gender');
+
   // Android hardware back handler: discards working copy and returns to dashboard
   useEffect(() => {
     const onBackPress = () => {
-      router.back();
+      safeRouter.back();
       return true;
     };
     const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => sub.remove();
-  }, [router]);
+  }, [safeRouter]);
 
   // Handle back button press
   const handleBack = () => {
-    router.back();
+    safeRouter.back();
   };
 
   // State options derived from country selection
@@ -290,13 +302,14 @@ export const EditBusinessProfileScreen: React.FC = () => {
   // Preview changes handler (navigates to preview route without saving)
   const handlePreviewPress = () => {
     if (!isDirty) return;
-    router.push(PREVIEW_PLACEHOLDER_ROUTE as any);
+    safeRouter.push(PREVIEW_PLACEHOLDER_ROUTE as any);
   };
 
   // Selected operating days parsed to array for the custom days sheet
   const selectedDaysArray = useMemo(() => {
     if (!workingCopy.operatingDays) return [];
     return workingCopy.operatingDays
+      .replace(' and ', ', ')
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean);
@@ -362,11 +375,14 @@ export const EditBusinessProfileScreen: React.FC = () => {
               <TextInput
                 style={[
                   styles.textInput,
+                  isNameActive && styles.textInputActive,
                   isNameLocked && styles.textInputDisabled,
                   !workingCopy.businessName && styles.textInputPlaceholder,
                 ]}
                 value={workingCopy.businessName}
                 onChangeText={(val) => updateField('businessName', val)}
+                onFocus={() => setFocusedField('businessName')}
+                onBlur={() => setFocusedField(null)}
                 placeholder="Business name"
                 placeholderTextColor="rgba(192, 192, 204, 0.96)"
                 editable={!isNameLocked}
@@ -391,6 +407,7 @@ export const EditBusinessProfileScreen: React.FC = () => {
               <Text
                 style={[
                   styles.readOnlyText,
+                  isHoursActive && styles.readOnlyTextActive,
                   !workingCopy.operatingHours && styles.readOnlyPlaceholder,
                 ]}
                 numberOfLines={1}
@@ -411,6 +428,7 @@ export const EditBusinessProfileScreen: React.FC = () => {
               <Text
                 style={[
                   styles.readOnlyText,
+                  isDaysActive && styles.readOnlyTextActive,
                   !workingCopy.operatingDays && styles.readOnlyPlaceholder,
                 ]}
                 numberOfLines={1}
@@ -436,10 +454,13 @@ export const EditBusinessProfileScreen: React.FC = () => {
                 style={[
                   styles.textInput,
                   styles.multilineTextInput,
+                  isAddressActive && styles.textInputActive,
                   !workingCopy.address && styles.textInputPlaceholder,
                 ]}
                 value={workingCopy.address}
                 onChangeText={(val) => updateField('address', val)}
+                onFocus={() => setFocusedField('address')}
+                onBlur={() => setFocusedField(null)}
                 placeholder="Business address"
                 placeholderTextColor="rgba(192, 192, 204, 0.96)"
                 multiline
@@ -460,6 +481,7 @@ export const EditBusinessProfileScreen: React.FC = () => {
               <Text
                 style={[
                   styles.readOnlyText,
+                  isCountryActive && styles.readOnlyTextActive,
                   !workingCopy.country && styles.readOnlyPlaceholder,
                 ]}
                 numberOfLines={1}
@@ -480,6 +502,7 @@ export const EditBusinessProfileScreen: React.FC = () => {
               <Text
                 style={[
                   styles.readOnlyText,
+                  isStateActive && styles.readOnlyTextActive,
                   !workingCopy.state && styles.readOnlyPlaceholder,
                 ]}
                 numberOfLines={1}
@@ -500,6 +523,7 @@ export const EditBusinessProfileScreen: React.FC = () => {
               <Text
                 style={[
                   styles.readOnlyText,
+                  isGenderActive && styles.readOnlyTextActive,
                   !workingCopy.gender && styles.readOnlyPlaceholder,
                 ]}
                 numberOfLines={1}
@@ -694,8 +718,6 @@ const styles = StyleSheet.create({
   headerContainer: {
     width: '100%',
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(235, 235, 245, 0.96)',
   },
   headerContent: {
     height: 64,
@@ -788,10 +810,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: 0.4,
-    color: 'rgba(0, 8, 20, 0.96)',
+    color: 'rgba(96, 96, 102, 0.96)', // Inactive / default saved text color
     padding: 0,
     margin: 0,
     includeFontPadding: false,
+  },
+  textInputActive: {
+    color: 'rgba(0, 8, 20, 0.96)', // Active text when modified or focused
   },
   multilineTextInput: {
     minHeight: 48,
@@ -809,8 +834,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: 0.4,
-    color: 'rgba(0, 8, 20, 0.96)',
+    color: 'rgba(96, 96, 102, 0.96)', // Inactive / default saved text color
     includeFontPadding: false,
+  },
+  readOnlyTextActive: {
+    color: 'rgba(0, 8, 20, 0.96)', // Active text when modified
   },
   readOnlyPlaceholder: {
     color: 'rgba(192, 192, 204, 0.96)',

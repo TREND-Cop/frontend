@@ -139,7 +139,11 @@ export const ReviewServiceCard: React.FC<ReviewServiceCardProps> = ({
           <View style={styles.imageHolder}>
             {resolvedPhotoUri ? (
               <Image
-                source={{ uri: resolvedPhotoUri }}
+                source={
+                  typeof resolvedPhotoUri === 'number'
+                    ? resolvedPhotoUri
+                    : { uri: resolvedPhotoUri }
+                }
                 style={styles.servicePhoto}
                 resizeMode="cover"
               />
@@ -160,10 +164,7 @@ export const ReviewServiceCard: React.FC<ReviewServiceCardProps> = ({
             <View style={styles.priceRow}>
               <Text style={styles.currentPriceText}>{pricing.displayPrice}</Text>
               {renderRibbon && pricing.hasDiscount && pricing.originalPrice && (
-                <View style={styles.struckPriceWrapper}>
-                  <Text style={styles.struckPriceText}>{pricing.originalPrice}</Text>
-                  <View style={styles.strikeLine} />
-                </View>
+                <Text style={styles.struckPriceText}>{pricing.originalPrice}</Text>
               )}
             </View>
 
@@ -174,48 +175,57 @@ export const ReviewServiceCard: React.FC<ReviewServiceCardProps> = ({
             </View>
           </View>
         </View>
+      </View>
 
-        {/* ── Staff Sub-Section ── */}
-        {shouldRenderStaffSection && (
-          <>
-            <View style={styles.staffHeaderRow}>
-              <Text style={styles.staffSectionTitle}>Staff</Text>
-              {!readOnly && onAddStaff && (
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  style={styles.addStaffAction}
-                  onPress={handleAddStaffPress}
-                  accessibilityRole="button"
-                  accessibilityLabel="Add staff"
-                >
-                  <PlusSignCircleIcon size={20} />
-                  <Text style={styles.addStaffActionText}>Add staff</Text>
-                </TouchableOpacity>
-              )}
-            </View>
+      {/* ── Staff Section (Separate Section & Card matching Figma) ── */}
+      {shouldRenderStaffSection && (
+        <View style={styles.staffOuterSection}>
+          <View style={styles.staffHeaderRow}>
+            <Text style={styles.sectionTitle}>Staff</Text>
+            {!readOnly && onAddStaff && (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                style={styles.addStaffAction}
+                onPress={handleAddStaffPress}
+                accessibilityRole="button"
+                accessibilityLabel="Add staff"
+              >
+                <PlusSignCircleIcon size={20} />
+                <Text style={styles.addStaffActionText}>Add staff</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
-            {/* Staff Rows */}
-            <View style={styles.staffListContainer}>
-              {!readOnly && providerIsOwner ? (
-                // Business Owner fallback note (Review only)
+          {/* Staff List */}
+          <View style={styles.staffListContainer}>
+            {!readOnly && providerIsOwner ? (
+              // Business Owner fallback note (Review only)
+              <View style={styles.staffCardContainer}>
                 <View style={styles.ownerNoticeCard}>
                   <Text style={styles.ownerNoticeTitle}>Business Owner</Text>
                   <Text style={styles.ownerNoticeSubtitle}>
                     You have selected to provide this service directly.
                   </Text>
                 </View>
-              ) : staffMembers.length > 0 ? (
-                staffMembers.map((staff) => (
+              </View>
+            ) : staffMembers.length > 0 ? (
+              staffMembers.map((staff) => {
+                const avatar = staff.avatarUri || staff.photoUri;
+                return (
                   <View
                     key={staff.id}
-                    style={styles.staffRowCard}
+                    style={styles.staffCardContainer}
                     accessible={true}
                     accessibilityLabel={`${staff.name}, ${staff.role}, ${staff.yearsExperience} years experience`}
                   >
-                    {/* Avatar */}
-                    <View style={styles.staffAvatarContainer}>
-                      {staff.avatarUri ? (
-                        <Image source={{ uri: staff.avatarUri }} style={styles.staffAvatarImage} />
+                    {/* Avatar / Photo with soft shadow (exact match to service imageHolder) */}
+                    <View style={styles.imageHolder}>
+                      {avatar ? (
+                        <Image
+                          source={typeof avatar === 'string' ? { uri: avatar } : avatar}
+                          style={styles.servicePhoto}
+                          resizeMode="cover"
+                        />
                       ) : (
                         <View style={styles.staffAvatarPlaceholder}>
                           <Svg width={36} height={36} viewBox="0 0 24 24" fill="none">
@@ -227,8 +237,8 @@ export const ReviewServiceCard: React.FC<ReviewServiceCardProps> = ({
                     </View>
 
                     {/* Staff Info */}
-                    <View style={styles.staffTextColumn}>
-                      <Text style={styles.staffMemberName} numberOfLines={1} ellipsizeMode="tail">
+                    <View style={styles.serviceInfoColumn}>
+                      <Text style={styles.serviceName} numberOfLines={1} ellipsizeMode="tail">
                         {staff.name}
                       </Text>
                       <View style={styles.staffMetaRow}>
@@ -259,20 +269,20 @@ export const ReviewServiceCard: React.FC<ReviewServiceCardProps> = ({
                       </TouchableOpacity>
                     )}
                   </View>
-                ))
-              ) : (
-                !readOnly && (
-                  <View style={styles.noStaffAssignedContainer}>
-                    <Text style={styles.noStaffAssignedText}>
-                      No staff assigned yet. Tap ⊕ Add staff to assign specialists.
-                    </Text>
-                  </View>
-                )
-              )}
-            </View>
-          </>
-        )}
-      </View>
+                );
+              })
+            ) : (
+              !readOnly && (
+                <View style={styles.staffCardContainer}>
+                  <Text style={styles.noStaffAssignedText}>
+                    No staff assigned yet. Tap ⊕ Add staff to assign specialists.
+                  </Text>
+                </View>
+              )
+            )}
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -388,24 +398,16 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
   },
-  struckPriceWrapper: {
-    position: 'relative',
-    justifyContent: 'center',
-  },
   struckPriceText: {
     fontFamily: FONT_REGULAR,
     fontSize: 12,
     lineHeight: 16,
     letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
-  },
-  strikeLine: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: 'rgba(96, 96, 102, 0.96)',
-    top: '50%',
+    textDecorationLine: 'line-through',
+    textDecorationColor: 'rgba(96, 96, 102, 0.96)',
+    textDecorationStyle: 'solid',
+    includeFontPadding: false,
   },
   durationRow: {
     flexDirection: 'row',
@@ -440,12 +442,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '500',
   },
+  staffOuterSection: {
+    marginTop: 24,
+  },
   staffHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 12,
+    marginBottom: 16,
     paddingHorizontal: 0,
   },
   staffSectionTitle: {
@@ -472,31 +476,18 @@ const styles = StyleSheet.create({
   staffListContainer: {
     gap: 12,
   },
-  staffRowCard: {
+  staffCardContainer: {
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderRadius: 24,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
     gap: 16,
   },
-  staffAvatarContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: '#F2F4F7',
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  staffAvatarImage: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-  },
   staffAvatarPlaceholder: {
-    width: 64,
-    height: 64,
+    width: 80,
+    height: 80,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#EAECF0',

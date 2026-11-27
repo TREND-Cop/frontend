@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getSafeBottomPadding } from '../../utils/safeArea';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import {
   ArrowLeft,
   ChevronDown,
@@ -223,7 +224,7 @@ const FigmaFourDotLoader = () => {
 };
 
 export const AppointmentTimeScreen = ({ navigation }: { navigation?: any }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
 
@@ -285,11 +286,11 @@ export const AppointmentTimeScreen = ({ navigation }: { navigation?: any }) => {
     bookingStore.setAppointmentDate('');
     bookingStore.setAppointmentTime('');
     if (navigation?.canGoBack && navigation.canGoBack()) {
-      navigation.goBack();
-    } else if (router.canGoBack()) {
-      router.back();
+      safeRouter.back();
+    } else if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/home' as any);
+      safeRouter.replace('/home' as any);
     }
   };
 
@@ -328,7 +329,7 @@ export const AppointmentTimeScreen = ({ navigation }: { navigation?: any }) => {
     setIsLoading(true);
     loadingTimerRef.current = setTimeout(() => {
       setIsLoading(false);
-      router.push('/appointment-specialist');
+      safeRouter.push('/appointment-specialist');
     }, 650);
   };
 
@@ -1083,7 +1084,7 @@ const styles = StyleSheet.create({
     top: 17.5,
   },
 
-  // ── 4-Dot Loader State (Figma: 112px x 16px, 4 dots 16x16 gap 16px) ──
+  // ── 4-Dot Loader State (Figma Frame 8 Spec: width 124px, 4 dots 16x16 gap 20px) ──
   loadingOverlay: {
     position: 'absolute',
     top: 0,
@@ -1096,11 +1097,12 @@ const styles = StyleSheet.create({
     zIndex: 999,
   },
   loaderRow: {
-    width: 112,
+    width: 124,
     height: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    gap: 20,
   },
   loaderDot: {
     width: 16,

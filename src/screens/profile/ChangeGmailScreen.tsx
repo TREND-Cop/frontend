@@ -14,7 +14,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getSafeBottomPadding } from '../../utils/safeArea';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ArrowLeft } from 'lucide-react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { useUserContext } from '../../store/UserContext';
@@ -91,7 +92,7 @@ const ExistingCheckmarkIcon = () => (
 );
 
 export const ChangeGmailScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const { profileData } = useUserContext();
@@ -156,10 +157,10 @@ export const ChangeGmailScreen: React.FC = () => {
   });
 
   const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
+    if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/gmail-security' as any);
+      safeRouter.replace('/gmail-security' as any);
     }
   };
 
@@ -184,7 +185,7 @@ export const ChangeGmailScreen: React.FC = () => {
     setErrorMessage(null);
 
     // Route to verification selection or OTP
-    router.push({
+    safeRouter.push({
       pathname: '/profile-verification-method',
       params: {
         target: trimmed,

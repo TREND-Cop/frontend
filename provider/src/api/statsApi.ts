@@ -7,10 +7,46 @@
  * - Sample data shaped like Figma designs when DEV_SAMPLE_STATS = true
  */
 
+import { useState, useEffect } from 'react';
 import { StatsPeriod } from '../context/StatsContext';
 import { ChartDataPoint } from '../components/stats/InteractiveAreaChart';
 import { useStaffStore, StaffMember } from '../context/StaffContext';
 import { DEV_SAMPLE_STAFF } from '../constants/staff.config';
+import { trendApi, getAuthToken } from './trendApi';
+
+function getPeriodRange(period: StatsPeriod): { from: string; to: string } {
+  if (period.kind === 'day') {
+    const y = period.date.getFullYear();
+    const m = period.date.getMonth();
+    const from = `${y}-${String(m + 1).padStart(2, '0')}-01`;
+    const lastDay = new Date(y, m + 1, 0).getDate();
+    const to = `${y}-${String(m + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    return { from, to };
+  }
+  return { from: `${period.year}-01-01`, to: `${period.year}-12-31` };
+}
+
+function useLiveBusinessStats(period: StatsPeriod): any | null {
+  const [liveData, setLiveData] = useState<any | null>(null);
+  const { from, to } = getPeriodRange(period);
+
+  useEffect(() => {
+    let active = true;
+    getAuthToken('business')
+      .then((token) => (token ? trendApi.stats.getBusiness({ from, to }) : null))
+      .then((res) => {
+        if (active && res && res.ok && res.data) {
+          setLiveData(res.data);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [from, to]);
+
+  return liveData;
+}
 
 /**
  * Dev-only constant controlling whether sample stats are returned.
@@ -268,6 +304,41 @@ function generateSampleMonthSeries(
  * TODO (Backend): Fetch total revenue metrics for the given period.
  */
 export function useRevenueStats(period: StatsPeriod): RevenueStatsResult | null {
+  const live = useLiveBusinessStats(period);
+  if (live && typeof live.revenue === 'number') {
+    const monthlyRows = Array.isArray(live.monthly) ? live.monthly : [];
+    const series: RevenueSeriesPoint[] = Array.isArray(live.revenue_series)
+      ? live.revenue_series.map((p: any, idx: number) => ({
+          key: String(p.date || p.key || idx),
+          label: String(p.label || p.date || idx),
+          value: Number(p.value ?? p.amount ?? 0),
+        }))
+      : monthlyRows
+          .slice()
+          .reverse()
+          .map((m: any, idx: number) => ({
+            key: String(m.month || idx),
+            label: String(m.month || idx),
+            value: Number(m.revenue ?? 0),
+          }));
+    const lastMonth = Number(
+      live.last_month_revenue ?? (monthlyRows.length > 1 ? monthlyRows[1]?.revenue : 0) ?? 0
+    );
+    const diff = live.revenue - lastMonth;
+    const pct = lastMonth > 0 ? Math.abs(Math.round((diff / lastMonth) * 100)) : 0;
+    return {
+      total: live.revenue,
+      trend: { direction: diff >= 0 ? 'up' : 'down', percent: `${pct}%` },
+      comparedToLastMonth: lastMonth,
+      series,
+      summary: {
+        lastMonthTotal: lastMonth,
+        changePercent: `${pct}%`,
+        changeDirection: diff >= 0 ? 'increase' : 'decrease',
+      },
+    };
+  }
+
   if (!DEV_SAMPLE_STATS) {
     return null;
   }
@@ -377,6 +448,36 @@ export function useRevenueByService(
  * TODO (Backend): Fetch client metrics for given period
  */
 export function useClientStats(period: StatsPeriod): ClientStatsResult | null {
+  const live = useLiveBusinessStats(period);
+  const clientsObj = live?.clients;
+  if (
+    live &&
+    (clientsObj || typeof live.total_clients === 'number' || typeof live.new_clients === 'number')
+  ) {
+    const newCount = Number(clientsObj?.new ?? live.new_clients ?? 0);
+    const returningCount = Number(clientsObj?.returning ?? live.returning_clients ?? 0);
+    const total = Number(clientsObj?.total ?? live.total_clients ?? newCount + returningCount);
+    const mixTotal = Math.max(1, newCount + returningCount);
+    const newPercent = Math.round((newCount / mixTotal) * 100);
+    const returningPercent = Math.max(0, 100 - newPercent);
+    return {
+      total,
+      trend: { direction: 'up', percent: '0%' },
+      comparedClients: Number(live.last_month_clients ?? 0),
+      series: Array.isArray(live.clients_series) ? live.clients_series : [],
+      mix: {
+        total,
+        newPercent,
+        returningPercent,
+        newTrend: { direction: 'up', percent: `${newPercent}%` },
+        returningTrend: { direction: 'up', percent: `${returningPercent}%` },
+        lastMonthNewPercent: 0,
+        lastMonthReturningPercent: 0,
+      },
+      topClients: Array.isArray(live.top_clients) ? live.top_clients : [],
+    };
+  }
+
   if (!DEV_SAMPLE_STATS) {
     return null;
   }
@@ -428,6 +529,66 @@ export function useClientStats(period: StatsPeriod): ClientStatsResult | null {
  * TODO (Backend): Fetch appointment statistics for given period
  */
 export function useAppointmentStats(period: StatsPeriod): AppointmentStatsResult | null {
+  const live = useLiveBusinessStats(period);
+  const rawByStatus = live?.by_status ?? live?.appointments_by_status;
+  if (live && rawByStatus) {
+    const counts: Record<string, number> = {};
+    if (Array.isArray(rawByStatus)) {
+      rawByStatus.forEach((row: any) => {
+        if (row?.status) counts[String(row.status)] = Number(row.count ?? 0);
+      });
+    } else if (typeof rawByStatus === 'object') {
+      Object.entries(rawByStatus).forEach(([k, v]) => {
+        counts[k] = Number(v ?? 0);
+      });
+    }
+    const completed = counts.completed ?? 0;
+    const cancelled = (counts.cancelled ?? 0) + (counts.canceled ?? 0);
+    const total =
+      Number(live.total_appointments ?? 0) ||
+      Object.values(counts).reduce((sum, n) => sum + n, 0);
+    const denom = Math.max(1, total);
+    const completedPct = `${Math.round((completed / denom) * 100)}%`;
+    const cancelledPct = `${Math.round((cancelled / denom) * 100)}%`;
+    const monthlyRows = Array.isArray(live.monthly) ? live.monthly : [];
+    const series = Array.isArray(live.appointments_series)
+      ? live.appointments_series
+      : monthlyRows
+          .slice()
+          .reverse()
+          .map((m: any, idx: number) => ({
+            key: String(m.month || idx),
+            label: String(m.month || idx),
+            value: Number(m.appointments ?? 0),
+          }));
+    return {
+      total,
+      trend: { direction: 'up', percent: '0%' },
+      comparedAppointments: Number(
+        live.last_month_appointments ?? (monthlyRows.length > 1 ? monthlyRows[1]?.appointments : 0) ?? 0
+      ),
+      series,
+      status: {
+        total,
+        slices: [
+          { key: 'completed', label: 'Completed', percent: completedPct, color: 'rgba(12, 121, 12, 0.96)' },
+          { key: 'canceled', label: 'Canceled', percent: cancelledPct, color: 'rgba(204, 41, 41, 0.9)' },
+        ],
+        rows: [
+          { key: 'completed', label: 'Completed Appointment', percent: completedPct, direction: 'up', lastMonthPercent: '0%' },
+          { key: 'canceled', label: 'Canceled Appointment', percent: cancelledPct, direction: 'down', lastMonthPercent: '0%' },
+        ],
+      },
+      busiest: {
+        dayLabel: live.busiest_day || '-',
+        appointments: Number(live.busiest_day_count ?? 0),
+        appointmentsDirection: 'up',
+        workHours: Number(live.busiest_work_hours ?? 0),
+        workHoursDirection: 'up',
+      },
+    };
+  }
+
   if (!DEV_SAMPLE_STATS) {
     return null;
   }

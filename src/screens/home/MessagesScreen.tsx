@@ -8,7 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { SafeImage } from '../../components/ui/SafeImage';
 import { MessagesSkeleton } from '../../components/ui/MessagesSkeleton';
 import { useTabSkeleton } from '../../utils/tabSkeletonStore';
@@ -16,17 +16,22 @@ import { useTabSkeleton } from '../../utils/tabSkeletonStore';
 import { useMessagesContext, MessageConversation } from '../../store/MessagesContext';
 import { useUserContext } from '../../store/UserContext';
 import { MessageSquare } from 'lucide-react-native';
+import { useNativeBackExitGuard } from '../../utils/exitAppGuard';
 
 export const MessagesScreen = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { profileData } = useUserContext();
   const isLoading = useTabSkeleton('messages', 1100);
   const { conversations, markAsRead } = useMessagesContext();
 
+  // Android Native Back Button Guard:
+  // - Prompts user with in-built Exit Confirmation Dialog; NEVER pops to login/auth!
+  useNativeBackExitGuard();
+
   const handleConversationPress = (item: MessageConversation) => {
     markAsRead(item.id);
-    router.push({
+    safeRouter.push({
       pathname: '/chat/[id]',
       params: {
         id: item.id,
@@ -58,7 +63,7 @@ export const MessagesScreen = () => {
           <TouchableOpacity
             style={styles.guestButton}
             activeOpacity={0.85}
-            onPress={() => router.push('/sign-in')}
+            onPress={() => safeRouter.push('/sign-in')}
           >
             <Text style={styles.guestButtonText}>Sign In / Sign Up</Text>
           </TouchableOpacity>

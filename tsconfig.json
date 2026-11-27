@@ -18,6 +18,8 @@
     "expo-env.d.ts"
   ],
   "exclude": [
+    "docs",
+    "tools",
     "tools/css-converter/output.ts"
   ]
 }

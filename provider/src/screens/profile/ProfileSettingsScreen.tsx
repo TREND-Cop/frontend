@@ -10,7 +10,7 @@ import {
   Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
 
 import { useProviderProfile } from '../../context/ProviderProfileContext';
@@ -20,8 +20,8 @@ function ArrowLeftIcon({ size = 24 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M15 18l-6-6 6-6"
-        stroke="#141B34"
+        d="M19 12H5M11 6l-6 6 6 6"
+        stroke="#000814"
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -33,12 +33,14 @@ function ArrowLeftIcon({ size = 24 }: { size?: number }) {
 function ShareIcon({ size = 24 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="18" cy="5" r="3" stroke="#141B34" strokeWidth="1.5" />
+      <Circle cx="6" cy="12" r="3" stroke="#141B34" strokeWidth="1.5" />
+      <Circle cx="18" cy="19" r="3" stroke="#141B34" strokeWidth="1.5" />
       <Path
-        d="M18 8a3 3 0 100-6 3 3 0 000 6zM6 15a3 3 0 100-6 3 3 0 000 6zM18 22a3 3 0 100-6 3 3 0 000 6zM8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"
+        d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"
         stroke="#141B34"
         strokeWidth="1.5"
         strokeLinecap="round"
-        strokeLinejoin="round"
       />
     </Svg>
   );
@@ -82,7 +84,7 @@ function SquareLockIcon({ size = 20, color = 'rgba(96, 96, 102, 0.96)' }: { size
 }
 
 export function ProviderProfileSettingsScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { isNameLocked, nameChangeLockDaysRemaining } = useProviderProfile();
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -109,12 +111,12 @@ export function ProviderProfileSettingsScreen() {
     if (isNameLocked) {
       showLockToast();
     } else {
-      router.push('/change-username' as any);
+      safeRouter.push('/change-username' as any);
     }
   };
 
   const handlePhotoPress = () => {
-    router.push('/change-profile-photo' as any);
+    safeRouter.push('/change-profile-photo' as any);
   };
 
   const handleShare = async () => {
@@ -133,7 +135,7 @@ export function ProviderProfileSettingsScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           activeOpacity={0.8}
-          onPress={() => router.back()}
+          onPress={() => safeRouter.back()}
           style={styles.headerButton}
         >
           <ArrowLeftIcon size={24} />
@@ -227,18 +229,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(235, 235, 245, 0.96)',
   },
   headerButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(235, 235, 245, 0.96)',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
   },
   headerTitle: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
@@ -259,18 +257,16 @@ const styles = StyleSheet.create({
   },
   cardGroup: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(235, 235, 245, 0.96)',
+    backgroundColor: '#F7F7F7',
+    borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
   optionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    height: 56,
+    paddingVertical: 18,
   },
   optionLabel: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 import { Country as CountryData, State as StateData } from 'country-state-city';
 import { StepProgressHeader } from '../../components/StepProgressHeader';
@@ -111,7 +111,7 @@ function UnisexIcon({ size = 24, color = '#141B34' }: { size?: number; color?: s
 }
 
 export const BusinessLocationScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { location, setLocation } = useProviderOnboarding();
 
@@ -251,12 +251,12 @@ export const BusinessLocationScreen: React.FC = () => {
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
-      router.push('/business-photos' as any);
+      safeRouter.push('/business-photos' as any);
     }, 1000);
   };
 
   const handleBackPress = () => {
-    router.back();
+    safeRouter.back();
   };
 
   return (

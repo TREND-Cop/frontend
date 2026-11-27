@@ -12,8 +12,10 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { useStaffStore, StaffMember } from '../../context/StaffContext';
+import { useMessagesStore } from '../../context/MessagesContext';
+import { triggerLightHaptic } from '../../utils/haptics';
 import {
   SearchIcon,
   ArrowLeftCircleButton,
@@ -25,23 +27,34 @@ const DEFAULT_AVATAR = require('../../../assets/images/messages/lara_olapade.jpg
 
 export function NewChatScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { staff } = useStaffStore();
+  const { startConversation } = useMessagesStore();
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleBack = useCallback(() => {
-    router.back();
-  }, [router]);
+    safeRouter.back();
+  }, [safeRouter]);
 
   const handleAddStaff = useCallback(() => {
     // Navigates to existing Add Staff form from staff management flow
-    router.push('/staff-add' as any);
-  }, [router]);
+    safeRouter.push('/staff-add' as any);
+  }, [safeRouter]);
 
   const handleStaffRowPress = useCallback((member: StaffMember) => {
-    // TODO (Messages prompt 2): open or start the chat with this staff member
-    // Pressable with no navigation yet per prompt 1 spec
-  }, []);
+    triggerLightHaptic();
+    const convId = startConversation(member.id);
+    safeRouter.replace({
+      pathname: '/chat' as any,
+      params: {
+        id: convId,
+        name: member.name,
+        role: member.role || (member.roles && member.roles[0]) || 'Staff',
+        recipientName: member.name,
+        fromNewChat: 'true',
+      },
+    });
+  }, [safeRouter, startConversation]);
 
   // Filter staff by case-insensitive word prefix matching
   const filteredStaff = useMemo(() => {
@@ -119,23 +132,6 @@ export function NewChatScreen() {
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <StatusBar style="dark" />
 
-        {/* 1:1 Page Header: Back + "New Chat" title + Placeholder share button */}
-        <View style={styles.pageHeader}>
-          <TouchableOpacity
-            style={styles.headerBackTouch}
-            onPress={handleBack}
-            activeOpacity={0.7}
-            accessibilityLabel="Go back"
-          >
-            <SimpleArrowLeftIcon size={24} color="rgba(0, 8, 20, 0.96)" />
-          </TouchableOpacity>
-
-          <Text style={styles.pageHeaderTitle}>New Chat</Text>
-
-          {/* Invisible placeholder matching Figma share-03 opacity 0 */}
-          <View style={styles.headerSharePlaceholder} />
-        </View>
-
         {/* Second back circle + Search Bar (Per Figma staff list design slip) */}
         <View style={styles.staffSearchRow}>
           <TouchableOpacity
@@ -181,9 +177,9 @@ export function NewChatScreen() {
                 ? member.roles.join(', ')
                 : member.role) || 'Specialist';
             const avatarSource = member.photoUri
-              ? { uri: member.photoUri }
+              ? (typeof member.photoUri === 'string' ? { uri: member.photoUri } : member.photoUri)
               : member.avatarUri
-              ? { uri: member.avatarUri }
+              ? (typeof member.avatarUri === 'string' ? { uri: member.avatarUri } : member.avatarUri)
               : DEFAULT_AVATAR;
 
             return (
@@ -331,42 +327,12 @@ const styles = StyleSheet.create({
   },
 
   // ── Staff List State ──
-  pageHeader: {
-    height: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
-  },
-  headerBackTouch: {
-    width: 48,
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-  },
-  pageHeaderTitle: {
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
-    fontWeight: '500',
-    fontSize: 17,
-    lineHeight: 24,
-    letterSpacing: 0.2,
-    color: 'rgba(0, 8, 20, 0.96)',
-    textAlign: 'center',
-    includeFontPadding: false,
-  },
-  headerSharePlaceholder: {
-    width: 48,
-    height: 48,
-    opacity: 0,
-  },
-
   staffSearchRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 16,
+    paddingTop: 16,
+    paddingBottom: 0,
     gap: 24,
     width: '100%',
     maxWidth: 390,
@@ -374,14 +340,15 @@ const styles = StyleSheet.create({
   },
   staffCountContainer: {
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    marginTop: 40,
+    paddingBottom: 16,
   },
   staffCountText: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
     fontWeight: '500',
-    fontSize: 20,
-    lineHeight: 28,
-    letterSpacing: 0.2,
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: Platform.OS === 'ios' ? 0.4 : 0.2,
     color: 'rgba(96, 96, 102, 0.96)',
     includeFontPadding: false,
   },

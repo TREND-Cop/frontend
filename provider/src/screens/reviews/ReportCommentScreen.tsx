@@ -12,7 +12,8 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -117,7 +118,7 @@ function CircleXBadgeIcon({ size = 24 }: { size?: number }) {
 }
 
 export const ReportCommentScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { getReviewById, reportReview } = useReviews();
@@ -146,8 +147,8 @@ export const ReportCommentScreen: React.FC = () => {
 
   const handleBack = useCallback(() => {
     if (isSubmitting) return;
-    router.back();
-  }, [router, isSubmitting]);
+    safeRouter.back();
+  }, [safeRouter, isSubmitting]);
 
   // Photo handlers
   const handleOpenPhotoSheet = useCallback(() => {
@@ -239,13 +240,13 @@ export const ReportCommentScreen: React.FC = () => {
       setHasAttemptedSubmit(false);
 
       // Navigate to Successful Screen
-      router.replace('/clients-review/success' as any);
+      safeRouter.replace('/clients-review/success' as any);
     } catch {
       // TODO (Backend): handle failure
     } finally {
       setIsSubmitting(false);
     }
-  }, [isSubmitting, isFormValid, reportReview, review.id, reportTitle, reportText, photos, router]);
+  }, [isSubmitting, isFormValid, reportReview, review.id, reportTitle, reportText, photos, safeRouter]);
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
@@ -420,7 +421,7 @@ export const ReportCommentScreen: React.FC = () => {
         <View
           style={[
             styles.footerContainer,
-            { paddingBottom: Math.max(insets.bottom, 16) },
+            { paddingBottom: insets.bottom + 16 },
           ]}
         >
           <TouchableOpacity

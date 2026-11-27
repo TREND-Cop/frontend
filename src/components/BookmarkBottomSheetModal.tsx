@@ -15,7 +15,7 @@ import Svg, { Path } from 'react-native-svg';
 import { SafeImage } from './ui/SafeImage';
 import { useNativeDock } from '../utils/useNativeDock';
 
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../utils/safeNavigation';
 import { useBookmarkStore } from '../utils/bookmarkStore';
 import { typography } from '../constants/theme';
 
@@ -64,7 +64,7 @@ export const BookmarkBottomSheetModal: React.FC<BookmarkBottomSheetModalProps> =
   images: propImages,
 }) => {
   const { hasDock, dockHeight } = useNativeDock();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const store = useBookmarkStore();
 
   const isVisible = propVisible !== undefined ? propVisible : store.isOpen;
@@ -82,7 +82,7 @@ export const BookmarkBottomSheetModal: React.FC<BookmarkBottomSheetModalProps> =
     if (propOnOpenWishlist) {
       propOnOpenWishlist();
     } else {
-      router.push('/wishlist' as any);
+      safeRouter.push('/wishlist' as any);
     }
   };
 

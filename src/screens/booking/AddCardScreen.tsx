@@ -12,7 +12,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ArrowLeft } from 'lucide-react-native';
 import Svg, { Path, Circle, Rect, Text as SvgText } from 'react-native-svg';
 import { bookingStore } from '../../utils/bookingStore';
@@ -259,7 +259,7 @@ export const detectCardOperator = (rawNumber: string): CardOperator => {
 };
 
 export const AddCardScreen = ({ navigation }: { navigation?: any }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const bottomInset = Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16);
 
@@ -298,11 +298,11 @@ export const AddCardScreen = ({ navigation }: { navigation?: any }) => {
 
   const handleGoBack = () => {
     if (navigation?.canGoBack && navigation.canGoBack()) {
-      navigation.goBack();
-    } else if (router.canGoBack()) {
-      router.back();
+      safeRouter.back();
+    } else if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/payment');
+      safeRouter.replace('/payment');
     }
   };
 
@@ -409,7 +409,7 @@ export const AddCardScreen = ({ navigation }: { navigation?: any }) => {
       };
       const newAppt = await confirmBooking(cardDetails);
       setIsVerifying(false);
-      router.replace({
+      safeRouter.replace({
         pathname: '/booking-success',
         params: { appointmentId: newAppt?.id },
       } as any);
@@ -704,18 +704,19 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  // ── 4-Dots Loading Indicator ──
+  // ── 4-Dots Loading Indicator (Figma Frame 8 Spec: width 124px, 16px dots, gap 20px) ──
   dotsLoaderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    height: 24,
+    gap: 20,
+    width: 124,
+    height: 16,
   },
   loaderDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     backgroundColor: 'rgba(0, 8, 20, 0.96)',
   },
 

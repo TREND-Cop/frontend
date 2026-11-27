@@ -7,7 +7,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Rect, Circle, G } from 'react-native-svg';
 import { typography } from '../../constants/theme';
 import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
@@ -87,14 +87,14 @@ export const EmptyCancelledAppointmentScreen: React.FC<EmptyCancelledAppointment
   onGoBack,
   onCheckAppointment,
 }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
 
   const handleGoBack = () => {
     if (onGoBack) {
       onGoBack();
     } else {
-      router.replace('/home/bookings' as any);
+      safeRouter.replace('/home/bookings' as any);
     }
   };
 
@@ -102,7 +102,7 @@ export const EmptyCancelledAppointmentScreen: React.FC<EmptyCancelledAppointment
     if (onCheckAppointment) {
       onCheckAppointment();
     } else {
-      router.replace('/home/bookings' as any);
+      safeRouter.replace('/home/bookings' as any);
     }
   };
 

@@ -2,19 +2,19 @@
  * Route: /username
  */
 
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../utils/safeNavigation';
 import { UsernameScreen } from '../screens/profile-setup/UsernameScreen';
 
 export default function UsernameRoute() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   return (
     <UsernameScreen
       navigation={{
         navigate: (screen: string) => {
-          if (screen === 'Home') router.push('/home');
+          if (screen === 'Home') safeRouter.push('/home');
         },
-        goBack: () => router.back(),
+        goBack: () => safeRouter.back(),
       }}
     />
   );

@@ -1,20 +1,21 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View,
+  Dimensions,
+  Keyboard,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  Modal,
-  StyleSheet,
-  Pressable,
-  Platform,
-  ScrollView,
-  Keyboard,
-  Dimensions,
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { triggerLightHaptic } from '../../../utils/haptics';
+import { useSingleFlight } from '../../../utils/safeNavigation';
 
 const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
 const FONT_REGULAR = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular';
@@ -42,7 +43,7 @@ export const EXPERIENCE_PRESET_PAIRS: Array<[ExperiencePresetItem, ExperiencePre
     { years: 1, label: '1 Year' },
   ],
   [
-    { years: 3, label: '3 Years', isFaint: true },
+    { years: 3, label: '3 Years' },
     { years: 2, label: '2 Years' },
   ],
 ];
@@ -224,12 +225,12 @@ export const ExperienceSheet: React.FC<ExperienceSheetProps> = ({
 
   const canConfirm = isComplete && isChanged;
 
-  const handleConfirmPress = () => {
-    if (!canConfirm) return;
+  const handleConfirmPress = useSingleFlight(() => {
+    if (!visible || !canConfirm) return;
     triggerLightHaptic();
     onConfirm(activeYears!);
     onClose();
-  };
+  });
 
   const handleClearCurrent = () => {
     triggerLightHaptic();
@@ -237,10 +238,11 @@ export const ExperienceSheet: React.FC<ExperienceSheetProps> = ({
     setCustomText('');
   };
 
-  const handleDismiss = () => {
+  const handleDismiss = useSingleFlight(() => {
+    if (!visible) return;
     Keyboard.dismiss();
     onClose();
-  };
+  });
 
   return (
     <Modal
@@ -263,11 +265,11 @@ export const ExperienceSheet: React.FC<ExperienceSheetProps> = ({
             styles.sheetContainer,
             keyboardHeight > 0
               ? {
-                  minHeight: 0,
-                  maxHeight: Dimensions.get('window').height - keyboardHeight - (insets.top || 20),
-                }
+                minHeight: 0,
+                maxHeight: Dimensions.get('window').height - keyboardHeight - (insets.top || 20),
+              }
               : null,
-            { paddingBottom: keyboardHeight > 0 ? 8 : Math.max(insets.bottom, 16) },
+            { paddingBottom: keyboardHeight > 0 ? 8 : insets.bottom + 16 },
           ]}
         >
           {/* ── 1. Header (64px, CSS Spec Line 65) ── */}
@@ -343,8 +345,8 @@ export const ExperienceSheet: React.FC<ExperienceSheetProps> = ({
                           isLeftSelected
                             ? styles.chipSelected
                             : leftItem.isFaint
-                            ? styles.chipFaint
-                            : styles.chipUnselected,
+                              ? styles.chipFaint
+                              : styles.chipUnselected,
                         ]}
                         onPress={() => handleSelectPreset(leftItem.years)}
                         accessible
@@ -358,8 +360,8 @@ export const ExperienceSheet: React.FC<ExperienceSheetProps> = ({
                             isLeftSelected
                               ? styles.chipTextSelected
                               : leftItem.isFaint
-                              ? styles.chipTextFaint
-                              : styles.chipTextUnselected,
+                                ? styles.chipTextFaint
+                                : styles.chipTextUnselected,
                           ]}
                           numberOfLines={1}
                           ellipsizeMode="tail"
@@ -380,8 +382,8 @@ export const ExperienceSheet: React.FC<ExperienceSheetProps> = ({
                           isRightSelected
                             ? styles.chipSelected
                             : rightItem.isFaint
-                            ? styles.chipFaint
-                            : styles.chipUnselected,
+                              ? styles.chipFaint
+                              : styles.chipUnselected,
                         ]}
                         onPress={() => handleSelectPreset(rightItem.years)}
                         accessible
@@ -395,8 +397,8 @@ export const ExperienceSheet: React.FC<ExperienceSheetProps> = ({
                             isRightSelected
                               ? styles.chipTextSelected
                               : rightItem.isFaint
-                              ? styles.chipTextFaint
-                              : styles.chipTextUnselected,
+                                ? styles.chipTextFaint
+                                : styles.chipTextUnselected,
                           ]}
                           numberOfLines={1}
                           ellipsizeMode="tail"
@@ -532,7 +534,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   currentSection: {
-    width: 360,
+    width: '100%',
+    maxWidth: 358,
     marginBottom: 24,
   },
   sectionHeading: {
@@ -555,7 +558,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(247, 247, 247, 0.96)',
     borderWidth: 1,
     borderColor: 'rgba(192, 192, 204, 0.96)',
-    width: 167,
+    width: '48%',
+    minWidth: 140,
   },
   currentChipText: {
     fontFamily: FONT_REGULAR,
@@ -570,11 +574,13 @@ const styles = StyleSheet.create({
     color: 'rgba(96, 96, 102, 0.96)',
   },
   bodyContainer: {
-    width: 360,
+    width: '100%',
+    maxWidth: 358,
     gap: 20,
   },
   questionText: {
-    width: 360,
+    width: '100%',
+    maxWidth: 358,
     fontFamily: FONT_REGULAR,
     fontSize: 16,
     lineHeight: 24,
@@ -582,16 +588,17 @@ const styles = StyleSheet.create({
     color: 'rgba(96, 96, 102, 0.96)',
   },
   datesGrid: {
-    width: 360,
-    gap: 20,
+    width: '100%',
+    gap: 16,
   },
   gridRow: {
+    width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 24,
+    gap: 12,
   },
   chip: {
-    width: 168,
+    flex: 1,
     height: 48,
     borderRadius: 24,
     paddingHorizontal: 16,
@@ -632,7 +639,8 @@ const styles = StyleSheet.create({
     color: 'rgba(235, 235, 245, 0.96)',
   },
   customFieldContainer: {
-    width: 360,
+    width: '100%',
+    maxWidth: 358,
     height: 57,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(235, 235, 245, 0.96)',

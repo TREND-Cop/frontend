@@ -22,14 +22,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  BackHandler,
 } from 'react-native';
 import { colors, typography, spacing } from '../../constants/theme';
 import { FormInput } from '../../components/FormInput';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { SocialAuthSection } from '../../components/SocialAuthSection';
 import { AuthFooter } from '../../components/AuthFooter';
-import { supabase } from '../../lib/supabase';
-import { useRouter } from 'expo-router';
+import { trendApi } from '../../api/trendApi';
+import { signInWithGoogle, consumeGoogleRedirectResult } from '../../api/firebaseAuth';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useUserContext } from '../../store/UserContext';
 
@@ -69,8 +71,18 @@ const onSignIn = async (
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const SignInScreen = ({ navigation }: { navigation?: any }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { updateProfile } = useUserContext();
+
+  // Hardware back press on SignInScreen returns cleanly to root onboarding screen
+  useEffect(() => {
+    const onBackPress = () => {
+      safeRouter.replace('/onboarding' as any);
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [safeRouter]);
 
   // ── Form State ──────────────────────────────────────────────────────────
   const [usernameOrPhone, setUsernameOrPhone] = useState('');
@@ -132,7 +144,7 @@ export const SignInScreen = ({ navigation }: { navigation?: any }) => {
   }, [password]);
 
   /**
-   * Handles the "Sign In" button press via Supabase Auth.
+   * Handles the "Sign In" button press via live Trend REST API.
    */
   const handleSignIn = useCallback(async () => {
     if (!formValid) return;
@@ -141,40 +153,93 @@ export const SignInScreen = ({ navigation }: { navigation?: any }) => {
     setUsernameError(null);
     setPasswordError(null);
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      phone: usernameOrPhone,
-      password: password,
+    const identifier = usernameOrPhone.trim();
+    const res = await trendApi.auth.login({
+      identifier,
+      password,
     });
 
-    if (error) {
-      const msg = error.message.toLowerCase();
-      if (
+    if (!res.ok) {
+      const msg = (res.error || '').toLowerCase();
+      if (msg.includes('password') && !msg.includes('credentials')) {
+        setPasswordTouched(true);
+        setPasswordError(res.error || 'Incorrect password');
+      } else if (
+        res.status === 401 ||
+        res.status === 404 ||
+        msg.includes('wrong credentials') ||
         msg.includes('user') ||
         msg.includes('phone') ||
         msg.includes('not found') ||
-        msg.includes('invalid credentials')
+        msg.includes('invalid')
       ) {
         setUsernameTouched(true);
-        setUsernameError('Username or Phone Number is incorrect');
-      } else if (msg.includes('password')) {
-        setPasswordTouched(true);
-        setPasswordError('Incorrect password');
+        setUsernameError(res.error || 'Username or Phone Number is incorrect');
       } else {
         setUsernameTouched(true);
-        setUsernameError(error.message || 'Username or Phone Number is incorrect');
+        setUsernameError(res.error || 'Unable to sign in right now. Please try again.');
       }
       return;
     }
 
-    if (data?.session || data?.user) {
-      updateProfile({ isLoggedIn: true, phone: usernameOrPhone });
-      if (navigation?.navigate) {
+    const user = res.data?.user || res.data || {};
+    await updateProfile({
+      isLoggedIn: true,
+      phone: user.phone || (identifier.includes('@') ? null : identifier),
+      email: user.email || (identifier.includes('@') ? identifier : null),
+      fullName: user.name || null,
+      username: user.username || user.name || identifier,
+      avatarUri: user.image || null,
+    });
+
+    if (navigation?.navigate) {
+      navigation.navigate('SignInSuccess');
+    } else {
+      safeRouter.replace({ pathname: '/sign-in-success', params: { mode: 'sign-in' } } as any);
+    }
+  }, [formValid, usernameOrPhone, password, navigation, safeRouter, updateProfile]);
+
+  const finishGoogleAuth = useCallback(
+    async (res: Awaited<ReturnType<typeof signInWithGoogle>>) => {
+      if (!res.ok) {
+        if (!res.cancelled && !res.redirecting && res.error) {
+          setUsernameTouched(true);
+          setUsernameError(res.error);
+        }
+        return;
+      }
+      const user = res.user || {};
+      await updateProfile({
+        isLoggedIn: true,
+        email: user.email || null,
+        fullName: user.name || null,
+        username: user.name || user.email?.split('@')[0] || 'User',
+        avatarUri: user.image || null,
+        signupMethod: 'email',
+      });
+      if (res.created) {
+        safeRouter.push('/user-location' as any);
+      } else if (navigation?.navigate) {
         navigation.navigate('SignInSuccess');
       } else {
-        router.replace({ pathname: '/sign-in-success', params: { mode: 'sign-in' } } as any);
+        safeRouter.replace({ pathname: '/sign-in-success', params: { mode: 'sign-in' } } as any);
       }
-    }
-  }, [formValid, usernameOrPhone, password, navigation, router, updateProfile]);
+    },
+    [navigation, safeRouter, updateProfile]
+  );
+
+  useEffect(() => {
+    consumeGoogleRedirectResult('client').then((res) => {
+      if (res) finishGoogleAuth(res);
+    });
+  }, [finishGoogleAuth]);
+
+  const handleGoogleSignIn = useCallback(async () => {
+    setUsernameError(null);
+    setPasswordError(null);
+    const res = await signInWithGoogle('client');
+    await finishGoogleAuth(res);
+  }, [finishGoogleAuth]);
 
   /**
    * Navigates to the Forgot Password screen.
@@ -262,8 +327,7 @@ export const SignInScreen = ({ navigation }: { navigation?: any }) => {
           {/* ─── Social Login ───────────────────────────────────────────── */}
           <SocialAuthSection
             dividerText="Sign in with"
-            onGooglePress={() => console.log('Google Sign In — implement OAuth')}
-            onApplePress={() => console.log('Apple Sign In — implement Apple Sign In')}
+            onGooglePress={handleGoogleSignIn}
           />
 
           {/* ─── Footer ─────────────────────────────────────────────────── */}

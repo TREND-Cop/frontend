@@ -10,7 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { useStaffAppointments } from '../../context/StaffAppointmentsContext';
@@ -186,7 +186,7 @@ export interface StaffHistoryListScreenProps {
 
 export function StaffHistoryListScreen({ kind }: StaffHistoryListScreenProps) {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { appointments } = useStaffAppointments();
 
   const isCompleted = kind === 'completed';
@@ -328,7 +328,7 @@ export function StaffHistoryListScreen({ kind }: StaffHistoryListScreenProps) {
   // Navigate to history detail screen
   const handleCardPress = (item: StaffAppointment) => {
     triggerLightHaptic();
-    router.push({
+    safeRouter.push({
       pathname: STAFF_ROUTES.HISTORY_DETAIL as any,
       params: { id: item.id, kind },
     });
@@ -346,7 +346,7 @@ export function StaffHistoryListScreen({ kind }: StaffHistoryListScreenProps) {
             activeOpacity={0.7}
             onPress={() => {
               triggerLightHaptic();
-              router.back();
+              safeRouter.back();
             }}
             accessibilityLabel="Back to Staff Home"
           >
@@ -362,7 +362,7 @@ export function StaffHistoryListScreen({ kind }: StaffHistoryListScreenProps) {
             activeOpacity={0.7}
             onPress={() => {
               triggerLightHaptic();
-              router.push({
+              safeRouter.push({
                 pathname: STAFF_ROUTES.TUTORIAL_VIDEO as any,
                 params: {
                   step: isCompleted ? '4' : '3',

@@ -25,7 +25,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 // ── Golden Rule #4: Star 3 Rotating Loader Component ──
@@ -102,7 +102,7 @@ const MiniLoaderSpinner = () => {
 };
 
 export const PasswordResetSuccessScreen = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const [messageIndex, setMessageIndex] = useState(0);
 
@@ -123,14 +123,14 @@ export const PasswordResetSuccessScreen = () => {
 
     // After 3.0s, cleanly navigate to /sign-in
     const navTimeout = setTimeout(() => {
-      router.replace('/sign-in');
+      safeRouter.replace('/sign-in');
     }, 3000);
 
     return () => {
       clearTimeout(messageTimeout);
       clearTimeout(navTimeout);
     };
-  }, [router]);
+  }, [safeRouter]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>

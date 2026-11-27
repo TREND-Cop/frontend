@@ -1,6 +1,7 @@
 import React from 'react';
-import { StaffLoginCodePlaceholderScreen } from '../../screens/staff/StaffLoginCodePlaceholderScreen';
+import { StaffDetailScreen } from '../../screens/staff/StaffDetailScreen';
 
 export default function StaffLoginCodeRoute() {
-  return <StaffLoginCodePlaceholderScreen />;
+  return <StaffDetailScreen />;
 }
+

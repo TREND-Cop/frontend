@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { useRouter } from 'expo-router';
+import { useSafeRouter, useSingleFlight } from '../../utils/safeNavigation';
 import { triggerLightHaptic } from '../../utils/haptics';
 
 const FONT_PAGE_HEADER = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
@@ -68,25 +68,25 @@ export const EditHeader: React.FC<EditHeaderProps> = ({
   backAccessibilityLabel = 'Go back',
   testID,
 }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
-  const handleBack = () => {
+  const handleBack = useSingleFlight(() => {
     triggerLightHaptic();
     if (onBack) {
       onBack();
     } else {
-      router.back();
+      safeRouter.back();
     }
-  };
+  });
 
-  const handleHelp = () => {
+  const handleHelp = useSingleFlight(() => {
     triggerLightHaptic();
     if (onHelp) {
       onHelp();
     } else {
-      router.push('/guide/general' as any);
+      safeRouter.push('/guide/general' as any);
     }
-  };
+  });
 
   return (
     <View style={styles.header} testID={testID}>

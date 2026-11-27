@@ -13,7 +13,7 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 
 import { useNotifications } from '../../context/NotificationsContext';
@@ -55,7 +55,7 @@ export const ImageViewerScreen: React.FC<ImageViewerScreenProps> = ({
   id,
   initialIndex = 0,
 }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { notifications } = useNotifications();
 
@@ -90,7 +90,7 @@ export const ImageViewerScreen: React.FC<ImageViewerScreenProps> = ({
       <SafeAreaView edges={['top']} style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor="#000814" />
         <View style={styles.header}>
-          <TouchableOpacity activeOpacity={0.7} onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => safeRouter.back()} style={styles.backButton}>
             <ArrowLeftWhiteIcon size={24} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Upload Image</Text>
@@ -111,7 +111,7 @@ export const ImageViewerScreen: React.FC<ImageViewerScreenProps> = ({
       <View style={styles.header}>
         <TouchableOpacity
           activeOpacity={0.7}
-          onPress={() => router.back()}
+          onPress={() => safeRouter.back()}
           style={styles.backButton}
           accessibilityLabel="Go back"
         >

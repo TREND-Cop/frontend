@@ -16,7 +16,8 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import {
   ArrowLeft,
   ArrowRight,
@@ -200,7 +201,7 @@ const CUSTOMER_REVIEWS = [
 const FULL_DEFAULT_ADDRESS = '11 Gani Street, NNPC Tower Asokoro, Abuja.';
 
 export const SalonLocationScreen = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -370,10 +371,10 @@ export const SalonLocationScreen = () => {
   };
 
   const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
+    if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace(`/salon/${salonId}` as any);
+      safeRouter.replace(`/salon/${salonId}` as any);
     }
   };
 
@@ -866,7 +867,7 @@ export const SalonLocationScreen = () => {
                 style={styles.seeAllCircleBtn}
                 activeOpacity={0.7}
                 onPress={() =>
-                  router.push({
+                  safeRouter.push({
                     pathname: '/salon/gallery',
                     params: { salonId: salon.id, name: salon.name },
                   } as any)
@@ -897,7 +898,7 @@ export const SalonLocationScreen = () => {
                         })),
                         idx
                       );
-                      router.push({
+                      safeRouter.push({
                         pathname: '/professional/gallery-preview',
                         params: {
                           index: idx,
@@ -934,7 +935,7 @@ export const SalonLocationScreen = () => {
                           })),
                           actualIdx
                         );
-                        router.push({
+                        safeRouter.push({
                           pathname: '/professional/gallery-preview',
                           params: {
                             index: actualIdx,
@@ -989,7 +990,7 @@ export const SalonLocationScreen = () => {
                   style={styles.seeAllCircleBtn}
                   activeOpacity={0.7}
                   onPress={() =>
-                    router.push({
+                    safeRouter.push({
                       pathname: '/salon/reviews',
                       params: { salonId: salon.id, name: salon.name },
                     } as any)

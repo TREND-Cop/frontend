@@ -1,4 +1,5 @@
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ArrowLeft, Check, Clock, Maximize2, Star } from 'lucide-react-native';
 import { useState } from 'react';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -75,7 +76,7 @@ interface AddOnItem {
 }
 
 export const StyleSelectionScreen = ({ navigation }: { navigation?: any }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ from?: string }>();
   const isReviewMode = params?.from === 'review';
@@ -112,11 +113,11 @@ export const StyleSelectionScreen = ({ navigation }: { navigation?: any }) => {
 
   const handleGoBack = () => {
     if (navigation?.canGoBack && navigation.canGoBack()) {
-      navigation.goBack();
-    } else if (router.canGoBack()) {
-      router.back();
+      safeRouter.back();
+    } else if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace(isReviewMode ? ('/booking-review' as any) : ('/appointment-time' as any));
+      safeRouter.replace(isReviewMode ? ('/booking-review' as any) : ('/appointment-time' as any));
     }
   };
 
@@ -133,13 +134,13 @@ export const StyleSelectionScreen = ({ navigation }: { navigation?: any }) => {
       });
     }
     if (isReviewMode) {
-      router.back();
+      safeRouter.back();
       return;
     }
     // If the provider uploaded NO add-ons for this service, skip the add-on modal completely
     if (addOns.length === 0) {
       bookingStore.setSelectedIds([]);
-      router.push('/specialist' as any);
+      safeRouter.push('/specialist' as any);
       return;
     }
     setIsAddOnsModalVisible(true);
@@ -181,13 +182,13 @@ export const StyleSelectionScreen = ({ navigation }: { navigation?: any }) => {
 
     if (addOnWithProducts) {
       // ONLY opens when a selected add-on requires product choice
-      router.push({
+      safeRouter.push({
         pathname: (addOnWithProducts.subCategoryRoute || '/add-one-product') as any,
         params: { addOnId: addOnWithProducts.id, addOnName: addOnWithProducts.name },
       });
     } else {
       // Skips Add-on Product screen and proceeds directly to Specialist
-      router.push('/specialist' as any);
+      safeRouter.push('/specialist' as any);
     }
   };
 
@@ -215,7 +216,7 @@ export const StyleSelectionScreen = ({ navigation }: { navigation?: any }) => {
       rating: s.rating || '4.8',
     }));
     previewStore.setPreviewImages(styleImgs, 'Select Style', styleItems, styleIndex);
-    router.push({ pathname: '/professional/gallery-preview', params: { index: styleIndex, initialIndex: styleIndex, source: 'styles' } });
+    safeRouter.push({ pathname: '/professional/gallery-preview', params: { index: styleIndex, initialIndex: styleIndex, source: 'styles' } });
   };
 
   return (

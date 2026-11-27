@@ -99,10 +99,19 @@ export const ReviewPackageSection: React.FC<ReviewPackageSectionProps> = ({
             >
               {/* Images Grid (2 columns, 140x140 cells) */}
               {pkg.images.length > 0 && (
-                <View style={styles.packageImagesGrid}>
+                <View
+                  style={[
+                    styles.packageImagesGrid,
+                    pkg.images.length === 1 && { width: 140 },
+                  ]}
+                >
                   {pkg.images.slice(0, 4).map((uri, idx) => (
                     <View key={idx} style={styles.packageImageCell}>
-                      <Image source={{ uri }} style={styles.packageImage} resizeMode="cover" />
+                      <Image
+                        source={typeof uri === 'number' ? uri : { uri }}
+                        style={styles.packageImage}
+                        resizeMode="cover"
+                      />
                     </View>
                   ))}
                 </View>
@@ -177,6 +186,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
+    width: 296,
+    maxWidth: '100%',
+    alignSelf: 'center',
     justifyContent: 'flex-start',
   },
   packageImageCell: {

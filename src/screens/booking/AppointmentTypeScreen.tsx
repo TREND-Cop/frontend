@@ -10,7 +10,8 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { Check } from 'lucide-react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
@@ -102,7 +103,7 @@ const ArrowLeftIcon = () => (
 );
 
 export function AppointmentTypeScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams();
 
   const [selectedType, setSelectedType] = useState<AppointmentBookingType | null>(null);
@@ -172,7 +173,7 @@ export function AppointmentTypeScreen() {
       bookingStore.setAppointmentType(type);
       setIsLoading(false);
 
-      router.push({
+      safeRouter.push({
         pathname: '/appointment-time',
         params: {
           serviceId: params.serviceId || bookingStore.getServiceId() || '',
@@ -197,7 +198,7 @@ export function AppointmentTypeScreen() {
       dot3.setValue(0);
       dot4.setValue(0);
     };
-  }, [isLoading, selectedType, params, router]);
+  }, [isLoading, selectedType, params, safeRouter]);
 
   const handleSelectType = (type: AppointmentBookingType) => {
     if (isLoading) return;
@@ -227,7 +228,7 @@ export function AppointmentTypeScreen() {
         <TouchableOpacity
           style={styles.backButton}
           activeOpacity={0.7}
-          onPress={() => router.back()}
+          onPress={() => safeRouter.back()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <ArrowLeftIcon />

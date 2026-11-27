@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
+import { useSingleFlight } from '../utils/safeNavigation';
 
 export interface ProviderPhotoUploadSheetProps {
   visible: boolean;
@@ -156,13 +157,29 @@ export const ProviderPhotoUploadSheet: React.FC<ProviderPhotoUploadSheetProps> =
 }) => {
   const insets = useSafeAreaInsets();
 
-  const handleOpenCameraPress = () => {
+  const handleOpenCameraPress = useSingleFlight(() => {
+    if (!visible) return;
     if (onOpenCamera) {
       onOpenCamera();
     } else {
       onChoosePhotos();
     }
-  };
+  });
+
+  const handleChoosePhotosPress = useSingleFlight(() => {
+    if (!visible) return;
+    onChoosePhotos();
+  });
+
+  const handleSelectFilePress = useSingleFlight(() => {
+    if (!visible) return;
+    onSelectFile();
+  });
+
+  const handleClosePress = useSingleFlight(() => {
+    if (!visible) return;
+    onClose();
+  });
 
   return (
     <Modal
@@ -170,17 +187,17 @@ export const ProviderPhotoUploadSheet: React.FC<ProviderPhotoUploadSheetProps> =
       animationType="slide"
       transparent
       statusBarTranslucent
-      onRequestClose={onClose}
+      onRequestClose={handleClosePress}
     >
       <View style={styles.overlay}>
         {/* Backdrop dismiss */}
-        <Pressable style={styles.backdrop} onPress={onClose} />
+        <Pressable style={styles.backdrop} onPress={handleClosePress} />
 
         <View
           style={[
             styles.sheetContainer,
             {
-              paddingBottom: Math.max(insets.bottom, 24),
+              paddingBottom: insets.bottom + 16,
             },
           ]}
         >
@@ -192,7 +209,7 @@ export const ProviderPhotoUploadSheet: React.FC<ProviderPhotoUploadSheetProps> =
             </View>
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={onClose}
+              onPress={handleClosePress}
               style={styles.closeButton}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
@@ -221,7 +238,7 @@ export const ProviderPhotoUploadSheet: React.FC<ProviderPhotoUploadSheetProps> =
             <TouchableOpacity
               activeOpacity={0.7}
               style={styles.optionButton}
-              onPress={onChoosePhotos}
+              onPress={handleChoosePhotosPress}
             >
               <View style={styles.optionIconContainer}>
                 <AlbumIcon size={24} color="rgba(192, 192, 204, 0.96)" />
@@ -236,7 +253,7 @@ export const ProviderPhotoUploadSheet: React.FC<ProviderPhotoUploadSheetProps> =
             <TouchableOpacity
               activeOpacity={0.7}
               style={styles.optionButton}
-              onPress={onSelectFile}
+              onPress={handleSelectFilePress}
             >
               <View style={styles.optionIconContainer}>
                 <FolderIcon size={24} color="rgba(192, 192, 204, 0.96)" />

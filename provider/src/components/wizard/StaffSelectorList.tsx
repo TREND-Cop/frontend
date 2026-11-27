@@ -218,6 +218,7 @@ export const StaffSelectorList: React.FC<StaffSelectorListProps> = ({
         {filteredStaff.length > 0 ? (
           filteredStaff.map((staff) => {
             const isSelected = selectedIds.includes(staff.id);
+            const avatar = staff.avatarUri || staff.photoUri;
             return (
               <TouchableOpacity
                 key={staff.id}
@@ -236,9 +237,9 @@ export const StaffSelectorList: React.FC<StaffSelectorListProps> = ({
               >
                 {/* Staff Avatar / Headshot (80x80px, radius 24px) */}
                 <View style={styles.avatarContainer}>
-                  {staff.avatarUri ? (
+                  {avatar ? (
                     <Image
-                      source={{ uri: staff.avatarUri }}
+                      source={typeof avatar === 'string' ? { uri: avatar } : avatar}
                       style={styles.avatarImage}
                     />
                   ) : (

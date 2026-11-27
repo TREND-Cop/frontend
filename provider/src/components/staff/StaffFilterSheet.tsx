@@ -109,10 +109,7 @@ export const StaffFilterSheet: React.FC<StaffFilterSheetProps> = ({
           style={[
             styles.sheetContainer,
             {
-              paddingBottom:
-                Platform.OS === 'android'
-                  ? Math.max(insets.bottom, 48)
-                  : Math.max(insets.bottom, 16),
+              paddingBottom: insets.bottom + 16,
             },
           ]}
         >

@@ -1,26 +1,28 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { BlurView } from 'expo-blur';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  BackHandler,
+  Dimensions,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  Modal,
-  Platform,
-  KeyboardAvoidingView,
-  ScrollView,
-  BackHandler,
-  ActivityIndicator,
   TouchableWithoutFeedback,
-  Keyboard,
+  View,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import { Review } from '../../constants/reviews.config';
-import { ClientAvatar, ClientVerifiedBadge } from './ReviewBody';
 import { formatReviewTimestamp } from '../../utils/reviewFormatters';
+import { useSingleFlight } from '../../utils/safeNavigation';
+import { ClientAvatar, ClientVerifiedBadge } from './ReviewBody';
 
 const FONT_REGULAR = Platform.select({
   ios: 'SF Pro',
@@ -111,18 +113,52 @@ export const ReplyComposerModal: React.FC<ReplyComposerModalProps> = ({
   const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const inputRef = useRef<TextInput>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
 
-  // Clear text on open / close
+  useEffect(() => {
+    const handleKeyboardShow = (e: any) => {
+      setIsKeyboardVisible(true);
+      const height = e?.endCoordinates?.height ?? 0;
+      if (height > 0) {
+        setKeyboardHeight(height);
+      }
+    };
+
+    const handleKeyboardHide = () => {
+      setIsKeyboardVisible(false);
+      setKeyboardHeight(0);
+    };
+
+    const showSubWill = Keyboard.addListener('keyboardWillShow', handleKeyboardShow);
+    const showSubDid = Keyboard.addListener('keyboardDidShow', handleKeyboardShow);
+    const hideSubWill = Keyboard.addListener('keyboardWillHide', handleKeyboardHide);
+    const hideSubDid = Keyboard.addListener('keyboardDidHide', handleKeyboardHide);
+
+    return () => {
+      showSubWill.remove();
+      showSubDid.remove();
+      hideSubWill.remove();
+      hideSubDid.remove();
+    };
+  }, []);
+
+  // Clear text on open / close and auto-focus
   useEffect(() => {
     if (visible) {
       setText('');
       setIsSending(false);
-      // Auto-focus after modal transition
+      // Auto-focus after modal transition settles
+      const delay = Platform.OS === 'android' ? 250 : 150;
       const timer = setTimeout(() => {
         inputRef.current?.focus();
-      }, 150);
+      }, delay);
       return () => clearTimeout(timer);
+    } else {
+      setKeyboardHeight(0);
+      setIsKeyboardVisible(false);
     }
   }, [visible]);
 
@@ -131,6 +167,10 @@ export const ReplyComposerModal: React.FC<ReplyComposerModalProps> = ({
     if (!visible) return;
 
     const onBackPress = () => {
+      if (isKeyboardVisible) {
+        Keyboard.dismiss();
+        return true;
+      }
       onClose();
       return true;
     };
@@ -140,23 +180,33 @@ export const ReplyComposerModal: React.FC<ReplyComposerModalProps> = ({
       onBackPress
     );
     return () => backHandler.remove();
-  }, [visible, onClose]);
+  }, [visible, isKeyboardVisible, onClose]);
 
-  const handleSend = useCallback(async () => {
-    const trimmed = text.trim();
-    if (!trimmed || isSending || !review) return;
-
-    try {
-      setIsSending(true);
-      await onSendReply(review.id, trimmed);
+  const handleBackdropPress = useCallback(() => {
+    if (isKeyboardVisible) {
       Keyboard.dismiss();
+    } else {
       onClose();
-    } catch {
-      // TODO (Backend): handle failure
-    } finally {
-      setIsSending(false);
     }
-  }, [text, isSending, review, onSendReply, onClose]);
+  }, [isKeyboardVisible, onClose]);
+
+  const handleSend = useSingleFlight(
+    useCallback(async () => {
+      const trimmed = text.trim();
+      if (!trimmed || isSending || !review) return;
+
+      try {
+        setIsSending(true);
+        await onSendReply(review.id, trimmed);
+        Keyboard.dismiss();
+        onClose();
+      } catch {
+        // TODO (Backend): handle failure
+      } finally {
+        setIsSending(false);
+      }
+    }, [text, isSending, review, onSendReply, onClose])
+  );
 
   if (!visible || !review) return null;
 
@@ -171,17 +221,27 @@ export const ReplyComposerModal: React.FC<ReplyComposerModalProps> = ({
       statusBarTranslucent
     >
       <View style={styles.modalRoot}>
-        {/* Real Blur overlay using expo-blur */}
-        <BlurView intensity={35} tint="light" style={StyleSheet.absoluteFill}>
-          <View style={styles.blurBackdropOverlay} />
-        </BlurView>
+        {/* Real Frosted Scrim Backdrop:
+            - iOS: Native BlurView with light frosted tint overlay
+            - Android: High-opacity frosted veil (94% neutral wash) that completely obscures
+              the background reviews and eliminats visual clutter/confusion
+        */}
+        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+          {Platform.OS === 'ios' ? (
+            <BlurView intensity={70} tint="light" style={StyleSheet.absoluteFill}>
+              <View style={styles.iosBlurOverlay} />
+            </BlurView>
+          ) : (
+            <View style={styles.androidScrimOverlay} />
+          )}
+        </View>
 
-        {/* Dismiss keyboard on tap outside card */}
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        {/* Backdrop Tap to Dismiss (dismiss keyboard first, then modal) */}
+        <TouchableWithoutFeedback onPress={handleBackdropPress}>
           <View style={StyleSheet.absoluteFill} />
         </TouchableWithoutFeedback>
 
-        {/* Top-Left Dark Close Button (40x40) */}
+        {/* Top-Left Dark Close Button (40x40) with High Contrast */}
         <TouchableOpacity
           style={[
             styles.closeButton,
@@ -191,80 +251,107 @@ export const ReplyComposerModal: React.FC<ReplyComposerModalProps> = ({
           onPress={onClose}
           accessibilityRole="button"
           accessibilityLabel="Close reply composer"
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <CloseXIcon size={24} />
         </TouchableOpacity>
 
-        {/* Keyboard-avoiding container */}
+        {/* Keyboard-avoiding container:
+            - iOS: Uses native KeyboardAvoidingView padding
+            - Android: Directly applies tracked keyboardHeight to paddingBottom so the chat bar
+              always sits flush right on top of the soft keyboard
+        */}
         <KeyboardAvoidingView
-          style={styles.keyboardContainer}
+          style={[
+            styles.keyboardContainer,
+            Platform.OS === 'android' && {
+              paddingBottom: keyboardHeight,
+            },
+          ]}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={0}
         >
           {/* Scrollable Center Space for Lifted Review Card */}
           <ScrollView
+            ref={scrollViewRef}
+            style={{ flex: 1 }}
             contentContainerStyle={[
               styles.scrollContent,
               {
-                paddingTop: Math.max(insets.top + 70, 100),
+                paddingTop: Math.max(insets.top + (isKeyboardVisible ? 56 : 72), 72),
                 paddingBottom: 24,
               },
             ]}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
             showsVerticalScrollIndicator={false}
           >
-            {/* Lifted Review Card (Frame L2) */}
-            <View style={styles.liftedCard}>
-              <View style={styles.clientSection}>
-                <ClientAvatar
-                  photoUri={review.client.photoUri}
-                  name={review.client.name}
-                />
+            <TouchableWithoutFeedback onPress={handleBackdropPress}>
+              <View style={styles.scrollInnerDismissArea}>
+                {/* Lifted Review Card (Frame L2) - isolated tap so tapping card does not dismiss */}
+                <TouchableWithoutFeedback onPress={() => { }}>
+                  <View style={styles.liftedCard}>
+                    <View style={styles.clientSection}>
+                      <ClientAvatar
+                        photoUri={review.client.photoUri}
+                        name={review.client.name}
+                      />
 
-                <View style={styles.contentColumn}>
-                  {/* Name, Badge, and ⋮ menu */}
-                  <View style={styles.topNameRow}>
-                    <View style={styles.nameAndBadge}>
-                      <Text
-                        style={styles.clientName}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                      >
-                        {review.client.name}
-                      </Text>
-                      {review.client.isVerified && (
-                        <ClientVerifiedBadge size={20} />
-                      )}
+                      <View style={styles.contentColumn}>
+                        {/* Name, Badge, and ⋮ menu */}
+                        <View style={styles.topNameRow}>
+                          <View style={styles.nameAndBadge}>
+                            <Text
+                              style={styles.clientName}
+                              numberOfLines={1}
+                              ellipsizeMode="tail"
+                            >
+                              {review.client.name}
+                            </Text>
+                            {review.client.isVerified && (
+                              <ClientVerifiedBadge size={20} />
+                            )}
+                          </View>
+
+                          <TouchableOpacity
+                            style={styles.menuButton}
+                            activeOpacity={0.7}
+                            onPress={() => onPressMenu?.(review)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`More options for ${review.client.name}'s review`}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <EllipsisVerticalIcon size={24} />
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* Review text */}
+                        <Text style={styles.reviewText}>{review.text}</Text>
+
+                        {/* Timestamp */}
+                        <Text style={styles.timestamp}>
+                          {formatReviewTimestamp(review.createdAt)}
+                        </Text>
+                      </View>
                     </View>
-
-                    <TouchableOpacity
-                      style={styles.menuButton}
-                      activeOpacity={0.7}
-                      onPress={() => onPressMenu?.(review)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`More options for ${review.client.name}'s review`}
-                    >
-                      <EllipsisVerticalIcon size={24} />
-                    </TouchableOpacity>
                   </View>
-
-                  {/* Review text */}
-                  <Text style={styles.reviewText}>{review.text}</Text>
-
-                  {/* Timestamp */}
-                  <Text style={styles.timestamp}>
-                    {formatReviewTimestamp(review.createdAt)}
-                  </Text>
-                </View>
+                </TouchableWithoutFeedback>
               </View>
-            </View>
+            </TouchableWithoutFeedback>
           </ScrollView>
 
-          {/* Custom Input Bar (57px height above keyboard) */}
+          {/* Custom Chat Input Bar (57px height):
+              Sits directly above the soft keyboard when keyboard is open,
+              and above native dock/safe area when keyboard is closed
+          */}
           <View
             style={[
               styles.inputBarContainer,
-              { paddingBottom: Math.max(insets.bottom, 8) },
+              {
+                paddingBottom: isKeyboardVisible
+                  ? (Platform.OS === 'android' ? 10 : 8)
+                  : Math.max(insets.bottom, 8),
+              },
             ]}
           >
             <View style={styles.customInputField}>
@@ -315,13 +402,21 @@ const styles = StyleSheet.create({
   modalRoot: {
     flex: 1,
   },
-  blurBackdropOverlay: {
+  iosBlurOverlay: {
     position: 'absolute',
     left: 0,
     right: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: 'rgba(255, 255, 255, 0.72)',
+  },
+  androidScrimOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(245, 246, 250, 0.94)',
   },
   closeButton: {
     position: 'absolute',
@@ -332,12 +427,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 8, 20, 0.96)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10,
+    zIndex: 20,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.2,
     shadowRadius: 6,
-    elevation: 4,
+    elevation: 8,
   },
   keyboardContainer: {
     flex: 1,
@@ -348,6 +443,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 16,
   },
+  scrollInnerDismissArea: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    width: '100%',
+  },
   liftedCard: {
     backgroundColor: '#FFFFFF',
     paddingVertical: 16,
@@ -357,12 +457,14 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     borderBottomRightRadius: 24,
     borderBottomLeftRadius: 0,
+    borderWidth: 1,
+    borderColor: 'rgba(235, 235, 245, 0.96)',
     // Figma Hard Shadow
-    shadowColor: 'rgba(133, 139, 148, 0.18)',
+    shadowColor: 'rgba(133, 139, 148, 0.25)',
     shadowOffset: { width: 4, height: 10 },
     shadowOpacity: 0.18,
     shadowRadius: 24,
-    elevation: 12,
+    elevation: 8,
   },
   clientSection: {
     flexDirection: 'row',

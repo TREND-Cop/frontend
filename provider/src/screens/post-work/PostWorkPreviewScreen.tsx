@@ -8,10 +8,13 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter, useSingleFlight } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 
 import { useWorkPhotos } from '../../context/WorkPhotosContext';
+import { useStaffWorkPhotos } from '../../context/StaffWorkPhotosContext';
+import { STAFF_ROUTES } from '../../constants/staffRoutes';
 import { LoadingOverlay } from '../../components/LoadingOverlay';
 import { triggerLightHaptic } from '../../utils/haptics';
 
@@ -40,36 +43,45 @@ function CloseXIcon({ size = 24, color = '#141B34' }: { size?: number; color?: s
  * - Bottom dark pill "Upload" button with safe-area padding
  * - LoadingOverlay with 4 dots active during upload (blocking touches)
  */
-export const PostWorkPreviewScreen: React.FC = () => {
-  const router = useRouter();
+export interface PostWorkPreviewScreenProps {
+  isStaff?: boolean;
+}
+
+export const PostWorkPreviewScreen: React.FC<PostWorkPreviewScreenProps> = ({ isStaff = false }) => {
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { uri } = useLocalSearchParams<{ uri: string }>();
-  const { uploadWorkPhoto } = useWorkPhotos();
+  const ownerPhotos = useWorkPhotos();
+  const staffPhotos = useStaffWorkPhotos();
 
   const [isUploading, setIsUploading] = useState(false);
 
   // Close & discard photo
-  const handleClose = () => {
+  const handleClose = useSingleFlight(() => {
     if (isUploading) return;
     triggerLightHaptic();
-    router.back();
-  };
+    safeRouter.back();
+  });
 
   // Upload handler
-  const handleUpload = async () => {
+  const handleUpload = useSingleFlight(async () => {
     if (isUploading || !uri) return;
     triggerLightHaptic();
     setIsUploading(true);
 
     try {
-      await uploadWorkPhoto(uri);
-      // Success -> navigate to success celebration screen (U5)
-      router.replace('/post-work/success' as any);
+      if (isStaff) {
+        await staffPhotos.uploadStaffWorkPhoto(uri);
+        safeRouter.replace(STAFF_ROUTES.POST_WORK_SUCCESS as any);
+      } else {
+        await ownerPhotos.uploadWorkPhoto(uri);
+        safeRouter.replace('/post-work/success' as any);
+      }
     } catch (e) {
       // TODO (Backend): handle failure
       setIsUploading(false);
     }
-  };
+  });
 
   return (
     <View style={styles.container}>
@@ -101,7 +113,7 @@ export const PostWorkPreviewScreen: React.FC = () => {
       <View
         style={[
           styles.bottomContainer,
-          { paddingBottom: Math.max(insets.bottom, 24) },
+          { paddingBottom: Math.max(insets.bottom, 24) + 16 },
         ]}
       >
         <TouchableOpacity
@@ -115,12 +127,14 @@ export const PostWorkPreviewScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* ── Loading Overlay (Frame U4: dimmed with 4 dots pulsing) ── */}
+      {/* ── Loading Overlay (Frame U4: dimmed with 4 dots pulsing over the entire screen) ── */}
       <LoadingOverlay
         visible={isUploading}
         dotsCount={4}
-        paddingTop={0}
+        dotSize={16}
+        dotGap={20}
         overlayOpacity={0.35}
+        centered
       />
     </View>
   );
@@ -141,7 +155,7 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 10,
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 18,
   },
   closeButton: {
     width: 40,

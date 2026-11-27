@@ -10,7 +10,7 @@ import {
   Easing,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { SafeImage } from '../../components/ui/SafeImage';
 import { EmptyWishlistScreen } from './EmptyWishlistScreen';
@@ -302,7 +302,7 @@ const AnimatedWishlistCard: React.FC<AnimatedWishlistCardProps> = ({
 };
 
 export const WishlistScreen = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { favorites, removeFavorite } = useFavoritesContext();
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -340,11 +340,11 @@ export const WishlistScreen = () => {
   }, [favorites]);
 
   const handleGoBack = () => {
-    router.replace('/home/bookings' as any);
+    safeRouter.replace('/home/bookings' as any);
   };
 
   const handleItemPress = (item: WishlistItem) => {
-    router.push({
+    safeRouter.push({
       pathname: '/professional/style-details',
       params: {
         id: item.id,
@@ -371,7 +371,7 @@ export const WishlistScreen = () => {
   if (items.length === 0) {
     return (
       <EmptyWishlistScreen
-        onExploreServices={() => router.push('/category' as any)}
+        onExploreServices={() => safeRouter.push('/category' as any)}
       />
     );
   }

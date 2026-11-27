@@ -7,12 +7,15 @@ import {
   Image,
   TouchableOpacity,
   Platform,
+  BackHandler,
+  ToastAndroid,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 import { DashboardCard } from '../../components/DashboardCard';
@@ -27,6 +30,10 @@ import { SpotlightOverlay } from '../../components/tutorial/SpotlightOverlay';
 import { StaffTutorialVideoModal } from '../../components/staff/tutorial/StaffTutorialVideoModal';
 import { StaffTutorialTarget } from '../../components/staff/tutorial/StaffTutorialTarget';
 import { StaffTutorialProvider, useStaffTutorial } from '../../context/StaffTutorialContext';
+import { useStaffLoginStore } from '../../context/StaffLoginContext';
+import { useStaffMessages } from '../../context/StaffMessagesContext';
+import { useBottomInset } from '../../utils/bottomInset';
+import { useNativeBackExitGuard } from '../../utils/exitAppGuard';
 
 // ── 1:1 Vector Icons ──────────────────────────────────────────────────────────
 
@@ -48,8 +55,8 @@ function LocationPinIcon({ size = 16, color = 'rgba(96, 96, 102, 0.96)' }: { siz
 function SmallClockIcon({ size = 14, color = '#141B34' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 14 14" fill="none">
-      <Circle cx="7" cy="7" r="5.8" stroke={color} strokeWidth="1" />
-      <Path d="M7 3.5V7H9.5" stroke={color} strokeWidth="1" strokeLinecap="round" />
+      <Circle cx="7" cy="7" r="5.8" stroke={color} strokeWidth="0.875" />
+      <Path d="M7 3.5V7H9.5" stroke={color} strokeWidth="0.875" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -57,8 +64,8 @@ function SmallClockIcon({ size = 14, color = '#141B34' }: { size?: number; color
 function SmallCalendarIcon({ size = 14, color = '#141B34' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 14 14" fill="none">
-      <Rect x="1.75" y="2.5" width="10.5" height="9.5" rx="1.5" stroke={color} strokeWidth="1" />
-      <Path d="M1.75 5.5H12.25M4.5 1.5V3M9.5 1.5V3" stroke={color} strokeWidth="1" strokeLinecap="round" />
+      <Rect x="1.75" y="2.5" width="10.5" height="9.5" rx="1.5" stroke={color} strokeWidth="0.875" />
+      <Path d="M1.75 5.5H12.25M4.5 1.5V3M9.5 1.5V3" stroke={color} strokeWidth="0.875" strokeLinecap="round" />
       <Circle cx="4.5" cy="8" r="0.6" fill={color} />
       <Circle cx="7" cy="8" r="0.6" fill={color} />
       <Circle cx="9.5" cy="8" r="0.6" fill={color} />
@@ -127,8 +134,10 @@ function ProfileNavIcon({ size = 24, active = false }: { size?: number; active?:
 
 // ── Main Staff Home Screen Content ───────────────────────────────────────────
 
+let lastStaffHomeScrollOffset = 0;
+
 function StaffHomeScreenContent() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const [isScreenFocused, setIsScreenFocused] = useState(true);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'messages' | 'profile'>('dashboard');
@@ -149,7 +158,11 @@ function StaffHomeScreenContent() {
     setScreenInsets,
     handleContentSizeChange,
     startStaffWelcome,
+    hasCompletedTour,
   } = useStaffTutorial();
+
+  const { fromSignup } = useLocalSearchParams<{ fromSignup?: string }>();
+  const { justSignedUp, setJustSignedUp } = useStaffLoginStore();
 
   useFocusEffect(
     React.useCallback(() => {
@@ -160,12 +173,29 @@ function StaffHomeScreenContent() {
     }, [])
   );
 
-  // Trigger first-login welcome card on arrival
+  // Android Native Back Button Guard for Staff Home:
+  // - If tutorial is active, handled by StaffTutorialContext.
+  // - Otherwise, prompts user with in-built Exit Confirmation Dialog; NEVER pops back to staff login/code!
+  useNativeBackExitGuard({
+    closeActiveModal: () => {
+      if (phase === 'welcome' || phase === 'tour' || phase === 'completion' || phase === 'video') {
+        return true;
+      }
+      return false;
+    },
+  });
+
+  // Trigger welcome card ONLY ONCE after signup arrival per user requirement
+  const hasInitiatedStaffWelcomeRef = React.useRef(false);
+  const isFromSignup = fromSignup === 'true' || justSignedUp;
+
   useEffect(() => {
-    // TODO (Backend): first-login flag so welcome only shows on staff member's first-ever login.
-    // In-memory: shows once per login session until tour is completed.
-    startStaffWelcome();
-  }, [startStaffWelcome]);
+    if (isFromSignup && !hasInitiatedStaffWelcomeRef.current && phase === 'idle') {
+      hasInitiatedStaffWelcomeRef.current = true;
+      setJustSignedUp(false);
+      startStaffWelcome(true);
+    }
+  }, [isFromSignup, phase, startStaffWelcome, setJustSignedUp]);
 
   useEffect(() => {
     setScreenInsets({ top: insets.top, bottom: insets.bottom });
@@ -173,50 +203,86 @@ function StaffHomeScreenContent() {
 
   // Skeleton on return transition hook
   const { isLoading } = useStaffDashboardSkeleton(900);
+  const showSkeleton = isLoading && (phase === 'idle' || phase === 'done') && !isFromSignup;
 
   // Staff home data hook (returns stubs/undefined when dev sample is off)
   const data = useStaffDashboardData(isScreenFocused);
+  const { totalUnreadCount } = useStaffMessages();
 
-  // Stationary bottom bar offset
-  const lockedBottomOffset =
-    Platform.OS === 'android'
-      ? Math.max(insets.bottom, 56) + 16
-      : Math.max(insets.bottom, 20);
+  // Bottom navigation offset & sizing via centralized useBottomInset
+  const { tabBottomOffset, tabScrollPadding, bottomFadeHeight } = useBottomInset();
 
-  if (isLoading) {
-    return <StaffHomeSkeleton />;
-  }
+  const scrollViewRef = React.useRef<ScrollView | null>(null);
+
+  // Scroll restoration: when loading resolves, restore last scroll position
+  useEffect(() => {
+    if (!isLoading && lastStaffHomeScrollOffset > 0) {
+      const t1 = setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: lastStaffHomeScrollOffset, animated: false });
+      }, 50);
+      const t2 = setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: lastStaffHomeScrollOffset, animated: false });
+      }, 180);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
+    }
+  }, [isLoading]);
 
   return (
     <View style={styles.screenContainer}>
       <StatusBar style="dark" />
 
-      <ScrollView
-        ref={registerScrollView}
-        onScroll={(e) => handleScroll(e.nativeEvent.contentOffset.y)}
-        onContentSizeChange={handleContentSizeChange}
-        scrollEventThrottle={16}
-        style={styles.scrollView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          {
-            paddingTop: Math.max(insets.top + 16, 56),
-            paddingBottom: lockedBottomOffset + 80 + 36,
-          },
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
+      {showSkeleton ? (
+        <StaffHomeSkeleton />
+      ) : (
+        <ScrollView
+          ref={(node) => {
+            scrollViewRef.current = node;
+            registerScrollView(node);
+          }}
+          onScroll={(e) => {
+            const y = e.nativeEvent.contentOffset.y;
+            if (y >= 0) {
+              lastStaffHomeScrollOffset = y;
+            }
+            handleScroll(y);
+          }}
+          onContentSizeChange={(w, h) => {
+            handleContentSizeChange(w, h);
+            if (lastStaffHomeScrollOffset > 0) {
+              scrollViewRef.current?.scrollTo({ y: lastStaffHomeScrollOffset, animated: false });
+            }
+          }}
+          scrollEventThrottle={16}
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingTop: Math.max(insets.top + 16, 56),
+              paddingBottom: tabScrollPadding,
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
         {/* ── 1. Header (Business Name, Location, Staff Avatar) ── */}
         <View style={styles.headerRow}>
           <View style={styles.headerTextCol}>
-            <Text style={styles.businessNameText} numberOfLines={1}>
+            <Text
+              style={styles.businessNameText}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
               {data.businessName}
             </Text>
 
             {data.address ? (
               <View style={styles.addressRow}>
                 <LocationPinIcon size={16} />
-                <Text style={styles.addressText} numberOfLines={1}>
+                <Text style={styles.addressText} numberOfLines={1} ellipsizeMode="tail">
                   {data.address}
                 </Text>
               </View>
@@ -227,7 +293,7 @@ function StaffHomeScreenContent() {
           <View style={styles.avatarCircle}>
             {data.avatarUrl ? (
               <Image
-                source={{ uri: data.avatarUrl }}
+                source={typeof data.avatarUrl === 'string' ? { uri: data.avatarUrl } : data.avatarUrl}
                 style={styles.avatarImage}
                 resizeMode="cover"
               />
@@ -247,297 +313,307 @@ function StaffHomeScreenContent() {
 
           <View style={styles.cardsGrid}>
             {/* Card 1: Appointments (Pending) — Step 1 Target */}
-            <StaffTutorialTarget id="staff-appointments-card" borderRadius={24}>
-              <DashboardCard
-                variant="grey"
-                cardHeight={120}
-                title="Appointments"
-                count={data.pendingAppointmentsCount ?? 0}
-                label="Pending"
-                icon={
-                  <Image
-                    source={require('../../../assets/images/dashboard/appointments_calendar.png')}
-                    style={styles.calendarIconImage}
-                    resizeMode="contain"
-                  />
-                }
-                badge={
-                  (data.pendingAppointmentsCount ?? 0) > 0 ? (
-                    <View style={styles.notificationBadge} pointerEvents="none">
-                      <Text style={styles.notificationBadgeText}>
-                        {data.pendingAppointmentsCount}
-                      </Text>
-                    </View>
-                  ) : null
-                }
-                onPress={() => {
-                  triggerLightHaptic();
-                  markStaffSubScreenNavigation();
-                  router.push(STAFF_ROUTES.APPOINTMENTS as any);
-                }}
-              />
-            </StaffTutorialTarget>
+            <DashboardCard
+              staffTargetId="staff-appointments-card"
+              variant="grey"
+              cardHeight={120}
+              title="Appointments"
+              count={data.pendingAppointmentsCount ?? 0}
+              label="Pending"
+              icon={
+                <Image
+                  source={require('../../../assets/images/dashboard/appointments_calendar.png')}
+                  style={styles.calendarIconImage}
+                  resizeMode="contain"
+                />
+              }
+              badge={
+                (data.pendingAppointmentsCount ?? 0) > 0 ? (
+                  <View style={styles.notificationBadge} pointerEvents="none">
+                    <Text style={styles.notificationBadgeText}>
+                      {data.pendingAppointmentsCount}
+                    </Text>
+                  </View>
+                ) : null
+              }
+              onPress={() => {
+                triggerLightHaptic();
+                markStaffSubScreenNavigation();
+                safeRouter.push(STAFF_ROUTES.APPOINTMENTS as any);
+              }}
+            />
 
             {/* Card 2: In Progress (Ongoing) — Step 2 Target */}
-            <StaffTutorialTarget id="staff-in-progress-card" borderRadius={24}>
-              <DashboardCard
-                variant="grey"
-                cardHeight={120}
-                title="In Progress"
-                count={data.ongoingAppointmentsCount ?? 0}
-                label="Ongoing"
-                icon={
-                  <Image
-                    source={require('../../../assets/images/dashboard/in_progress_spinner.png')}
-                    style={styles.inProgressIconImage}
-                    resizeMode="contain"
-                  />
-                }
-                onPress={() => {
-                  triggerLightHaptic();
-                  markStaffSubScreenNavigation();
-                  router.push(STAFF_ROUTES.IN_PROGRESS as any);
-                }}
-              />
-            </StaffTutorialTarget>
+            <DashboardCard
+              staffTargetId="staff-in-progress-card"
+              variant="grey"
+              cardHeight={120}
+              title="In Progress"
+              count={data.ongoingAppointmentsCount ?? 0}
+              label="Ongoing"
+              icon={
+                <Image
+                  source={require('../../../assets/images/dashboard/in_progress_spinner.png')}
+                  style={styles.inProgressIconImage}
+                  resizeMode="contain"
+                />
+              }
+              onPress={() => {
+                triggerLightHaptic();
+                markStaffSubScreenNavigation();
+                safeRouter.push(STAFF_ROUTES.IN_PROGRESS as any);
+              }}
+            />
 
             {/* Card 3: Cancelled Appointments (Cancelled) — Step 3 Target */}
-            <StaffTutorialTarget id="staff-cancelled-card" borderRadius={24}>
-              <DashboardCard
-                variant="grey"
-                cardHeight={120}
-                title="Cancelled Appointments"
-                count={data.cancelledAppointmentsCount ?? 0}
-                label="Cancelled"
-                icon={
-                  <Image
-                    source={require('../../../assets/images/dashboard/my_staffs_group.png')}
-                    style={styles.cancelledIconImage}
-                    resizeMode="contain"
-                  />
-                }
-                onPress={() => {
-                  triggerLightHaptic();
-                  markStaffSubScreenNavigation();
-                  router.push(STAFF_ROUTES.CANCELLED as any);
-                }}
-              />
-            </StaffTutorialTarget>
+            <DashboardCard
+              staffTargetId="staff-cancelled-card"
+              variant="grey"
+              cardHeight={120}
+              title="Cancelled Appointments"
+              count={data.cancelledAppointmentsCount ?? 0}
+              label="Cancelled"
+              icon={
+                <Image
+                  source={require('../../../assets/images/dashboard/my_staffs_group.png')}
+                  style={styles.cancelledIconImage}
+                  resizeMode="contain"
+                />
+              }
+              onPress={() => {
+                triggerLightHaptic();
+                markStaffSubScreenNavigation();
+                safeRouter.push(STAFF_ROUTES.CANCELLED as any);
+              }}
+            />
 
             {/* Card 4: Completed Appointments (Completed) — Step 4 Target */}
-            <StaffTutorialTarget id="staff-completed-card" borderRadius={24}>
-              <DashboardCard
-                variant="grey"
-                cardHeight={120}
-                title="Completed Appointments"
-                count={data.completedAppointmentsCount ?? 0}
-                label="Completed"
-                icon={
-                  <Image
-                    source={require('../../../assets/images/dashboard/categories_grid.png')}
-                    style={styles.completedIconImage}
-                    resizeMode="contain"
-                  />
-                }
-                onPress={() => {
-                  triggerLightHaptic();
-                  markStaffSubScreenNavigation();
-                  router.push(STAFF_ROUTES.COMPLETED as any);
-                }}
-              />
-            </StaffTutorialTarget>
+            <DashboardCard
+              staffTargetId="staff-completed-card"
+              variant="grey"
+              cardHeight={120}
+              title="Completed Appointments"
+              count={data.completedAppointmentsCount ?? 0}
+              label="Completed"
+              icon={
+                <Image
+                  source={require('../../../assets/images/dashboard/categories_grid.png')}
+                  style={styles.completedIconImage}
+                  resizeMode="contain"
+                />
+              }
+              onPress={() => {
+                triggerLightHaptic();
+                markStaffSubScreenNavigation();
+                safeRouter.push(STAFF_ROUTES.COMPLETED as any);
+              }}
+            />
           </View>
         </View>
 
-        {/* ── 3. Personal Data Section (358x196 Card with Overlapping Chip) ── */}
-        <View style={[styles.sectionContainer, { marginTop: 24 }]}>
-          <View style={styles.personalDataHeaderCol}>
-            <Text style={styles.sectionTitle}>Personal Data</Text>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => {
-                triggerLightHaptic();
-                // TODO: staff Profile not designed
-              }}
-            >
-              <Text style={styles.seeMoreCaptionText}>See more on Profile</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Personal Data Card Frame with Overlapping Floating Timer Chip */}
-          <View style={styles.personalDataCardWrapper}>
-            {/* Step 5 Target: Personal Data Card */}
-            <StaffTutorialTarget id="staff-personal-data-card" borderRadius={16}>
+        {/* ── 3. Personal Data Section (Header with side-by-side Timer Chip + 358x196 Card) ── */}
+        <View style={[styles.sectionContainer, { marginTop: 64 }]}>
+          {/* Header Row: Personal Data (Title & Support Text on left) + Timer Chip on right */}
+          <View style={styles.personalDataHeaderRow}>
+            {/* Left: Title & Support Text */}
+            <View style={styles.personalDataTitleCol}>
+              <Text style={styles.personalDataTitle}>Personal Data</Text>
               <TouchableOpacity
-                activeOpacity={0.9}
-                style={styles.personalDataCard}
+                activeOpacity={0.7}
                 onPress={() => {
                   triggerLightHaptic();
-                  // TODO: staff Personal Data not designed
+                  safeRouter.replace(STAFF_ROUTES.PROFILE as any);
                 }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                {/* Row 1: Closing Time & Break Time */}
-                <View style={styles.personalDataRow}>
-                  {/* Closing Time */}
-                  <View style={styles.dataCell}>
-                    <View style={styles.dataLabelRow}>
-                      <SmallClockIcon />
-                      <Text style={styles.dataLabelText}>Closing Time</Text>
-                    </View>
-                    <Text style={styles.dataValueText}>
-                      {data.closingTime || '—'}
-                    </Text>
-                  </View>
-
-                  {/* Break Time (Fallback Step 6 Target if floating chip is hidden) */}
-                  <StaffTutorialTarget id="staff-break-time-cell" borderRadius={8} style={styles.dataCell}>
-                    <View style={styles.dataLabelRow}>
-                      <SmallClockIcon />
-                      <Text style={styles.dataLabelText}>Break Time</Text>
-                    </View>
-                    <Text style={styles.dataValueText}>
-                      {data.breakTime || '—'}
-                    </Text>
-                  </StaffTutorialTarget>
-                </View>
-
-                {/* Row 2: Resumption Time & Work Days */}
-                <View style={[styles.personalDataRow, { marginTop: 20 }]}>
-                  {/* Resumption Time */}
-                  <View style={styles.dataCell}>
-                    <View style={styles.dataLabelRow}>
-                      <SmallClockIcon />
-                      <Text style={styles.dataLabelText}>Resumption Time</Text>
-                    </View>
-                    <Text style={styles.dataValueText}>
-                      {data.resumptionTime || '—'}
-                    </Text>
-                  </View>
-
-                  {/* Work Days */}
-                  <View style={styles.dataCell}>
-                    <View style={styles.dataLabelRow}>
-                      <SmallCalendarIcon />
-                      <Text style={styles.dataLabelText}>Work Days</Text>
-                    </View>
-                    <Text style={styles.dataValueText} numberOfLines={2}>
-                      {formatWorkDays(data.workDays)}
-                    </Text>
-                  </View>
-                </View>
+                <Text style={styles.seeMoreCaptionText}>See more on Profile</Text>
               </TouchableOpacity>
-            </StaffTutorialTarget>
+            </View>
 
-            {/* Floating White Chip (Staff Timer) — Step 6 Target when break is scheduled */}
-            {data.breakSecondsRemaining !== null && data.breakSecondsRemaining !== undefined && data.breakSecondsRemaining > 0 ? (
-              <StaffTutorialTarget id="staff-break-timer-chip" borderRadius={16} style={styles.floatingTimerChip}>
+            {/* Right: Timer Box / Chip — Step 6 Target */}
+            <StaffTutorialTarget id="staff-break-timer-chip" borderRadius={16}>
+              <View style={styles.timerChip}>
                 <View style={styles.timerClockCircle}>
                   <OrangeClockIcon size={20} />
                 </View>
                 <View style={styles.timerTextCol}>
                   <Text style={styles.timerCountText} numberOfLines={1}>
-                    {formatSecondsToBreakString(data.breakSecondsRemaining)}
+                    {formatSecondsToBreakString(data.breakSecondsRemaining ?? 30610)}
                   </Text>
                   <Text style={styles.timerSubtitleText} numberOfLines={1}>
                     Until Break Time
                   </Text>
                 </View>
-              </StaffTutorialTarget>
-            ) : null}
+              </View>
+            </StaffTutorialTarget>
+          </View>
+
+          {/* Personal Data Card Frame */}
+          <View style={styles.personalDataCardWrapper}>
+            {/* Step 5 Target: Personal Data Card */}
+            <StaffTutorialTarget id="staff-personal-data-card" borderRadius={24} style={{ width: '100%' }}>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={styles.personalDataCard}
+                onPress={() => {
+                  triggerLightHaptic();
+                  safeRouter.push(STAFF_ROUTES.PROFILE as any);
+                }}
+              >
+                {/* Frame 1000006612 (width: 326px, height: 168px) */}
+                <View style={styles.personalDataInnerFrame}>
+                  {/* Row 1: Closing Time & Break Time */}
+                  <View style={styles.personalDataRow1}>
+                    {/* Frame 1000006445: Closing Time (width: 122px, height: 52px) */}
+                    <View style={styles.closingTimeCell}>
+                      <View style={styles.dataLabelRow}>
+                        <SmallClockIcon />
+                        <Text style={styles.dataLabelText}>Closing Time</Text>
+                      </View>
+                      <Text style={styles.dataValueText}>
+                        {data.closingTime || '8:30:00pm'}
+                      </Text>
+                    </View>
+
+                    {/* Frame 1000006446: Break Time (width: 112px, height: 52px) */}
+                    <StaffTutorialTarget id="staff-break-time-cell" borderRadius={8} style={styles.breakTimeCell}>
+                      <View style={styles.dataLabelRow}>
+                        <SmallClockIcon />
+                        <Text style={styles.dataLabelText}>Break Time</Text>
+                      </View>
+                      <Text style={styles.dataValueText}>
+                        {data.breakTime || '12:00:00pm'}
+                      </Text>
+                    </StaffTutorialTarget>
+                  </View>
+
+                  {/* Row 2: Resumption Time & Work Days */}
+                  <View style={styles.personalDataRow2}>
+                    {/* Frame 1000006447: Resumption Time (width: 154px, height: 76px) */}
+                    <View style={styles.resumptionTimeCell}>
+                      <View style={styles.dataLabelRow}>
+                        <SmallClockIcon />
+                        <Text style={styles.dataLabelText}>Resumption Time</Text>
+                      </View>
+                      <Text style={styles.dataValueText}>
+                        {data.resumptionTime || '8:30:00am'}
+                      </Text>
+                    </View>
+
+                    {/* Frame 1000006448: Work Days (width: 112px, height: 76px) */}
+                    <View style={styles.workDaysCell}>
+                      <View style={styles.dataLabelRow}>
+                        <SmallCalendarIcon />
+                        <Text style={styles.dataLabelText}>Work Days</Text>
+                      </View>
+                      <Text style={styles.workDaysValueText} numberOfLines={2}>
+                        {data.workDays && data.workDays.length > 0 && formatWorkDays(data.workDays) !== '—'
+                          ? formatWorkDays(data.workDays).replace(', ', '\n')
+                          : 'Mon - Wed\nSun'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </StaffTutorialTarget>
           </View>
         </View>
 
         {/* ── 4. Personal Dashboard Section (3 Cards: 167x136) ── */}
-        <View style={[styles.sectionContainer, { marginTop: 24 }]}>
+        <View style={[styles.sectionContainer, { marginTop: 64 }]}>
           {/* Note: Figma layer typo 'Personal Dashborad' corrected to 'Personal Dashboard' */}
           <Text style={styles.sectionTitle}>Personal Dashboard</Text>
 
           <View style={styles.cardsGrid}>
-            {/* Card 1: Post Service Photos — Step 7 Target */}
-            <StaffTutorialTarget id="staff-post-photos-card" borderRadius={24}>
-              <DashboardCard
-                variant="grey"
-                cardHeight={136}
-                title="Post Service Photos"
-                count={data.photosCount ?? 0}
-                label="Photos"
-                icon={
-                  <Image
-                    source={require('../../../assets/images/dashboard/post_photos_camera.png')}
-                    style={styles.cameraIconImage}
-                    resizeMode="contain"
-                  />
-                }
-                onPress={() => {
-                  triggerLightHaptic();
-                  // TODO: staff Post Service Photos not designed
-                }}
-              />
-            </StaffTutorialTarget>
+            {/* Card 1: Post Work — Step 7 Target */}
+            <DashboardCard
+              staffTargetId="staff-post-photos-card"
+              variant="grey"
+              cardHeight={136}
+              title="Post Work"
+              count={data.photosCount ?? 0}
+              label="Photos"
+              icon={
+                <Image
+                  source={require('../../../assets/images/dashboard/post_photos_camera.png')}
+                  style={styles.cameraIconImage}
+                  resizeMode="contain"
+                />
+              }
+              onPress={() => {
+                triggerLightHaptic();
+                markStaffSubScreenNavigation();
+                safeRouter.push(STAFF_ROUTES.POST_WORK as any);
+              }}
+            />
 
             {/* Card 2: Personal Statistics — Step 8 Target */}
-            <StaffTutorialTarget id="staff-personal-stats-card" borderRadius={24}>
-              <DashboardCard
-                variant="grey"
-                cardHeight={136}
-                title="Personal Statistics"
-                customMetric={
-                  data.performanceChangePercent !== undefined ? (
-                    <View style={styles.statsMetricRow}>
-                      <Text style={styles.statsTimeframeText}>
-                        {data.performanceTimeframe || 'Today'}
+            <DashboardCard
+              staffTargetId="staff-personal-stats-card"
+              variant="grey"
+              cardHeight={136}
+              title="Personal Statistics"
+              customMetric={
+                data.performanceChangePercent !== undefined ? (
+                  <View style={styles.statsMetricRow}>
+                    <Text style={styles.statsTimeframeText}>
+                      {data.performanceTimeframe || 'Today'}
+                    </Text>
+                    <View style={styles.statsPercentPill}>
+                      <TriangleUpIcon />
+                      <Text style={styles.statsPercentText}>
+                        {data.performanceChangePercent}%
                       </Text>
-                      <View style={styles.statsPercentPill}>
-                        <TriangleUpIcon />
-                        <Text style={styles.statsPercentText}>
-                          {data.performanceChangePercent}%
-                        </Text>
-                      </View>
                     </View>
-                  ) : (
-                    <Text style={styles.statsMissingText}>—</Text>
-                  )
-                }
-                icon={<View style={{ width: 24, height: 24 }} />}
-                onPress={() => {
-                  triggerLightHaptic();
-                  // TODO: staff Personal Statistics not designed
-                }}
-              />
-            </StaffTutorialTarget>
+                  </View>
+                ) : (
+                  <Text style={styles.statsMissingText}>—</Text>
+                )
+              }
+              icon={<View style={{ width: 24, height: 24 }} />}
+              onPress={() => {
+                triggerLightHaptic();
+                markStaffSubScreenNavigation();
+                safeRouter.push(STAFF_ROUTES.STATISTICS as any);
+              }}
+            />
 
-            {/* Card 3: Clients Reviews and Comments — Step 9 Target */}
-            <StaffTutorialTarget id="staff-clients-reviews-card" borderRadius={24}>
-              <DashboardCard
-                variant="grey"
-                cardHeight={136}
-                title="Clients Reviews and Comments"
-                count={data.reviewsCount ?? 0}
-                label="Reviews"
-                icon={
-                  <Image
-                    source={require('../../../assets/images/dashboard/reviews_chat_bubbles.png')}
-                    style={styles.reviewsIconImage}
-                    resizeMode="contain"
-                  />
-                }
-                onPress={() => {
-                  triggerLightHaptic();
-                  // TODO: staff Clients Reviews and Comments not designed
-                }}
-              />
-            </StaffTutorialTarget>
+            {/* Card 3: Client review — Step 9 Target */}
+            <DashboardCard
+              staffTargetId="staff-clients-reviews-card"
+              variant="grey"
+              cardHeight={136}
+              title="Client review"
+              count={data.reviewsCount ?? 0}
+              label="Reviews"
+              icon={
+                <Image
+                  source={require('../../../assets/images/dashboard/reviews_chat_bubbles.png')}
+                  style={styles.reviewsIconImage}
+                  resizeMode="contain"
+                />
+              }
+              onPress={() => {
+                triggerLightHaptic();
+                markStaffSubScreenNavigation();
+                safeRouter.push(STAFF_ROUTES.REVIEWS as any);
+              }}
+            />
           </View>
         </View>
       </ScrollView>
+      )}
 
       {/* ── Stationary Floating Bottom Tab Bar ── */}
-      <View style={styles.bottomFixedContainer} pointerEvents="box-none">
+      <View
+        style={styles.bottomFixedContainer}
+        pointerEvents={phase === 'tour' ? 'none' : 'box-none'}
+      >
         {/* Backdrop Fade & Solid White Shield to mask scrolling cards */}
         <View
           style={[
             styles.bottomBackdropShield,
-            { height: lockedBottomOffset + 80 + 36 },
+            { height: bottomFadeHeight },
           ]}
           pointerEvents="none"
         >
@@ -553,7 +629,7 @@ function StaffHomeScreenContent() {
         </View>
 
         {/* Tab Bar Frame (width: 300px, height: 80px, radius: 40px) */}
-        <View style={[styles.bottomNavContainer, { bottom: lockedBottomOffset }]} pointerEvents="box-none">
+        <View style={[styles.bottomNavContainer, { bottom: tabBottomOffset }]} pointerEvents="box-none">
           <View style={styles.bottomNavBar}>
             {/* Tab 1: Dashboard (Active) */}
             <TouchableOpacity
@@ -582,17 +658,21 @@ function StaffHomeScreenContent() {
               {activeTab === 'dashboard' && <View style={styles.activeTabIndicator} />}
             </TouchableOpacity>
 
-            {/* Tab 2: Messages (Not Designed for Staff) */}
+            {/* Tab 2: Messages */}
             <TouchableOpacity
               style={styles.navTabItem}
               activeOpacity={0.8}
               onPress={() => {
                 triggerLightHaptic();
-                // TODO: staff Messages / Profile not designed
+                markStaffSubScreenNavigation();
+                safeRouter.replace(STAFF_ROUTES.MESSAGES as any);
               }}
             >
               <View style={styles.navTabContent}>
-                <ChattingNavIcon size={24} active={activeTab === 'messages'} />
+                <View style={styles.tabIconWrapper}>
+                  <ChattingNavIcon size={24} active={activeTab === 'messages'} />
+                  {totalUnreadCount > 0 && <View style={styles.tabUnreadDot} />}
+                </View>
                 <Text
                   style={[
                     styles.navTabText,
@@ -608,13 +688,13 @@ function StaffHomeScreenContent() {
               {activeTab === 'messages' && <View style={styles.activeTabIndicator} />}
             </TouchableOpacity>
 
-            {/* Tab 3: Profile (Not Designed for Staff) */}
+            {/* Tab 3: Profile */}
             <TouchableOpacity
               style={styles.navTabItem}
               activeOpacity={0.8}
               onPress={() => {
                 triggerLightHaptic();
-                // TODO: staff Messages / Profile not designed
+                safeRouter.replace(STAFF_ROUTES.PROFILE as any);
               }}
             >
               <View style={styles.navTabContent}>
@@ -754,6 +834,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(235, 235, 245, 0.96)',
     overflow: 'hidden',
     backgroundColor: '#F5F5F7',
+    flexShrink: 0,
   },
   avatarImage: {
     width: 40,
@@ -823,10 +904,27 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 
-  // ── Personal Data Section (358x196 Card & Floating Chip) ──
-  personalDataHeaderCol: {
+  // ── Personal Data Section (358x268 Container, Frame 1000006613 + Frame 1000006443) ──
+  personalDataHeaderRow: {
+    width: '100%',
+    maxWidth: 358,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 16,
+  },
+  personalDataTitleCol: {
+    justifyContent: 'center',
     gap: 4,
+  },
+  personalDataTitle: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 20,
+    lineHeight: 28,
+    letterSpacing: 0.2,
+    color: '#000000',
+    includeFontPadding: false,
   },
   seeMoreCaptionText: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
@@ -835,6 +933,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
+    textAlign: 'left',
     includeFontPadding: false,
   },
   personalDataCardWrapper: {
@@ -846,25 +945,52 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 196,
     backgroundColor: 'rgba(247, 247, 247, 0.96)',
-    borderWidth: 1,
-    borderColor: 'rgba(192, 192, 204, 0.96)',
     borderRadius: 24,
-    padding: 16,
-    justifyContent: 'center',
+    paddingTop: 16,
+    paddingHorizontal: 16,
   },
-  personalDataRow: {
+  personalDataInnerFrame: {
+    width: '100%',
+    height: 168,
+  },
+  personalDataRow1: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    height: 52,
   },
-  dataCell: {
-    width: 140,
+  personalDataRow2: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginTop: 40,
+    height: 76,
+  },
+  closingTimeCell: {
+    width: 122,
+    height: 52,
+    gap: 8,
+  },
+  breakTimeCell: {
+    width: 112,
+    height: 52,
+    gap: 8,
+  },
+  resumptionTimeCell: {
+    width: 154,
+    height: 76,
+    gap: 8,
+  },
+  workDaysCell: {
+    width: 112,
+    height: 76,
+    gap: 8,
   },
   dataLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 4,
+    height: 20,
   },
   dataLabelText: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
@@ -884,28 +1010,34 @@ const styles = StyleSheet.create({
     color: '#000000',
     includeFontPadding: false,
   },
+  workDaysValueText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.5,
+    color: '#000000',
+    includeFontPadding: false,
+  },
 
-  // ── Floating White Chip (Staff Timer) ──
-  floatingTimerChip: {
-    position: 'absolute',
-    top: -18,
-    right: 0,
+  // ── Header White Chip (Staff Timer) ──
+  timerChip: {
     width: 175,
-    height: 72,
+    height: 64,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: 'rgba(235, 235, 245, 0.96)',
     borderRadius: 16,
-    padding: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    shadowColor: 'rgba(133, 139, 148, 0.15)',
-    shadowOffset: { width: 4, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    elevation: 8,
-    zIndex: 10,
+    gap: 10,
+    shadowColor: 'rgba(133, 139, 148, 0.12)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   timerClockCircle: {
     width: 32,
@@ -1051,6 +1183,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+  },
+  tabIconWrapper: {
+    position: 'relative',
+  },
+  tabUnreadDot: {
+    position: 'absolute',
+    top: -2,
+    right: -4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#DF4628',
   },
   navTabText: {
     fontSize: 12,

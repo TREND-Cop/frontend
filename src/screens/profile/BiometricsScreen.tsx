@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 
 // ── Custom Animated 64x32px Toggle Switch (Figma Spec) ──
 interface ToggleSwitchProps {
@@ -83,7 +83,7 @@ const CustomToggleSwitch: React.FC<ToggleSwitchProps> = ({ value, onValueChange 
 import { useUserContext } from '../../store/UserContext';
 
 export const BiometricsScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { profileData, setBiometricsEnabled } = useUserContext();
   const [isFaceIdEnabled, setIsFaceIdEnabled] = useState(
     profileData.biometricsEnabled ?? false
@@ -95,10 +95,10 @@ export const BiometricsScreen: React.FC = () => {
   };
 
   const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
+    if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/profile' as any);
+      safeRouter.replace('/profile' as any);
     }
   };
 

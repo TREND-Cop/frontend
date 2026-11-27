@@ -20,7 +20,7 @@ import {
   VolumeX,
 } from 'lucide-react-native';
 import Svg, { Path, Polygon } from 'react-native-svg';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../utils/safeNavigation';
 import { previewStore } from '../utils/previewStore';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -46,7 +46,7 @@ export const FloatingSalonVideo: React.FC<FloatingSalonVideoProps> = ({
   duration = '1hr',
   rating = '3.6',
 }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -78,7 +78,7 @@ export const FloatingSalonVideo: React.FC<FloatingSalonVideoProps> = ({
   const handleOpenFullscreen = () => {
     // Set dynamic thumbnails so video screen shows this salon's actual content
     previewStore.setVideoThumbnails(videoThumbnail, undefined, videoSource);
-    router.push({
+    safeRouter.push({
       pathname: '/video',
       params: {
         title: `${salonName} Portfolio`,

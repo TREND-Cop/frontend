@@ -13,7 +13,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ArrowLeft, Check, ChevronUp, ChevronDown, X } from 'lucide-react-native';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
 import { bookingStore } from '../../utils/bookingStore';
@@ -57,7 +57,7 @@ const CreditCardIcon = () => (
 );
 
 export const PaymentScreen = ({ navigation }: { navigation?: any }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const bottomInset = Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16);
 
@@ -185,17 +185,17 @@ export const PaymentScreen = ({ navigation }: { navigation?: any }) => {
 
   const handleGoBack = () => {
     if (navigation?.canGoBack && navigation.canGoBack()) {
-      navigation.goBack();
-    } else if (router.canGoBack()) {
-      router.back();
+      safeRouter.back();
+    } else if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/booking-review');
+      safeRouter.replace('/booking-review');
     }
   };
 
   const handleCardPaymentPress = () => {
     handleSelectPaymentType('card');
-    router.push('/add-card');
+    safeRouter.push('/add-card');
   };
 
   const { confirmBooking } = useBookingContext();
@@ -207,9 +207,9 @@ export const PaymentScreen = ({ navigation }: { navigation?: any }) => {
     }
     setPaymentError(false);
     if (selectedPaymentType === 'bank_transfer') {
-      router.push('/bank-transfer');
+      safeRouter.push('/bank-transfer');
     } else if (selectedPaymentType === 'card') {
-      router.push('/add-card');
+      safeRouter.push('/add-card');
     } else {
       const cashDetails = {
         method: 'cash' as const,
@@ -218,7 +218,7 @@ export const PaymentScreen = ({ navigation }: { navigation?: any }) => {
         receiver: bookingStore.getSalonName() || 'Salon Front Desk',
       };
       const newAppt = await confirmBooking(cashDetails);
-      router.push({
+      safeRouter.push({
         pathname: '/booking-success',
         params: { appointmentId: newAppt?.id },
       });

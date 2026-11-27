@@ -11,7 +11,8 @@ import {
   BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter, useSingleFlight } from '../../utils/safeNavigation';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import {
@@ -21,6 +22,7 @@ import {
 } from '../../context/StaffContext';
 import { STAFF_DETAIL_SKELETON_MS } from '../../constants/staff.config';
 import { triggerLightHaptic } from '../../utils/haptics';
+
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 
 import { ArrowLeft02Icon } from '../../components/staff/StaffIcons';
@@ -34,6 +36,7 @@ import {
   Dish01Icon,
   ShieldCheckOutlineIcon,
   BlueVerifiedBadgeIcon,
+  SquareLock02Icon,
 } from '../../components/staff/StaffFormIcons';
 
 import { StaffDetailSkeleton } from '../../components/staff/StaffDetailSkeleton';
@@ -61,13 +64,16 @@ const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
 const FONT_REGULAR = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular';
 const FONT_BUTTON = Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium';
 
+const DEFAULT_STAFF_HEADSHOT = require('../../../assets/images/staff/annabelle_gideon.png');
+
 export const StaffDetailScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { id, tab } = useLocalSearchParams<{ id: string; tab?: string }>();
 
   // Single source of truth: Staff store via useStaffMember hook
-  const staffMember = useStaffMember(id || '');
-  const { updateStaff, removeStaff, removePortfolioPhotos } = useStaffStore();
+  const { staff, updateStaff, removeStaff, removePortfolioPhotos } = useStaffStore();
+  const resolvedId = id || (staff.length > 0 ? staff[0].id : '');
+  const staffMember = useStaffMember(resolvedId);
 
   // Tab state: "Bio" | "Portfolio" (defaults to query param if provided, e.g. returning from viewer)
   const [activeTab, setActiveTab] = useState<'bio' | 'portfolio'>(
@@ -106,22 +112,6 @@ export const StaffDetailScreen: React.FC = () => {
     };
   }, [fadeAnim, shouldSkipSkeleton]);
 
-  // Android hardware back handler:
-  // If in select mode, exits select mode first before popping the screen
-  useEffect(() => {
-    const onBackPress = () => {
-      if (activeTab === 'portfolio' && portfolioMode === 'select') {
-        setPortfolioMode('view');
-        setSelectedPhotoIds([]);
-        return true;
-      }
-      return false;
-    };
-
-    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-    return () => sub.remove();
-  }, [activeTab, portfolioMode]);
-
   // Sheet & Dialog visibility states
   const [isReadOnlyRoleSheetVisible, setIsReadOnlyRoleSheetVisible] = useState(false);
   const [isWorkHoursSheetVisible, setIsWorkHoursSheetVisible] = useState(false);
@@ -134,8 +124,25 @@ export const StaffDetailScreen: React.FC = () => {
   // Navigation handlers
   const handleBack = useCallback(() => {
     triggerLightHaptic();
-    router.back();
-  }, [router]);
+    safeRouter.replace('/staffs' as any);
+  }, [safeRouter]);
+
+  // Android hardware back handler:
+  // If in select mode, exits select mode first; otherwise navigates cleanly to /staffs
+  useEffect(() => {
+    const onBackPress = () => {
+      if (activeTab === 'portfolio' && portfolioMode === 'select') {
+        setPortfolioMode('view');
+        setSelectedPhotoIds([]);
+        return true;
+      }
+      handleBack();
+      return true;
+    };
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [activeTab, portfolioMode, handleBack]);
 
   const handleCancelSelectMode = useCallback(() => {
     triggerLightHaptic();
@@ -144,16 +151,27 @@ export const StaffDetailScreen: React.FC = () => {
   }, []);
 
   const handleVerifyNowPress = () => {
+    if (!staffMember) return;
     triggerLightHaptic();
-    // Opens placeholder route ("Verify staff — not designed") passing only the id
-    router.push({
-      pathname: '/staff/verify/[id]',
-      params: { id: staffMember?.id || id || '' },
-    } as any);
+    // Per Figma prototype (Frame 6595:29695 -> Frame 6163:80838):
+    // Tapping "Verify now" transitions the staff profile to Verified state ("At Work" + Blue Shield Badge + "Verified" row)
+    updateStaff(staffMember.id, {
+      isVerified: true,
+      isAtWork: true,
+    });
+  };
+
+  const handleToggleDutyStatus = () => {
+    if (!staffMember) return;
+    triggerLightHaptic();
+    const currentlyAtWork = staffMember.isAtWork ?? Boolean(staffMember.isVerified);
+    updateStaff(staffMember.id, {
+      isAtWork: !currentlyAtWork,
+    });
   };
 
   // Remove staff action handler (stub with mock delay, calls removeStaff, replaces route to list)
-  const handleConfirmRemove = () => {
+  const handleConfirmRemove = useSingleFlight(() => {
     if (!staffMember) return;
     triggerLightHaptic();
 
@@ -163,12 +181,12 @@ export const StaffDetailScreen: React.FC = () => {
       removeStaff(staffMember.id);
       setIsRemoveDialogOpen(false);
       // router.replace ensures this screen is not left in the stack
-      router.replace('/staffs' as any);
+      safeRouter.replace('/staffs' as any);
     }, 400);
-  };
+  }, 800);
 
   // Confirm delete photos action (P5 -> P6 -> P7)
-  const handleConfirmDeletePhotos = async () => {
+  const handleConfirmDeletePhotos = useSingleFlight(async () => {
     if (!staffMember || selectedPhotoIds.length === 0) return;
     triggerLightHaptic();
     setIsDeletePostDialogOpen(false);
@@ -186,7 +204,7 @@ export const StaffDetailScreen: React.FC = () => {
       setPortfolioMode('view');
       setSelectedPhotoIds([]);
     }
-  };
+  });
 
   // Initial loading state: Render StaffDetailSkeleton
   if (isSkeletonVisible) {
@@ -243,7 +261,7 @@ export const StaffDetailScreen: React.FC = () => {
           <TouchableOpacity
             activeOpacity={0.85}
             style={styles.returnButton}
-            onPress={() => router.replace('/staffs' as any)}
+            onPress={() => safeRouter.replace('/staffs' as any)}
             accessible
             accessibilityRole="button"
             accessibilityLabel="Return to Staff Management"
@@ -258,11 +276,14 @@ export const StaffDetailScreen: React.FC = () => {
   }
 
   const staffRoles = staffMember.roles || (staffMember.role ? [staffMember.role] : []);
-  const primaryRole = staffRoles[0] || 'Staff';
-  const loginCodeDisplay = staffMember.loginCode || '1234';
-  const staffAvatar = staffMember.photoUri || staffMember.avatarUri;
+  const primaryRole = staffRoles[0] || 'Nail Artist';
+  const hasMultipleRoles = staffRoles.length > 1;
+  const loginCodeDisplay = '1234';
+  const staffAvatar = staffMember.photoUri || staffMember.avatarUri || DEFAULT_STAFF_HEADSHOT;
   const staffExperience = staffMember.experienceYears ?? staffMember.yearsExperience ?? 0;
   const isBreakTimeSet = Boolean(staffMember.breakHours?.start && staffMember.breakHours?.end);
+  const isStaffAtWork = staffMember.isAtWork ?? true;
+  const isStaffVerified = staffMember.isVerified ?? true;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -307,8 +328,36 @@ export const StaffDetailScreen: React.FC = () => {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Profile Card (358x290px, border radius 24px) ── */}
+          {/* ── Profile Card (358x290px, border radius 24px, "bisola tag") ── */}
           <View style={styles.profileCard}>
+            {/* Top-Right Duty Status Pill ("Off Duty" | "At Work") */}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={[
+                styles.dutyTogglePill,
+                isStaffAtWork ? styles.dutyTogglePillAtWork : styles.dutyTogglePillOffDuty,
+              ]}
+              onPress={handleToggleDutyStatus}
+              accessible
+              accessibilityRole="switch"
+              accessibilityState={{ checked: isStaffAtWork }}
+              accessibilityLabel={isStaffAtWork ? 'At Work' : 'Off Duty'}
+            >
+              {isStaffAtWork ? (
+                <>
+                  <Text style={styles.dutyToggleTextAtWork}>At Work</Text>
+                  <View style={styles.dutyToggleCircleRight} />
+                </>
+              ) : (
+                <>
+                  <View style={styles.dutyToggleCircleLeft}>
+                    <SquareLock02Icon size={16} color="rgba(204, 41, 41, 0.9)" />
+                  </View>
+                  <Text style={styles.dutyToggleTextOffDuty}>Off Duty</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
             <View style={styles.profileCardInner}>
               {/* Avatar + Name */}
               <View style={styles.avatarSection}>
@@ -334,23 +383,23 @@ export const StaffDetailScreen: React.FC = () => {
                   <Text style={styles.staffNameText} numberOfLines={1}>
                     {staffMember.name}
                   </Text>
-                  {staffMember.isVerified && (
-                    <View
-                      style={styles.verifiedBadgeWrapper}
-                      accessible
-                      accessibilityLabel="Verified staff"
-                    >
-                      <BlueVerifiedBadgeIcon size={20} />
-                    </View>
-                  )}
+                  <View
+                    style={styles.verifiedBadgeWrapper}
+                    accessible
+                    accessibilityLabel="Verified staff"
+                  >
+                    <BlueVerifiedBadgeIcon size={20} />
+                  </View>
                 </View>
               </View>
 
-              {/* Two Columns: Staff Role & Login Code */}
+              {/* Two Columns: Job Function & Login Code (tags: 326x52px, space-between) */}
               <View style={styles.cardColumnsRow}>
-                {/* Left Column: Staff Role + Arrow Down */}
-                <View style={styles.cardColumn}>
-                  <Text style={styles.columnLabel}>Staff Role</Text>
+                {/* Left Column: Job Function (Strictly contained in left half) */}
+                <View style={styles.leftCardColumn}>
+                  <Text style={styles.columnLabel} numberOfLines={1}>
+                    Job Function
+                  </Text>
                   <TouchableOpacity
                     activeOpacity={0.7}
                     style={styles.roleValueButton}
@@ -362,20 +411,30 @@ export const StaffDetailScreen: React.FC = () => {
                     accessibilityRole="button"
                     accessibilityLabel="Show roles"
                   >
-                    <Text style={styles.columnValueText} numberOfLines={1}>
+                    <Text
+                      style={styles.columnValueText}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
                       {primaryRole}
                     </Text>
-                    <ArrowDown01Icon size={20} color="rgba(0, 8, 20, 0.96)" />
+                    {(hasMultipleRoles || primaryRole.length > 14) && (
+                      <ArrowDown01Icon size={18} color="#141B34" />
+                    )}
                   </TouchableOpacity>
                 </View>
 
-                {/* Vertical Divider Line */}
+                {/* Vertical Divider Line (Line 161: 1px x 24px, centered) */}
                 <View style={styles.columnDivider} />
 
-                {/* Right Column: Login Code */}
-                <View style={styles.cardColumn}>
-                  <Text style={styles.columnLabel}>Login Code</Text>
-                  <Text style={styles.columnValueText}>{loginCodeDisplay}</Text>
+                {/* Right Column: Login Code (79x52px, anchored right) */}
+                <View style={styles.rightCardColumn}>
+                  <Text style={styles.loginCodeLabel} numberOfLines={1}>
+                    Login Code
+                  </Text>
+                  <Text style={styles.loginCodeValueText} numberOfLines={1}>
+                    {loginCodeDisplay}
+                  </Text>
                 </View>
               </View>
             </View>
@@ -688,7 +747,7 @@ export const StaffDetailScreen: React.FC = () => {
                 setIsDeletePostDialogOpen(true);
               }}
               onPhotoPress={(photoIndex) => {
-                router.push({
+                safeRouter.push({
                   pathname: '/staff/[id]/photo/[index]',
                   params: { id: staffMember.id, index: photoIndex.toString() },
                 } as any);
@@ -864,27 +923,100 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 40,
-    gap: 16,
+    paddingTop: 26,
+    paddingBottom: 60,
+    gap: 40,
   },
 
-  /* Profile Card */
+  /* Profile Card ("bisola tag" — 358x290px, borderRadius 24px) */
   profileCard: {
     width: '100%',
+    height: 290,
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     borderWidth: 1,
     borderColor: 'rgba(235, 235, 245, 0.96)',
     padding: 16,
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dutyTogglePill: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 115,
+    height: 40,
+    borderRadius: 32,
+    zIndex: 2,
+  },
+  dutyTogglePillOffDuty: {
+    backgroundColor: 'rgba(204, 41, 41, 0.9)',
+  },
+  dutyTogglePillAtWork: {
+    backgroundColor: 'rgba(12, 121, 12, 0.96)',
+  },
+  dutyToggleCircleLeft: {
+    position: 'absolute',
+    left: 8,
+    top: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  dutyToggleCircleRight: {
+    position: 'absolute',
+    left: 83,
+    top: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  dutyToggleTextOffDuty: {
+    position: 'absolute',
+    left: 41,
+    top: 8,
+    fontFamily: FONT_BUTTON,
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.15,
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
+  dutyToggleTextAtWork: {
+    position: 'absolute',
+    left: 11,
+    top: 8,
+    fontFamily: FONT_BUTTON,
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.15,
+    color: 'rgba(255, 255, 255, 0.9)',
   },
   profileCardInner: {
+    width: '100%',
+    height: 258,
     alignItems: 'center',
-    gap: 32,
+    justifyContent: 'center',
+    gap: 40,
   },
   avatarSection: {
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
+    height: 128,
   },
   avatarCircle: {
     width: 96,
@@ -917,8 +1049,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    height: 24,
+    maxWidth: '100%',
+    paddingHorizontal: 8,
   },
   staffNameText: {
+    flexShrink: 1,
     fontFamily: FONT_REGULAR,
     fontSize: 16,
     lineHeight: 24,
@@ -927,24 +1063,43 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   verifiedBadgeWrapper: {
+    width: 20,
+    height: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0,
   },
 
-  /* Profile Columns */
+  /* Profile Columns ("tags": 326x52px, space-between) */
   cardColumnsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
-    paddingHorizontal: 8,
+    height: 52,
+    paddingHorizontal: 0,
+    position: 'relative',
   },
-  cardColumn: {
+  leftCardColumn: {
     flex: 1,
+    maxWidth: '45%',
+    height: 52,
     alignItems: 'flex-start',
+    justifyContent: 'center',
     gap: 8,
+    overflow: 'hidden',
+    paddingRight: 12,
+  },
+  rightCardColumn: {
+    width: 84,
+    height: 52,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    gap: 8,
+    flexShrink: 0,
   },
   columnLabel: {
+    height: 20,
     fontFamily: FONT_REGULAR,
     fontSize: 14,
     lineHeight: 20,
@@ -952,11 +1107,16 @@ const styles = StyleSheet.create({
     color: 'rgba(96, 96, 102, 0.96)',
   },
   roleValueButton: {
+    maxWidth: '100%',
+    height: 24,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    overflow: 'hidden',
   },
   columnValueText: {
+    flexShrink: 1,
+    height: 24,
     fontFamily: FONT_REGULAR,
     fontSize: 16,
     lineHeight: 24,
@@ -964,10 +1124,28 @@ const styles = StyleSheet.create({
     color: 'rgba(0, 8, 20, 0.96)',
   },
   columnDivider: {
+    position: 'absolute',
+    left: '50%',
     width: 1,
     height: 24,
     backgroundColor: 'rgba(235, 235, 245, 0.96)',
-    marginHorizontal: 16,
+  },
+  loginCodeLabel: {
+    width: 84,
+    height: 20,
+    fontFamily: FONT_REGULAR,
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.4,
+    color: 'rgba(96, 96, 102, 0.96)',
+  },
+  loginCodeValueText: {
+    height: 24,
+    fontFamily: FONT_REGULAR,
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.4,
+    color: 'rgba(0, 8, 20, 0.96)',
   },
 
   /* Verification Banner */
@@ -1097,8 +1275,8 @@ const styles = StyleSheet.create({
   /* Bio Content */
   bioContainer: {
     width: '100%',
-    gap: 20,
-    paddingTop: 8,
+    gap: 24,
+    paddingTop: 0,
   },
   bioRow: {
     flexDirection: 'row',
@@ -1123,7 +1301,7 @@ const styles = StyleSheet.create({
   },
   bioRowTextGroup: {
     flex: 1,
-    gap: 4,
+    gap: 8,
   },
   bioRowLabel: {
     fontFamily: FONT_REGULAR,
@@ -1165,7 +1343,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(192, 192, 204, 0.96)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 10,
   },
   removeStaffButtonText: {
     fontFamily: FONT_BUTTON,

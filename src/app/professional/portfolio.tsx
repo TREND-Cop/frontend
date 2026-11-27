@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ArrowLeft } from 'lucide-react-native';
 import { ShareIcon } from '../../components/ShareIcon';
 import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
@@ -11,7 +12,7 @@ import { previewStore } from '../../utils/previewStore';
 import { getSpecialistPortfolio } from '../../constants/specialistPortfolioCatalog';
 
 export default function ProfessionalPortfolioScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams();
 
   const specialistId = (params.id as string) || 'p1';
@@ -76,7 +77,7 @@ export default function ProfessionalPortfolioScreen() {
       allItems,
       index
     );
-    router.push({
+    safeRouter.push({
       pathname: '/professional/gallery-preview',
       params: { index, initialIndex: index, source: 'portfolio', title: headerTitle },
     } as any);
@@ -88,7 +89,7 @@ export default function ProfessionalPortfolioScreen() {
       <View style={styles.headerContainer}>
           <TouchableOpacity 
             style={styles.iconButton} 
-            onPress={() => router.canGoBack() ? router.back() : router.replace(`/professional/${specialistId}` as any)} 
+            onPress={() => safeRouter.canGoBack() ? safeRouter.back() : safeRouter.replace(`/professional/${specialistId}` as any)} 
             activeOpacity={0.7}
           >
             <ArrowLeft size={24} color="rgba(0, 8, 20, 0.96)" strokeWidth={1.5} />

@@ -33,6 +33,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
 import { colors, typography, radius, spacing } from '../constants/theme';
+import { useSingleFlight } from '../utils/safeNavigation';
 
 interface PhotoUploadSheetProps {
   /** Whether the bottom sheet is visible */
@@ -130,24 +131,44 @@ export const PhotoUploadSheet: React.FC<PhotoUploadSheetProps> = ({
   onSelectFile,
   onClose,
 }) => {
+  const safeClose = useSingleFlight(() => {
+    if (!visible) return;
+    onClose();
+  });
+  const safeCamera = useSingleFlight(() => {
+    if (!visible || !onOpenCamera) return;
+    onOpenCamera();
+    onClose();
+  });
+  const safeChoosePhoto = useSingleFlight(() => {
+    if (!visible) return;
+    onChoosePhoto();
+    onClose();
+  });
+  const safeSelectFile = useSingleFlight(() => {
+    if (!visible) return;
+    onSelectFile();
+    onClose();
+  });
+
   return (
     <Modal
       visible={visible}
       animationType="slide"
       transparent
       statusBarTranslucent
-      onRequestClose={onClose}
+      onRequestClose={safeClose}
     >
       <TouchableOpacity
         style={styles.overlay}
         activeOpacity={1}
-        onPress={onClose}
+        onPress={safeClose}
       >
         <SafeAreaView style={styles.sheetContainer}>
           {/* ─── Sheet Header ───────────────────────────────────────── */}
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>Photo Upload</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <TouchableOpacity onPress={safeClose} style={styles.closeButton}>
               <Feather name="x" size={24} color="#141B34" />
             </TouchableOpacity>
           </View>
@@ -156,10 +177,7 @@ export const PhotoUploadSheet: React.FC<PhotoUploadSheetProps> = ({
           {onOpenCamera && (
             <TouchableOpacity
               style={styles.optionRow}
-              onPress={() => {
-                onOpenCamera();
-                onClose();
-              }}
+              onPress={safeCamera}
               activeOpacity={0.7}
             >
               <View style={styles.optionIcon}>
@@ -172,10 +190,7 @@ export const PhotoUploadSheet: React.FC<PhotoUploadSheetProps> = ({
           {/* ─── Option 2: Choose from Photos (Photo Album Icon) ────── */}
           <TouchableOpacity
             style={styles.optionRow}
-            onPress={() => {
-              onChoosePhoto();
-              onClose();
-            }}
+            onPress={safeChoosePhoto}
             activeOpacity={0.7}
           >
             <View style={styles.optionIcon}>
@@ -187,10 +202,7 @@ export const PhotoUploadSheet: React.FC<PhotoUploadSheetProps> = ({
           {/* ─── Option 3: Select from File (Folder Icon) ───────────── */}
           <TouchableOpacity
             style={[styles.optionRow, styles.lastOptionRow]}
-            onPress={() => {
-              onSelectFile();
-              onClose();
-            }}
+            onPress={safeSelectFile}
             activeOpacity={0.7}
           >
             <View style={styles.optionIcon}>

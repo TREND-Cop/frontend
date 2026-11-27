@@ -9,12 +9,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Lock, Mail, MessageSquare, Check } from 'lucide-react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { useUserContext } from '../../store/UserContext';
 import { typography } from '../../constants/theme';
 
 export const ProfileVerificationMethodScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { profileData } = useUserContext();
   const params = useLocalSearchParams<{
     signupMethod?: 'phone' | 'email' | 'both';
@@ -48,16 +49,16 @@ export const ProfileVerificationMethodScreen: React.FC = () => {
       : 'Please verify that this account belongs to you, Select verification method.';
 
   const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
+    if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/profile' as any);
+      safeRouter.replace('/profile' as any);
     }
   };
 
   const handleConfirm = () => {
     if (selectedMethod === 'email') {
-      router.push({
+      safeRouter.push({
         pathname: '/profile-otp-verification',
         params: {
           method: 'email',
@@ -68,7 +69,7 @@ export const ProfileVerificationMethodScreen: React.FC = () => {
         },
       });
     } else if (selectedMethod === 'phone') {
-      router.push({
+      safeRouter.push({
         pathname: '/profile-otp-verification',
         params: {
           method: 'phone',

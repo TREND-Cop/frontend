@@ -14,7 +14,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Clock, Star, Check, X, ArrowLeft } from 'lucide-react-native';
+import { Clock, Star, Check, X } from 'lucide-react-native';
 import { SafeImage } from './ui/SafeImage';
 import { useNativeDock } from '../utils/useNativeDock';
 import { ADD_ON_CATALOG, AddOnCatalogItem, getAddOnsForService } from '../constants/addOneCatalog';
@@ -442,17 +442,8 @@ export function SuggestedAddOnsModal({
              ═══════════════════════════════════════════════════════════════════════ */}
           {step === 'sub_styles' && (
             <>
-              {/* Top Navigation Row: Back Arrow on left, Close Button on right */}
+              {/* Top Navigation Row: Close Button on right (back button removed to eliminate navigation loop) */}
               <View style={styles.subStylesHeader}>
-                <TouchableOpacity
-                  style={styles.backButton}
-                  activeOpacity={0.8}
-                  onPress={() => setStep('list')}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <ArrowLeft size={24} color="#141B34" strokeWidth={1.8} />
-                </TouchableOpacity>
-
                 <TouchableOpacity
                   style={styles.closeButtonSubStyles}
                   activeOpacity={0.8}
@@ -722,7 +713,7 @@ const styles = StyleSheet.create({
   // ═══════════════════════════════════════════════════════════════════════════
   subStylesHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 16,

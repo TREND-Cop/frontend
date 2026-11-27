@@ -11,6 +11,8 @@ export interface ToastOptions {
 }
 
 let globalIsToastVisible = false;
+let lastToastTime = 0;
+let lastToastMessage = '';
 let globalToastOptions: ToastOptions = {
   message: '',
   type: 'info',
@@ -28,6 +30,16 @@ export const toastStore = {
   getOptions: () => globalToastOptions,
 
   showToast: (options: ToastOptions) => {
+    const now = Date.now();
+    // Deduplicate identical toast queued within 600ms or while the exact same toast is already visible
+    if (
+      options.message === lastToastMessage &&
+      (globalIsToastVisible || now - lastToastTime < 600)
+    ) {
+      return;
+    }
+    lastToastTime = now;
+    lastToastMessage = options.message;
     globalToastOptions = {
       type: 'info',
       duration: 2800,

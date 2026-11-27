@@ -87,7 +87,7 @@ export const STAFF_TUTORIAL_STEPS: StaffTutorialStep[] = [
   {
     stepNumber: 9,
     targetId: 'staff-clients-reviews-card',
-    title: 'Clients Review',
+    title: 'Client review',
     body: 'This section displays clients feedback towards your current work environment, though you may not have the opportunity to respond to any feedback.',
     icon: 'chat-feedback-01',
   },

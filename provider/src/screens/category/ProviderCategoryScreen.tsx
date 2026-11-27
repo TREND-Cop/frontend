@@ -10,7 +10,7 @@ import {
   Animated,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 
@@ -199,14 +199,14 @@ function HourglassIcon() {
 }
 
 export default function ProviderCategoryScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const [isActionLoading, setIsActionLoading] = useState(false);
 
   const handleCategoryPress = (targetRoute: string) => {
     setIsActionLoading(true);
     setTimeout(() => {
-      router.push(targetRoute as any);
+      safeRouter.push(targetRoute as any);
       setTimeout(() => {
         setIsActionLoading(false);
       }, 350);
@@ -224,7 +224,9 @@ export default function ProviderCategoryScreen() {
           <TouchableOpacity
             activeOpacity={0.7}
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => {
+              safeRouter.replace('/dashboard');
+            }}
           >
             <ArrowLeft02Icon size={24} color="rgba(0, 8, 20, 0.96)" />
           </TouchableOpacity>
@@ -243,10 +245,7 @@ export default function ProviderCategoryScreen() {
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingBottom:
-              (Platform.OS === 'android'
-                ? Math.max(insets.bottom, 56)
-                : Math.max(insets.bottom, 24)) + 40,
+            paddingBottom: insets.bottom + 40,
           },
         ]}
         showsVerticalScrollIndicator={false}
@@ -340,7 +339,7 @@ export default function ProviderCategoryScreen() {
           {/* Line 170 (1px solid #EBEBF5) */}
           <View style={styles.dividerLine} />
 
-          {/* ── Item 4: Awaiting For Client ── */}
+          {/* ── Item 4: Awaiting Client Arrival ── */}
           <TouchableOpacity
             activeOpacity={0.8}
             style={styles.itemRow}
@@ -354,7 +353,7 @@ export default function ProviderCategoryScreen() {
 
               {/* Text Info */}
               <View style={styles.textGroup}>
-                <Text style={styles.itemTitle}>Awaiting for client</Text>
+                <Text style={styles.itemTitle}>Awaiting client arrival</Text>
                 <Text style={styles.itemSubtitle}>1 waiting</Text>
               </View>
             </View>

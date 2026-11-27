@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 import { triggerLightHaptic } from '../../utils/haptics';
@@ -24,11 +24,11 @@ function ArrowLeftIcon({ size = 24 }: { size?: number }) {
 }
 
 export const BusinessServicesWizardPlaceholder: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   const handleBack = () => {
     triggerLightHaptic();
-    router.back();
+    safeRouter.back();
   };
 
   return (

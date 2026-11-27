@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Image } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ArrowLeft, BadgeCheck, ArrowRight, Star } from 'lucide-react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { ShareIcon } from '../../components/ShareIcon';
@@ -401,7 +402,7 @@ const getProfessionalById = (id?: string | string[], params?: any) => {
 };
 
 export default function ProfessionalProfileScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
 
@@ -446,7 +447,7 @@ export default function ProfessionalProfileScreen() {
       <View style={styles.headerContainer}>
           <TouchableOpacity 
             style={styles.iconButton} 
-            onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)' as any)} 
+            onPress={() => safeRouter.canGoBack() ? safeRouter.back() : safeRouter.replace('/(tabs)' as any)} 
             activeOpacity={0.7}
           >
             <ArrowLeft size={24} color="rgba(0, 8, 20, 0.96)" strokeWidth={1.5} />
@@ -568,7 +569,7 @@ export default function ProfessionalProfileScreen() {
                   `${profile.name} Portfolio`,
                   portfolioItems
                 );
-                router.push({
+                safeRouter.push({
                   pathname: '/professional/portfolio',
                   params: {
                     id: profile.id,
@@ -599,7 +600,7 @@ export default function ProfessionalProfileScreen() {
                         portfolioItems,
                         index
                       );
-                      router.push({ pathname: '/professional/gallery-preview', params: { index, initialIndex: index, source: 'portfolio', title: `${profile.name} Portfolio` } });
+                      safeRouter.push({ pathname: '/professional/gallery-preview', params: { index, initialIndex: index, source: 'portfolio', title: `${profile.name} Portfolio` } });
                     }}
                   >
                     <Image source={img} style={styles.portfolioImage} resizeMode="cover" />
@@ -621,7 +622,7 @@ export default function ProfessionalProfileScreen() {
                         portfolioItems,
                         index + 3
                       );
-                      router.push({ pathname: '/professional/gallery-preview', params: { index: index + 3, initialIndex: index + 3, source: 'portfolio', title: `${profile.name} Portfolio` } });
+                      safeRouter.push({ pathname: '/professional/gallery-preview', params: { index: index + 3, initialIndex: index + 3, source: 'portfolio', title: `${profile.name} Portfolio` } });
                     }}
                   >
                     <Image source={img} style={styles.portfolioImage} resizeMode="cover" />
@@ -658,7 +659,7 @@ export default function ProfessionalProfileScreen() {
                 style={styles.circularButton} 
                 activeOpacity={0.7}
                 onPress={() =>
-                  router.push({
+                  safeRouter.push({
                     pathname: '/professional/reviews',
                     params: {
                       id: profile.id,
@@ -684,7 +685,7 @@ export default function ProfessionalProfileScreen() {
                 style={styles.reviewCard} 
                 activeOpacity={0.8}
                 onPress={() =>
-                  router.push({
+                  safeRouter.push({
                     pathname: '/professional/reviews',
                     params: {
                       id: profile.id,
@@ -722,7 +723,7 @@ export default function ProfessionalProfileScreen() {
                 style={styles.reviewCard} 
                 activeOpacity={0.8}
                 onPress={() =>
-                  router.push({
+                  safeRouter.push({
                     pathname: '/professional/reviews',
                     params: {
                       id: profile.id,
@@ -765,7 +766,7 @@ export default function ProfessionalProfileScreen() {
             style={styles.bookButton} 
             activeOpacity={0.8}
             onPress={() =>
-              router.push({
+              safeRouter.push({
                 pathname: '/professional/services',
                 params: {
                   providerId: profile.id,

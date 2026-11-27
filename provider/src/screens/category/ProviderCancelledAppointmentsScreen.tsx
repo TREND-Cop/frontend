@@ -1,28 +1,28 @@
-import React, { useState, useMemo } from 'react';
+import { useSafeRouter } from '../../utils/safeNavigation';
+import { useMemo, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  TextInput,
   Image,
   Platform,
+  ScrollView,
   StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
+import { CategoryFourDotLoader } from '../../components/CategoryFourDotLoader';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
+import { NoRecordedAppointmentsEmptyState } from '../../components/NoRecordedAppointmentsEmptyState';
 import {
+  PRICE_STEPS,
   ProviderAppointmentFilterModal,
   ProviderFilterState,
-  PRICE_STEPS,
   matchAppointment,
 } from '../../components/ProviderAppointmentFilterModal';
 import { ProviderDateFilterModal } from '../../components/ProviderDateFilterModal';
-import { CategoryFourDotLoader } from '../../components/CategoryFourDotLoader';
-import { NoRecordedAppointmentsEmptyState } from '../../components/NoRecordedAppointmentsEmptyState';
 
 const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
 const FONT_REGULAR = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular';
@@ -189,7 +189,7 @@ const CANCELLED_APPOINTMENTS_DATA = [
     clientName: 'Kelechi Amadi',
     clientStatus: 'Subscriber Client',
     gender: 'Male',
-    membership: 'Joined 4 mos ago',
+    membership: 'Joined 4 months ago',
     specialist: 'Aisha Bello',
     specialistRole: 'Braider',
     type: 'In-Person',
@@ -198,7 +198,7 @@ const CANCELLED_APPOINTMENTS_DATA = [
 ];
 
 export default function ProviderCancelledAppointmentsScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -302,7 +302,7 @@ export default function ProviderCancelledAppointmentsScreen() {
   const handleBackPress = () => {
     setIsNavigatingBack(true);
     setTimeout(() => {
-      router.back();
+      safeRouter.back();
       setTimeout(() => {
         setIsNavigatingBack(false);
       }, 350);
@@ -332,7 +332,7 @@ export default function ProviderCancelledAppointmentsScreen() {
           <TouchableOpacity
             activeOpacity={0.7}
             style={styles.downloadButton}
-            onPress={() => {}}
+            onPress={() => { }}
           >
             <Download02Icon size={24} color="#141B34" />
           </TouchableOpacity>
@@ -395,10 +395,7 @@ export default function ProviderCancelledAppointmentsScreen() {
           contentContainerStyle={[
             styles.emptyScrollContent,
             {
-              paddingBottom:
-                (Platform.OS === 'android'
-                  ? Math.max(insets.bottom, 56)
-                  : Math.max(insets.bottom, 24)) + 40,
+              paddingBottom: insets.bottom + 40,
             },
           ]}
           showsVerticalScrollIndicator={false}
@@ -413,10 +410,7 @@ export default function ProviderCancelledAppointmentsScreen() {
           contentContainerStyle={[
             styles.scrollContent,
             {
-              paddingBottom:
-                (Platform.OS === 'android'
-                  ? Math.max(insets.bottom, 56)
-                  : Math.max(insets.bottom, 24)) + 40,
+              paddingBottom: insets.bottom + 40,
             },
           ]}
           showsVerticalScrollIndicator={false}
@@ -425,82 +419,82 @@ export default function ProviderCancelledAppointmentsScreen() {
         >
           <View style={styles.cardsList}>
             {filteredAppointments.map((item) => (
-            <View key={item.id} style={styles.compoundCardWrapper}>
-              {/* Bottom Red Status Flap (Frame 1000006401: 358x66px at top: 91px) */}
-              <View style={styles.bottomStatusFlap}>
-                <View style={styles.statusRow}>
-                  <CancelCircleIcon size={16} />
-                  <Text style={styles.statusText}>Cancelled Appointment</Text>
-                </View>
-              </View>
-
-              {/* Top White Booked Customer Card (358x112px, radius: 24px) */}
-              <TouchableOpacity
-                style={styles.topCard}
-                activeOpacity={0.85}
-                onPress={() => {
-                  router.push({
-                    pathname: '/appointment/[id]',
-                    params: {
-                      id: item.id,
-                      title: item.title,
-                      serviceTitle: item.title,
-                      clientName: item.clientName,
-                      clientStatus: item.clientStatus,
-                      gender: item.gender,
-                      membership: item.membership,
-                      specialist: item.specialist,
-                      specialistRole: item.specialistRole,
-                      date: item.cancelledDate,
-                      time: item.time,
-                      type: item.type,
-                      price: item.price,
-                      duration: item.duration,
-                      rating: item.rating,
-                      status: 'cancelled',
-                      paymentType: item.paymentType || 'Inter - Bank Transfer',
-                    },
-                  } as any);
-                }}
-              >
-                <View style={styles.cardContent}>
-                  {/* 80x80px Image Placeholder with 4px padding & Shadow */}
-                  <View style={styles.thumbnailContainer}>
-                    <Image source={item.image} style={styles.thumbnailImage} resizeMode="cover" />
+              <View key={item.id} style={styles.compoundCardWrapper}>
+                {/* Bottom Red Status Flap (Frame 1000006401: 358x66px at top: 91px) */}
+                <View style={styles.bottomStatusFlap}>
+                  <View style={styles.statusRow}>
+                    <CancelCircleIcon size={16} />
+                    <Text style={styles.statusText}>Cancelled Appointment</Text>
                   </View>
+                </View>
 
-                  {/* Information Column (132x80px, gap: 8px) */}
-                  <View style={styles.cardInfo}>
-                    {/* Title: 16px Medium, lineHeight 24px, letterSpacing 0.5px */}
-                    <Text style={styles.serviceTitle} numberOfLines={1}>
-                      {item.title}
-                    </Text>
-
-                    {/* Meta Row: Duration + Dot + Rating */}
-                    <View style={styles.metaRow}>
-                      <View style={styles.metaItem}>
-                        <Time04Icon size={18} color="rgba(96, 96, 102, 0.96)" />
-                        <Text style={styles.metaText}>{item.duration}</Text>
-                      </View>
-
-                      {/* Ellipse 197 (5x5 dot divider) */}
-                      <View style={styles.dotDivider} />
-
-                      <View style={styles.metaItem}>
-                        <StarIcon size={18} color="rgba(248, 155, 24, 0.96)" />
-                        <Text style={styles.metaText}>{item.rating}</Text>
-                      </View>
+                {/* Top White Booked Customer Card (358x112px, radius: 24px) */}
+                <TouchableOpacity
+                  style={styles.topCard}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    safeRouter.push({
+                      pathname: '/appointment/[id]',
+                      params: {
+                        id: item.id,
+                        title: item.title,
+                        serviceTitle: item.title,
+                        clientName: item.clientName,
+                        clientStatus: item.clientStatus,
+                        gender: item.gender,
+                        membership: item.membership,
+                        specialist: item.specialist,
+                        specialistRole: item.specialistRole,
+                        date: item.cancelledDate,
+                        time: item.time,
+                        type: item.type,
+                        price: item.price,
+                        duration: item.duration,
+                        rating: item.rating,
+                        status: 'cancelled',
+                        paymentType: item.paymentType || 'Inter - Bank Transfer',
+                      },
+                    } as any);
+                  }}
+                >
+                  <View style={styles.cardContent}>
+                    {/* 80x80px Image Placeholder with 4px padding & Shadow */}
+                    <View style={styles.thumbnailContainer}>
+                      <Image source={item.image} style={styles.thumbnailImage} resizeMode="cover" />
                     </View>
 
-                    {/* Price Tag: 14px Regular, lineHeight 20px, letterSpacing 0.4px */}
-                    <Text style={styles.priceText}>{item.price}</Text>
+                    {/* Information Column (132x80px, gap: 8px) */}
+                    <View style={styles.cardInfo}>
+                      {/* Title: 16px Medium, lineHeight 24px, letterSpacing 0.5px */}
+                      <Text style={styles.serviceTitle} numberOfLines={1}>
+                        {item.title}
+                      </Text>
+
+                      {/* Meta Row: Duration + Dot + Rating */}
+                      <View style={styles.metaRow}>
+                        <View style={styles.metaItem}>
+                          <Time04Icon size={18} color="rgba(96, 96, 102, 0.96)" />
+                          <Text style={styles.metaText}>{item.duration}</Text>
+                        </View>
+
+                        {/* Ellipse 197 (5x5 dot divider) */}
+                        <View style={styles.dotDivider} />
+
+                        <View style={styles.metaItem}>
+                          <StarIcon size={18} color="rgba(248, 155, 24, 0.96)" />
+                          <Text style={styles.metaText}>{item.rating}</Text>
+                        </View>
+                      </View>
+
+                      {/* Price Tag: 14px Regular, lineHeight 20px, letterSpacing 0.4px */}
+                      <Text style={styles.priceText}>{item.price}</Text>
+                    </View>
                   </View>
-                </View>
-              </TouchableOpacity>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
       )}
 
       {/* Android System Dock Barrier */}

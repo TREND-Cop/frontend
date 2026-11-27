@@ -193,7 +193,7 @@ export const ServiceTypeSelectionSheet: React.FC<ServiceTypeSelectionSheetProps>
         <View
           style={[
             styles.sheetContainer,
-            { paddingBottom: Math.max(insets.bottom, 24) },
+            { paddingBottom: insets.bottom + 16 },
           ]}
         >
           {/* ── Header (height: 66px) ── */}

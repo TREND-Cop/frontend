@@ -11,7 +11,7 @@ import {
   Easing,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { useProviderOnboarding } from '../../context/ProviderOnboardingContext';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 
@@ -43,7 +43,7 @@ const FONT_REGULAR = Platform.select({
  *   (REPORT_RETURN_LOADER_MS) per Figma note.
  */
 export const ReportSuccessScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { setShowDashboardOverlayAfterReport } = useProviderOnboarding();
 
@@ -164,7 +164,7 @@ export const ReportSuccessScreen: React.FC = () => {
   const handleBackToDashboard = () => {
     // Show 4-dot dimmed overlay on dashboard per Figma note
     setShowDashboardOverlayAfterReport(true);
-    router.replace('/dashboard' as any);
+    safeRouter.replace('/dashboard' as any);
   };
 
   return (

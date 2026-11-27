@@ -19,7 +19,7 @@ import Svg, {
 } from 'react-native-svg';
 import { useOptionalFirstTime, TargetRect } from '../../context/FirstTimeContext';
 import { useBusinessStore } from '../../store/businessStore';
-import { TutorialIconType } from '../../constants/tutorialSteps';
+import { TutorialIconType, TUTORIAL_STEPS } from '../../constants/tutorialSteps';
 import { typography } from '../../constants/theme';
 
 // Layout & Figma geometry constants
@@ -277,7 +277,9 @@ export const SpotlightOverlay: React.FC<SpotlightOverlayProps> = ({
   const activeTargetRect = isStaff ? staffTargetRect : ownerContext?.activeTargetRect;
   const isStepTransitioning = isStaff ? (staffIsStepTransitioning ?? false) : (ownerContext?.isStepTransitioning ?? false);
   const handleNextStep = isStaff ? onNextStep : ownerContext?.handleNextStep;
-  const numSteps = isStaff ? totalSteps : 11;
+  const handlePrevStep = isStaff ? onPrevStep : ownerContext?.handlePrevStep;
+  const handleOpenVideo = isStaff ? onOpenVideo : ownerContext?.openVideo;
+  const numSteps = isStaff ? totalSteps : (ownerContext?.totalSteps ?? TUTORIAL_STEPS.length);
   const scrollOffsetY = isStaff ? 0 : (ownerContext?.scrollOffsetY ?? 0);
   const { business } = useBusinessStore();
 
@@ -307,9 +309,9 @@ export const SpotlightOverlay: React.FC<SpotlightOverlayProps> = ({
   const bubbleMeasuredHeight =
     measuredHeights[stepNumber] || DEFAULT_BUBBLE_HEIGHTS[stepNumber] || 225;
 
-  // Floating bottom tab bar (80px) + white gradient fade (36px) + offset + 12px margin
-  const lockedBottomOffset = insets.bottom > 0 ? insets.bottom : 16;
-  const BOTTOM_OBSTRUCTION_HEIGHT = 80 + 36 + lockedBottomOffset + 12;
+  // Floating bottom tab bar (80px) + white gradient fade (24px) + tab offset + 12px margin
+  const tabOffset = insets.bottom > 0 ? insets.bottom + 24 : 0;
+  const BOTTOM_OBSTRUCTION_HEIGHT = 80 + 24 + tabOffset + 12;
 
   // Calculate placement boundaries (strictly above bottom tab bar and its fade)
   const topLimit = insets.top + 16;
@@ -496,7 +498,9 @@ export const SpotlightOverlay: React.FC<SpotlightOverlayProps> = ({
     phase !== 'tour' ||
     !currentStep ||
     !target ||
-    (target.targetId && target.targetId !== currentStep.targetId)
+    (target.targetId &&
+      target.targetId !== currentStep.targetId &&
+      target.targetId !== (currentStep as any).fallbackTargetId)
   ) {
     return null;
   }
@@ -584,7 +588,7 @@ export const SpotlightOverlay: React.FC<SpotlightOverlayProps> = ({
           </View>
         )}
 
-        {/* ── Header: Icon + Title (+ Step counter pill for staff) ── */}
+        {/* ── Header: Icon + Title + Step counter pill (Universal Owner & Staff) ── */}
         <View style={styles.headerRow}>
           <View style={styles.headerLeftGroup}>
             {currentStep.icon && (
@@ -598,56 +602,40 @@ export const SpotlightOverlay: React.FC<SpotlightOverlayProps> = ({
             <Text style={styles.titleText}>{currentStep.title}</Text>
           </View>
 
-          {isStaff && (
-            <View style={styles.tagPill}>
-              <Text style={styles.tagPillText}>
-                {stepNumber} / {numSteps}
-              </Text>
-            </View>
-          )}
+          <View style={styles.tagPill}>
+            <Text style={styles.tagPillText}>
+              {stepNumber} / {numSteps}
+            </Text>
+          </View>
         </View>
 
         {/* ── Body Text ── */}
         <Text style={styles.bodyText}>{currentStep.body}</Text>
 
-        {/* ── Action Buttons ── */}
-        {isStaff ? (
-          <View style={styles.staffButtonRow}>
-            {stepNumber > 1 ? (
-              <TouchableOpacity
-                activeOpacity={0.7}
-                style={styles.previousButton}
-                onPress={onPrevStep}
-              >
-                <PreviousArrowIcon size={20} />
-                <Text style={styles.previousButtonText}>Previous</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={{ flex: 1 }} />
-            )}
+        {/* ── Action Buttons: Previous (when step > 1) & How it works (Universal Owner & Staff) ── */}
+        <View style={styles.staffButtonRow}>
+          {stepNumber > 1 ? (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.previousButton}
+              onPress={handlePrevStep}
+            >
+              <PreviousArrowIcon size={20} />
+              <Text style={styles.previousButtonText}>Previous</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={{ flex: 1 }} />
+          )}
 
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.howItWorksButton}
-              onPress={onOpenVideo}
-            >
-              <PlaySquareIcon size={20} color="rgba(0, 8, 20, 0.96)" />
-              <Text style={styles.howItWorksButtonText}>How it works</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.buttonRow}>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={styles.actionButton}
-              onPress={handleNextStep}
-            >
-              <Text style={styles.actionButtonText}>
-                {currentStep.buttonLabel}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.howItWorksButton}
+            onPress={handleOpenVideo}
+          >
+            <PlaySquareIcon size={20} color="rgba(0, 8, 20, 0.96)" />
+            <Text style={styles.howItWorksButtonText}>How it works</Text>
+          </TouchableOpacity>
+        </View>
       </Animated.View>
     </View>
   );
@@ -693,6 +681,7 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 10,
     marginBottom: 12,
   },
@@ -742,6 +731,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1,
     flexShrink: 1,
   },
   tagPill: {

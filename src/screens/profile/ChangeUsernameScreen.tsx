@@ -13,7 +13,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ArrowLeft, Check } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useUserContext } from '../../store/UserContext';
@@ -29,7 +29,7 @@ const StarLoadingIcon = ({ size = 72, color = 'rgba(0, 8, 20, 0.96)' }: { size?:
 );
 
 export const ChangeUsernameScreen = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { profileData, setUsername } = useUserContext();
 
@@ -88,10 +88,10 @@ export const ChangeUsernameScreen = () => {
   });
 
   const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
+    if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/profile-settings' as any);
+      safeRouter.replace('/profile-settings' as any);
     }
   };
 
@@ -120,7 +120,7 @@ export const ChangeUsernameScreen = () => {
     // Quick 450ms processing duration before navigating back to profile
     setTimeout(() => {
       setUsername(newUsername.trim());
-      router.replace('/profile' as any);
+      safeRouter.replace('/profile' as any);
     }, 450);
   };
 

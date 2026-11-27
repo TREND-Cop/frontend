@@ -12,7 +12,8 @@ import {
   Keyboard,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 import {
   ArrowLeft,
@@ -63,7 +64,7 @@ const IncomingTail = ({ color = 'rgba(96, 96, 102, 0.96)' }: { color?: string })
 );
 
 export const InChatScreen = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams<{ id?: string; name?: string; salonId?: string }>();
   const insets = useSafeAreaInsets();
   const [inputText, setInputText] = useState('');
@@ -141,7 +142,7 @@ export const InChatScreen = () => {
 
   const handleHeaderProfilePress = () => {
     const targetSalonId = params.salonId || (params.id && params.id !== '[id]' && !params.id.startsWith('c') ? params.id : 'salon2');
-    router.push({
+    safeRouter.push({
       pathname: '/salon/[id]',
       params: { id: targetSalonId, name: salonName },
     } as any);
@@ -243,7 +244,7 @@ export const InChatScreen = () => {
 
   const openImagePreview = (imageSource: any, title = 'Photo Reference') => {
     previewStore.setPreviewImages([imageSource], title, undefined, 0);
-    router.push({
+    safeRouter.push({
       pathname: '/professional/gallery-preview',
       params: { index: 0, initialIndex: 0, title, source: 'chat', salonName },
     } as any);
@@ -251,7 +252,7 @@ export const InChatScreen = () => {
 
   const openAlbumPreview = (album: PhotosAlbumData, initialIdx = 0) => {
     previewStore.setPreviewImages(album.photos, `${salonName} Portfolio`, undefined, initialIdx);
-    router.push({
+    safeRouter.push({
       pathname: '/professional/gallery-preview',
       params: { index: initialIdx, initialIndex: initialIdx, title: `${salonName} Portfolio`, source: 'chat', salonName },
     } as any);
@@ -263,7 +264,7 @@ export const InChatScreen = () => {
       <View style={styles.headerRow}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => safeRouter.back()}
           activeOpacity={0.7}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
@@ -412,7 +413,7 @@ export const InChatScreen = () => {
                     style={styles.serviceLinkCard}
                     activeOpacity={0.9}
                     onPress={() => {
-                      router.push({
+                      safeRouter.push({
                         pathname: '/professional/style-details',
                         params: {
                           name: card.title,

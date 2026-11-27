@@ -15,12 +15,17 @@ import { InteractiveAreaChart } from '../../../components/stats/InteractiveAreaC
 import { RadialChart } from '../../../components/stats/RadialChart';
 import { StatsEmptyState } from '../../../components/stats/StatsEmptyState';
 import { useClientStats } from '../../../api/statsApi';
+import { useStaffStatistics } from '../../../context/StaffStatisticsContext';
 import { formatCount } from '../../../utils/statsFormatters';
 import {
   getTrendTone,
   getPreviousValueTone,
   TREND_COLORS,
 } from '../../../utils/trendUtils';
+
+export interface ClientsTabProps {
+  isStaff?: boolean;
+}
 
 const FONT_HEADER = Platform.select({
   ios: 'SF Pro',
@@ -105,14 +110,16 @@ function ClientAvatarWithBadge({ rank }: { rank: number }) {
   );
 }
 
-export const ClientsTab: React.FC = () => {
+export const ClientsTab: React.FC<ClientsTabProps> = ({ isStaff = false }) => {
   // Periods for 3 separate sections per Figma C1, C2, C3
   const { period: countPeriod } = useStatsPeriod('clients.count');
   const { period: mixPeriod } = useStatsPeriod('clients.mix');
   const { period: topPeriod } = useStatsPeriod('clients.top');
 
-  // Client stats data hook
-  const clientStats = useClientStats(countPeriod);
+  // Client stats data
+  const ownerClientStats = useClientStats(countPeriod);
+  const staffStats = useStaffStatistics();
+  const clientStats = isStaff ? staffStats.getStaffClients(countPeriod) : ownerClientStats;
 
   // Selected key state for C1 interactive chart
   const [selectedDayKey, setSelectedDayKey] = useState<string>('');

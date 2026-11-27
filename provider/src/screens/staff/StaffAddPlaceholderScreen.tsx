@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ArrowLeft02Icon } from '../../components/staff/StaffIcons';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 import { triggerLightHaptic } from '../../utils/haptics';
@@ -14,11 +14,11 @@ const FONT_BUTTON = Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium';
  * Placeholder for Prompt 2: Add Staff Form
  */
 export const StaffAddPlaceholderScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   const handleBack = () => {
     triggerLightHaptic();
-    router.back();
+    safeRouter.back();
   };
 
   return (

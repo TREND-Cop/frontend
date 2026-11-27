@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 import { ShareIcon } from '../../components/ShareIcon';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
@@ -76,7 +77,7 @@ interface ReviewItem {
 }
 
 export function ProviderStaffReviewsScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams();
 
   const staffName = (params.name as string) || 'Godwin Thomas';
@@ -128,7 +129,7 @@ export function ProviderStaffReviewsScreen() {
 
   const handlePreviewAttachment = (attachments: any[], index: number) => {
     previewStore.setPreviewImages(attachments, 'Review Photos', undefined, index);
-    router.push({
+    safeRouter.push({
       pathname: '/gallery-preview' as any,
       params: { index, initialIndex: index, source: 'review', title: 'Review Photos' },
     });
@@ -140,7 +141,7 @@ export function ProviderStaffReviewsScreen() {
       <View style={styles.headerContainer}>
         <TouchableOpacity
           style={styles.iconButton}
-          onPress={() => router.back()}
+          onPress={() => safeRouter.back()}
           activeOpacity={0.7}
         >
           <ArrowLeft02Icon size={24} color="rgba(0, 8, 20, 0.96)" />

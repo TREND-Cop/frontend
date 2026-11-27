@@ -11,19 +11,19 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Check, Share2 } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 
 const BLUE_BADGE_IMAGE = require('../../../assets/images/profile/blue_subscription_badge.png');
 
 export const SubscriptionPlanScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annually' | null>('monthly');
 
   const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
+    if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/profile' as any);
+      safeRouter.replace('/profile' as any);
     }
   };
 
@@ -39,7 +39,7 @@ export const SubscriptionPlanScreen: React.FC = () => {
 
   const handleSubscribe = () => {
     // Navigates to payment / success
-    router.push('/payment' as any);
+    safeRouter.push('/payment' as any);
   };
 
   const getButtonText = () => {

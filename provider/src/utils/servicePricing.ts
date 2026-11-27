@@ -41,31 +41,46 @@ export function getServicePricing(
   const basePrice = price && price > 0 ? price : 0;
   const baseDiscount = discount && discount > 0 ? discount : 0;
 
-  if (baseDiscount > 0 && basePrice > 0) {
+  if (baseDiscount > 0) {
+    // If basePrice is not yet entered or 0, still return hasDiscount = true with the raw discount amount
+    if (basePrice <= 0) {
+      return {
+        hasDiscount: true,
+        displayPrice: '₦0',
+        originalPrice: null,
+        percentOff: 0,
+        discountedPriceNumber: 0,
+      };
+    }
+
     let percent = 0;
     let discounted = basePrice;
 
-    // Smart detection:
-    // If discount <= 100 and basePrice > 100, treat as a percentage (e.g. 10 -> 10% OFF)
-    if (baseDiscount <= 100) {
+    // Detect percentage vs cash Naira amount:
+    // If discount <= 50 and basePrice >= 500: treat as a percentage (e.g. 10 -> 10% OFF, 25 -> 25% OFF, 50 -> 50% OFF)
+    // Otherwise, treat as direct cash Naira discount (e.g. 100 -> ₦100 off, 1,000 -> ₦1,000 off, etc.)
+    if (baseDiscount <= 50 && basePrice >= 500) {
       percent = Math.round(baseDiscount);
       const discountAmount = Math.round(basePrice * (percent / 100));
       discounted = Math.max(0, basePrice - discountAmount);
     } else if (baseDiscount < basePrice) {
-      // Treat as cash amount (e.g. 1000 off 14200 -> 7% OFF)
+      // Direct cash discount in Naira
       discounted = Math.max(0, basePrice - baseDiscount);
-      percent = Math.round((baseDiscount / basePrice) * 100);
+      percent = Math.max(1, Math.round((baseDiscount / basePrice) * 100));
+    } else {
+      // If discount entered is equal to or greater than price (e.g. user entered ₦5,000 off ₦5,000):
+      // Cap at 90% discount so it remains valid and visible rather than mysteriously vanishing
+      percent = 90;
+      discounted = Math.round(basePrice * 0.1);
     }
 
-    if (percent > 0 && discounted < basePrice) {
-      return {
-        hasDiscount: true,
-        displayPrice: formatNaira(discounted),
-        originalPrice: formatNaira(basePrice),
-        percentOff: percent,
-        discountedPriceNumber: discounted,
-      };
-    }
+    return {
+      hasDiscount: true,
+      displayPrice: formatNaira(discounted),
+      originalPrice: formatNaira(basePrice),
+      percentOff: Math.max(1, percent),
+      discountedPriceNumber: discounted,
+    };
   }
 
   return {

@@ -28,7 +28,7 @@ import {
   Share2,
   Tag,
 } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { MOCK_SALONS, SalonItem } from './mockSalons';
 import { typography } from '../../constants/theme';
 import { getServiceNameById } from './mockServices';
@@ -38,6 +38,7 @@ import { ShareIcon } from '../../components/ShareIcon';
 import { shareStore } from '../../utils/shareStore';
 import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
 import { formatDisplayLocation } from '../../utils/locationFormatter';
+import { useLiveCatalog } from '../../hooks/useLiveCatalog';
 
 interface SalonListingScreenProps {
   categoryId?: string;
@@ -61,12 +62,12 @@ const SalonCardItem: React.FC<SalonCardItemProps> = ({
   categoryId,
   gender,
 }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [cardWidth, setCardWidth] = useState<number>(0);
 
   const handleCardPress = () => {
-    router.push({
+    safeRouter.push({
       pathname: `/salon/${salon.id}`,
       params: {
         id: salon.id,
@@ -260,7 +261,7 @@ export const SalonListingScreen: React.FC<SalonListingScreenProps> = ({
   serviceName,
   gender,
 }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
 
   // Resolved dynamic title
@@ -326,9 +327,17 @@ export const SalonListingScreen: React.FC<SalonListingScreenProps> = ({
     });
   };
 
+  const { salons: liveSalons } = useLiveCatalog();
+
+  const allSalons = useMemo(() => {
+    if (liveSalons.length === 0) return MOCK_SALONS;
+    const liveIds = new Set(liveSalons.map((s) => s.id));
+    return [...liveSalons, ...MOCK_SALONS.filter((m) => !liveIds.has(m.id))];
+  }, [liveSalons]);
+
   // Filtered Salons list
   const filteredSalons = useMemo(() => {
-    return MOCK_SALONS.filter((salon) => {
+    return allSalons.filter((salon) => {
       // 1. Text Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
@@ -391,14 +400,14 @@ export const SalonListingScreen: React.FC<SalonListingScreenProps> = ({
 
       return true;
     });
-  }, [searchQuery, filterState]);
+  }, [searchQuery, filterState, allSalons]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* ── Top Header ── */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)' as any))}
+          onPress={() => (safeRouter.canGoBack() ? safeRouter.back() : safeRouter.replace('/(tabs)' as any))}
           style={styles.headerButton}
           activeOpacity={0.7}
         >
@@ -421,7 +430,7 @@ export const SalonListingScreen: React.FC<SalonListingScreenProps> = ({
           <TouchableOpacity
             style={styles.searchBox}
             activeOpacity={0.8}
-            onPress={() => router.push('/search')}
+            onPress={() => safeRouter.push('/search')}
           >
             <Search size={20} color="rgba(96, 96, 102, 0.96)" />
             <Text style={styles.searchInputPlaceholder}>Search here..</Text>

@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getSafeBottomPadding } from '../../utils/safeArea';
-import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { useFavoritesContext } from '../../store/FavoritesContext';
 import {
   ArrowLeft,
@@ -106,7 +107,7 @@ const REVIEWS_DATA = [
 import { getServiceByIdOrName } from '../../constants/serviceCatalog';
 
 export default function SelectedStyleScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const { isSkeletonLoading } = useSkeletonCadence();
@@ -253,7 +254,7 @@ export default function SelectedStyleScreen() {
       undefined,
       index
     );
-    router.push({
+    safeRouter.push({
       pathname: '/professional/gallery-preview',
       params: {
         index: index.toString(),
@@ -292,7 +293,7 @@ export default function SelectedStyleScreen() {
     setIsAddOnsModalVisible(false);
 
     // Proceed to full page appointment type selection
-    router.push({
+    safeRouter.push({
       pathname: '/appointment-type',
       params: {
         serviceId: serviceId,
@@ -310,7 +311,7 @@ export default function SelectedStyleScreen() {
     bookingStore.setAppointmentType(type);
     setIsAppointmentTypeModalOpen(false);
 
-    router.push({
+    safeRouter.push({
       pathname: '/appointment-time',
       params: {
         serviceId: serviceId,
@@ -346,7 +347,7 @@ export default function SelectedStyleScreen() {
       <View style={styles.headerContainer}>
         <TouchableOpacity
           style={styles.iconButton}
-          onPress={() => (router.canGoBack() ? router.back() : router.replace(`/salon/${salonId || 'salon2'}` as any))}
+          onPress={() => (safeRouter.canGoBack() ? safeRouter.back() : safeRouter.replace(`/salon/${salonId || 'salon2'}` as any))}
           activeOpacity={0.7}
         >
           <ArrowLeft size={24} color="rgba(0, 8, 20, 0.96)" strokeWidth={1.8} />
@@ -722,7 +723,7 @@ export default function SelectedStyleScreen() {
                       { image: GALLERY_IMAGES[5], title: `${styleName} - Back View`, price: stylePrice, duration: duration, rating: rating },
                     ];
                     previewStore.setPreviewImages(GALLERY_IMAGES, `${styleName} Gallery`, styleGalleryItems, originalIndex);
-                    router.push({
+                    safeRouter.push({
                       pathname: '/professional/gallery-preview',
                       params: { index: originalIndex, initialIndex: originalIndex, source: 'gallery', title: `${styleName} Gallery` },
                     } as any);
@@ -749,7 +750,7 @@ export default function SelectedStyleScreen() {
                       { image: GALLERY_IMAGES[5], title: `${styleName} - Back View`, price: stylePrice, duration: duration, rating: rating },
                     ];
                     previewStore.setPreviewImages(GALLERY_IMAGES, `${styleName} Gallery`, styleGalleryItems, originalIndex);
-                    router.push({
+                    safeRouter.push({
                       pathname: '/professional/gallery-preview',
                       params: { index: originalIndex, initialIndex: originalIndex, source: 'gallery', title: `${styleName} Gallery` },
                     } as any);
@@ -769,7 +770,7 @@ export default function SelectedStyleScreen() {
             <TouchableOpacity
               style={styles.reviewForwardCircle}
               activeOpacity={0.8}
-              onPress={() => router.push('/professional/reviews' as any)}
+              onPress={() => safeRouter.push('/professional/reviews' as any)}
             >
               <ArrowRight size={20} color="rgba(0, 8, 20, 0.96)" strokeWidth={1.8} />
             </TouchableOpacity>
@@ -846,7 +847,7 @@ export default function SelectedStyleScreen() {
         onClose={() => setIsBookmarkModalOpen(false)}
         onOpenWishlist={() => {
           setIsBookmarkModalOpen(false);
-          router.push('/wishlist' as any);
+          safeRouter.push('/wishlist' as any);
         }}
         serviceName={styleName}
         images={topSalonImages.slice(0, 3)}

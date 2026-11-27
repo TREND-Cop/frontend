@@ -1,11 +1,12 @@
 import React from 'react';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
+import { useSafeRouter } from '../utils/safeNavigation';
 import { TouchableOpacity, Platform } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
 import { NotificationScreen } from '../screens/notifications/NotificationScreen';
 
 export default function NotificationsRoute() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   return (
     <>
@@ -21,10 +22,10 @@ export default function NotificationsRoute() {
           headerLeft: () => (
             <TouchableOpacity
               onPress={() => {
-                if (router.canGoBack()) {
-                  router.back();
+                if (safeRouter.canGoBack()) {
+                  safeRouter.back();
                 } else {
-                  router.replace('/home' as any);
+                  safeRouter.replace('/home' as any);
                 }
               }}
               activeOpacity={0.7}

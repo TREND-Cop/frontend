@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
@@ -314,7 +315,7 @@ function OpayIcon({ size = 24 }: { size?: number }) {
 // ── Default Mock / Figma Data ────────────────────────────────────────────────
 
 const DEFAULT_ONGOING_DETAIL = {
-  headerTitle: 'Ayobami Isaac',
+  headerTitle: 'Men Brade',
   client: {
     name: 'Jude Fabulous',
     badge: 'New Client',
@@ -369,8 +370,7 @@ const DEFAULT_ONGOING_DETAIL = {
     items: ['Hair Washing', 'Conditioning & Wash', 'Manicure'],
   },
   summary: {
-    appointmentCost: '₦52,700',
-    trendPoints: '-₦2,700',
+    appointmentCost: '₦50,000',
     paymentType: 'Opay (Transfer)',
     total: '₦50,000',
   },
@@ -380,10 +380,11 @@ const DEFAULT_ONGOING_DETAIL = {
 
 export function ProviderOngoingAppointmentDetailScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams<{
     id?: string;
     title?: string;
+    serviceTitle?: string;
     clientName?: string;
     clientStatus?: string;
     gender?: string;
@@ -410,9 +411,14 @@ export function ProviderOngoingAppointmentDetailScreen() {
     appointment?.clientName ||
     DEFAULT_ONGOING_DETAIL.client.name;
 
-  const headerTitle =
-    clientName ||
-    DEFAULT_ONGOING_DETAIL.headerTitle;
+  const serviceName =
+    params.serviceTitle ||
+    params.title ||
+    appointment?.title ||
+    DEFAULT_ONGOING_DETAIL.service.title;
+
+  // Header must always show the service name, not client or staff
+  const headerTitle = serviceName;
 
   const clientStatus =
     params.clientStatus ||
@@ -436,11 +442,6 @@ export function ProviderOngoingAppointmentDetailScreen() {
     params.membership ||
     appointment?.membership ||
     DEFAULT_ONGOING_DETAIL.client.membership;
-
-  const serviceName =
-    params.title ||
-    appointment?.title ||
-    DEFAULT_ONGOING_DETAIL.service.title;
 
   const servicePrice =
     params.price ||
@@ -545,7 +546,7 @@ export function ProviderOngoingAppointmentDetailScreen() {
           <TouchableOpacity
             style={styles.headerIconButton}
             activeOpacity={0.7}
-            onPress={() => router.back()}
+            onPress={() => safeRouter.back()}
           >
             <ArrowLeft02Icon />
           </TouchableOpacity>
@@ -856,34 +857,11 @@ export function ProviderOngoingAppointmentDetailScreen() {
         </View>
 
         {/* ── Section: Note ─────────────────────────────────────────────────── */}
-        <View
-          style={styles.sectionBlock}
-          onLayout={(e) => {
-            noteSectionYRef.current = e.nativeEvent.layout.y;
-          }}
-        >
+        <View style={styles.sectionBlock}>
           <Text style={styles.sectionHeading}>Note</Text>
 
-          <View
-            style={styles.noteBox}
-            onLayout={(e) => {
-              noteBoxYRef.current = e.nativeEvent.layout.y;
-            }}
-          >
-            <TextInput
-              ref={noteInputRef}
-              style={styles.noteTextInput}
-              multiline
-              maxLength={120}
-              value={noteText}
-              onChangeText={setNoteText}
-              placeholder="Enter note here.."
-              placeholderTextColor="rgba(96, 96, 102, 0.6)"
-              onFocus={scrollNoteIntoView}
-            />
-            <Text style={styles.noteCharCount}>
-              {noteText.length}/120
-            </Text>
+          <View style={styles.noteBox}>
+            <Text style={styles.noteInactiveText}>leave a note for the staff</Text>
           </View>
         </View>
 
@@ -945,15 +923,7 @@ export function ProviderOngoingAppointmentDetailScreen() {
               </Text>
             </View>
 
-            {/* Row 2: Trend points */}
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Trend points</Text>
-              <Text style={styles.summaryPointsValue}>
-                {DEFAULT_ONGOING_DETAIL.summary.trendPoints}
-              </Text>
-            </View>
-
-            {/* Row 3: Payment type */}
+            {/* Row 2: Payment type */}
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Payment type</Text>
               <View style={styles.paymentTypeWrap}>
@@ -1126,19 +1096,19 @@ const styles = StyleSheet.create({
   activitiesRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: 326,
+    justifyContent: 'space-between',
+    width: '100%',
     height: 104,
   },
   activityColumnCol1: {
-    width: 80,
+    flex: 1,
     height: 104,
     paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 4,
     gap: 8,
     borderRadius: 16,
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 23,
   },
   verticalDivider: {
     width: 1,
@@ -1147,27 +1117,24 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   activityColumnCol2: {
-    width: 58,
+    flex: 1,
     height: 104,
     paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 4,
     gap: 8,
     borderRadius: 16,
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 23,
-    marginRight: 23,
   },
   activityColumnCol3: {
-    width: 97,
+    flex: 1,
     height: 104,
     paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 4,
     gap: 8,
     borderRadius: 16,
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 23,
   },
   activityIconCircle: {
     width: 36,
@@ -1178,22 +1145,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   activityTextGroupCol1: {
-    width: 44,
-    height: 44,
-    gap: 8,
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
   activityTextGroupCol2: {
-    width: 38,
-    height: 44,
-    gap: 8,
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
   activityTextGroupCol3: {
-    width: 77,
-    height: 44,
-    gap: 8,
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    width: '100%',
   },
   activityLabel: {
     fontFamily: FONT_REGULAR,
@@ -1202,7 +1167,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
-    height: 16,
+    textAlign: 'center',
   },
   activityValueGender: {
     fontFamily: FONT_REGULAR,
@@ -1211,7 +1176,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     letterSpacing: 0.4,
     color: '#000000',
-    height: 20,
+    textAlign: 'center',
   },
   activityValueBadge: {
     fontFamily: FONT_REGULAR,
@@ -1220,16 +1185,16 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     letterSpacing: 0.4,
     color: 'rgba(0, 8, 20, 0.96)',
-    height: 20,
+    textAlign: 'center',
   },
   activityValueMembership: {
     fontFamily: FONT_REGULAR,
     fontWeight: '400',
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: 0.4,
+    fontSize: 13,
+    lineHeight: 18,
+    letterSpacing: 0.2,
     color: 'rgba(0, 8, 20, 0.96)',
-    height: 20,
+    textAlign: 'center',
   },
 
   // ── Sections & Headings ───────────────────────────────────────────────────
@@ -1403,6 +1368,13 @@ const styles = StyleSheet.create({
     padding: 16,
     justifyContent: 'space-between',
   },
+  noteInactiveText: {
+    fontFamily: FONT_REGULAR,
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: 0.4,
+    color: 'rgba(96, 96, 102, 0.6)',
+  },
   noteTextInput: {
     fontFamily: FONT_REGULAR,
     fontWeight: '400',
@@ -1491,13 +1463,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     color: '#000814',
-  },
-  summaryPointsValue: {
-    fontFamily: FONT_MEDIUM,
-    fontWeight: '500',
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#F89B18',
   },
   paymentTypeWrap: {
     flexDirection: 'row',

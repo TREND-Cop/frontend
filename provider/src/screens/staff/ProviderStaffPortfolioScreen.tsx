@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 import { previewStore } from '../../utils/previewStore';
@@ -37,7 +38,7 @@ function ArrowLeft02Icon({
 }
 
 export function ProviderStaffPortfolioScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams();
 
   const staffName = (params.name as string) || 'Bisola Olarewaju';
@@ -70,7 +71,7 @@ export function ProviderStaffPortfolioScreen() {
       })),
       index
     );
-    router.push({
+    safeRouter.push({
       pathname: '/gallery-preview' as any,
       params: { index, initialIndex: index, source: 'portfolio', title: headerTitle },
     });
@@ -83,7 +84,7 @@ export function ProviderStaffPortfolioScreen() {
         {/* Back button (48x48px, radius 24px) */}
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => safeRouter.back()}
           activeOpacity={0.7}
         >
           <ArrowLeft02Icon size={24} color="rgba(0, 8, 20, 0.96)" />

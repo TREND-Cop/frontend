@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { trendApi, getAuthToken } from '../api/trendApi';
 
 export type MessageType = 'text' | 'image' | 'serviceCard' | 'dateDivider';
 
@@ -326,6 +327,24 @@ export const providerMessagesStore = {
     }
 
     notify();
+
+    // Sync outgoing message with live backend when authenticated
+    const recipientId = targetConv?.id || idOrName;
+    getAuthToken()
+      .then(async (token) => {
+        if (!token) return;
+        let mediaUrl = '';
+        if (typeof image === 'string' && image.length > 0) {
+          const up = await trendApi.uploads.uploadMedia(image, 'provider_chat.jpg');
+          mediaUrl = up.data?.url || up.data?.secure_url || '';
+        }
+        await trendApi.messages.send({
+          to: recipientId,
+          body: text || (image ? 'Photo' : 'Service Card'),
+          media_url: mediaUrl,
+        });
+      })
+      .catch(() => {});
 
     // If it's a greeting or first message in empty chat, trigger friendly customer reply after 1.5s
     if (targetConv && targetConv.messages.length === 1) {

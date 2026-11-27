@@ -8,6 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { triggerLightHaptic } from '../../utils/haptics';
+import { useSingleFlight, LOCK_SAFETY_TIMEOUT_MS } from '../../utils/safeNavigation';
 
 export interface TactilePressableProps {
   onPress?: () => void;
@@ -22,6 +23,10 @@ export interface TactilePressableProps {
   hitSlop?: any;
   accessibilityLabel?: string;
   accessibilityRole?: any;
+  /** Guards onPress with a synchronous ref lock so rapid double-taps run once (default: true) */
+  singleFlight?: boolean;
+  /** Lock duration in ms for synchronous handlers (default: 600ms) */
+  lockMs?: number;
 }
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -47,9 +52,13 @@ export const TactilePressable: React.FC<TactilePressableProps> = ({
   hitSlop,
   accessibilityLabel,
   accessibilityRole,
+  singleFlight = true,
+  lockMs = LOCK_SAFETY_TIMEOUT_MS,
 }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const translateYAnim = useRef(new Animated.Value(0)).current;
+  const guardedPress = useSingleFlight(onPress, lockMs);
+  const effectiveOnPress = singleFlight ? guardedPress : onPress;
 
   const handlePressIn = (e: GestureResponderEvent) => {
     if (disabled) return;
@@ -99,7 +108,7 @@ export const TactilePressable: React.FC<TactilePressableProps> = ({
 
   return (
     <AnimatedPressable
-      onPress={onPress}
+      onPress={effectiveOnPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={disabled}

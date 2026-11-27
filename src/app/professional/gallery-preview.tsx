@@ -14,7 +14,8 @@ import {
   Share,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ArrowLeft, Play, Pause, Clock, Star } from 'lucide-react-native';
 import { ShareIcon } from '../../components/ShareIcon';
 import { SafeImage } from '../../components/ui/SafeImage';
@@ -31,7 +32,7 @@ const ALL_SERVICE_IMAGES = [
 ];
 
 export default function GalleryPreviewScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -155,10 +156,10 @@ export default function GalleryPreviewScreen() {
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => {
-            if (router.canGoBack()) {
-              router.back();
+            if (safeRouter.canGoBack()) {
+              safeRouter.back();
             } else {
-              router.replace('/(tabs)' as any);
+              safeRouter.replace('/(tabs)' as any);
             }
           }}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -310,7 +311,7 @@ export default function GalleryPreviewScreen() {
             style={[styles.bottomMediaCard, { width: viewerWidth }]}
             activeOpacity={0.9}
             onPress={() => {
-              router.push({
+              safeRouter.push({
                 pathname: '/professional/style-details',
                 params: {
                   name: currentItemTitle,

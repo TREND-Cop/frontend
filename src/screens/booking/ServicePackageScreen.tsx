@@ -16,7 +16,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ArrowLeft, Check, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { ShareIcon } from '../../components/ShareIcon';
 import { bookingStore } from '../../utils/bookingStore';
@@ -27,7 +27,7 @@ import { typography } from '../../constants/theme';
 import { shareStore } from '../../utils/shareStore';
 
 export const ServicePackageScreen = ({ navigation }: { navigation?: any }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
 
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(
@@ -51,11 +51,11 @@ export const ServicePackageScreen = ({ navigation }: { navigation?: any }) => {
 
   const handleGoBack = () => {
     if (navigation?.canGoBack && navigation.canGoBack()) {
-      navigation.goBack();
-    } else if (router.canGoBack()) {
-      router.back();
+      safeRouter.back();
+    } else if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/booking-review');
+      safeRouter.replace('/booking-review');
     }
   };
 
@@ -70,7 +70,7 @@ export const ServicePackageScreen = ({ navigation }: { navigation?: any }) => {
 
   const handleTogglePackage = (pkg: PackageItem) => {
     bookingStore.setSelectedPackage(pkg.id);
-    router.replace({
+    safeRouter.replace({
       pathname: '/booking-review',
       params: { scrollTo: 'package' },
     } as any);

@@ -9,6 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import Svg, { Path, Rect, Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
+import { useSingleFlight } from '../utils/safeNavigation';
 
 export interface CancelAppointmentWarningModalProps {
   visible: boolean;
@@ -18,6 +19,8 @@ export interface CancelAppointmentWarningModalProps {
   description?: string;
   confirmButtonText?: string;
   discardButtonText?: string;
+  step?: 1 | 2;
+  onProceedToStep2?: () => void;
 }
 
 /**
@@ -52,62 +55,92 @@ function AlertTriangleIcon({ size = 40 }: { size?: number }) {
 }
 
 /**
- * 1:1 Figma Cancel Appointment Warning Modal (342x232px)
- * Rendered when the provider taps "Cancel" on an appointment.
+ * 1:1 Figma Cancel Appointment Warning Modal
+ * Handles Step 1 (First Warning: "You will loose this customer if you cancel")
+ * and Step 2 (Confirmation Warning Popup with 40x40 alert icon: "Canceling this appointment, you may loose the client trust.")
  */
 export const CancelAppointmentWarningModal: React.FC<CancelAppointmentWarningModalProps> = ({
   visible,
   onDiscard,
   onConfirmCancel,
-  title = 'Cancel Appointment?',
-  description = 'Canceling this appointment, you may loose the client trust.',
-  confirmButtonText = 'Yes, Cancel it.',
-  discardButtonText = 'No, Don’t cancel',
+  title,
+  description,
+  confirmButtonText,
+  discardButtonText,
+  step = 1,
+  onProceedToStep2,
 }) => {
+  // Modal 1 vs Modal 2 copy based on 1:1 Figma CSS tokens
+  const currentTitle = title || (step === 1 ? 'Cancel Appointment' : 'Cancel Appointment?');
+  const currentDescription = description || (
+    step === 1
+      ? 'You will loose this customer if you cancel'
+      : 'Canceling this appointment, you may loose the client trust.'
+  );
+  const currentCancelText = confirmButtonText || 'Cancel';
+  const currentKeepText = discardButtonText || (step === 1 ? 'Keep' : 'Keep');
+
+  const handleCancelClick = useSingleFlight(() => {
+    if (!visible) return;
+    if (step === 1 && onProceedToStep2) {
+      onProceedToStep2();
+    } else {
+      onConfirmCancel();
+    }
+  });
+  const handleDiscardClick = useSingleFlight(() => {
+    if (!visible) return;
+    onDiscard();
+  });
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={onDiscard}
+      onRequestClose={handleDiscardClick}
       statusBarTranslucent
     >
-      <TouchableWithoutFeedback onPress={onDiscard}>
+      <TouchableWithoutFeedback onPress={handleDiscardClick}>
         <View style={styles.modalBackdrop}>
           <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-            <View style={styles.popUpCard}>
-              {/* ── Rectangle 300: 40x40px Warning Icon ── */}
-              <AlertTriangleIcon size={40} />
+            <View style={[styles.popUpCard, step === 1 && styles.popUpCardStep1]}>
+              {/* ── Rectangle 300: 40x40px Warning Icon (Shown in Step 2 per Figma) ── */}
+              {step === 2 && (
+                <View style={styles.iconContainer}>
+                  <AlertTriangleIcon size={40} />
+                </View>
+              )}
 
-              {/* ── Frame 1000006539: 310x144px ── */}
-              <View style={styles.contentFrame}>
-                {/* ── cancel description: 310x80px ── */}
-                <View style={styles.cancelDescription}>
-                  {/* Cancel Appointment? (16px 510/500) */}
-                  <Text style={styles.titleText}>{title}</Text>
+              {/* ── Content Container (1:1 Figma tokens) ── */}
+              <View style={[styles.contentFrame, step === 1 && styles.contentFrameStep1]}>
+                {/* ── cancel description ── */}
+                <View style={[styles.cancelDescription, step === 1 && styles.cancelDescriptionStep1]}>
+                  {/* Cancel Appointment / Cancel Appointment? (16px 510/500) */}
+                  <Text style={styles.titleText}>{currentTitle}</Text>
 
-                  {/* Canceling this appointment, you may loose the client trust. (14px 400) */}
-                  <Text style={styles.descriptionText}>{description}</Text>
+                  {/* Subtitle description (14px 400) */}
+                  <Text style={styles.descriptionText}>{currentDescription}</Text>
                 </View>
 
-                {/* ── action buttons: 310x40px ── */}
-                <View style={styles.actionButtonsRow}>
-                  {/* Left: Yes, Cancel it. (139x40px) */}
+                {/* ── action buttons: width 268px (Step 1) / 310px (Step 2), height 40px ── */}
+                <View style={[styles.actionButtonsRow, step === 1 && styles.actionButtonsRowStep1]}>
+                  {/* Left: Cancel button (red text) */}
                   <TouchableOpacity
-                    style={styles.confirmCancelButton}
+                    style={[styles.cancelButton, step === 1 && styles.cancelButtonStep1]}
                     activeOpacity={0.7}
-                    onPress={onConfirmCancel}
+                    onPress={handleCancelClick}
                   >
-                    <Text style={styles.confirmCancelButtonText}>{confirmButtonText}</Text>
+                    <Text style={styles.cancelButtonText}>{currentCancelText}</Text>
                   </TouchableOpacity>
 
-                  {/* Right: No, Don't cancel (151x40px) */}
+                  {/* Right: Keep / Book Now button (dark text) */}
                   <TouchableOpacity
-                    style={styles.discardCancelButton}
+                    style={[styles.keepButton, step === 1 && styles.keepButtonStep1]}
                     activeOpacity={0.7}
-                    onPress={onDiscard}
+                    onPress={handleDiscardClick}
                   >
-                    <Text style={styles.discardCancelButtonText}>{discardButtonText}</Text>
+                    <Text style={styles.keepButtonText}>{currentKeepText}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -211,6 +244,81 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  actionButtonsRowStep1: {
+    width: 268,
+    maxWidth: '100%',
+  },
+
+  /* Step 1 Sizing */
+  popUpCardStep1: {
+    width: 300,
+    height: 170,
+    padding: 16,
+    gap: 16,
+  },
+  contentFrameStep1: {
+    width: 268,
+    height: 138,
+    gap: 16,
+  },
+  cancelDescriptionStep1: {
+    width: 268,
+    height: 72,
+    gap: 8,
+  },
+  iconContainer: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  /* Buttons */
+  cancelButton: {
+    width: 145,
+    height: 40,
+    borderRadius: 24,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(192, 192, 204, 0.96)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelButtonStep1: {
+    width: 120,
+  },
+  cancelButtonText: {
+    fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.15,
+    color: 'rgba(204, 41, 41, 0.9)',
+    includeFontPadding: false,
+  },
+
+  keepButton: {
+    width: 145,
+    height: 40,
+    borderRadius: 24,
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
+    borderWidth: 1,
+    borderColor: 'rgba(192, 192, 204, 0.96)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  keepButtonStep1: {
+    width: 120,
+  },
+  keepButtonText: {
+    fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',
+    fontWeight: '500',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.15,
+    color: 'rgba(0, 8, 20, 0.96)',
+    includeFontPadding: false,
   },
 
   /* Filled action Button (Left - Cancel: 139x40px, 1:1 Figma) */

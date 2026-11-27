@@ -20,10 +20,12 @@ import {
   useRevenueServices,
   useRevenueByService,
 } from '../../../api/statsApi';
+import { useStaffStatistics } from '../../../context/StaffStatisticsContext';
 import { formatNaira } from '../../../utils/statsFormatters';
 
 interface RevenueTabProps {
   onOpenInfoModal: () => void;
+  isStaff?: boolean;
 }
 
 const FONT_HEADER = Platform.select({
@@ -90,16 +92,21 @@ function PlusIcon({
   );
 }
 
-export const RevenueTab: React.FC<RevenueTabProps> = ({ onOpenInfoModal }) => {
+export const RevenueTab: React.FC<RevenueTabProps> = ({ onOpenInfoModal, isStaff = false }) => {
   // Periods per section
   const { period: totalPeriod } = useStatsPeriod('revenue.total');
   const { period: servicePeriod } = useStatsPeriod('revenue.service');
 
-  // Total income data hook
-  const totalStats = useRevenueStats(totalPeriod);
+  // Owner hooks
+  const ownerTotalStats = useRevenueStats(totalPeriod);
+  const ownerServices = useRevenueServices();
 
-  // Services list hook
-  const services = useRevenueServices();
+  // Staff hook
+  const staffStats = useStaffStatistics();
+
+  const totalStats = isStaff ? staffStats.getStaffRevenue(totalPeriod) : ownerTotalStats;
+  const services = isStaff ? staffStats.getStaffServices() : ownerServices;
+
   const [selectedServiceId, setSelectedServiceId] = useState<string>(
     services.length > 0 ? services[0].id : ''
   );
@@ -111,8 +118,11 @@ export const RevenueTab: React.FC<RevenueTabProps> = ({ onOpenInfoModal }) => {
     }
   }, [services, selectedServiceId]);
 
-  // Service revenue data hook
-  const serviceStats = useRevenueByService(selectedServiceId, servicePeriod);
+  // Service revenue data
+  const ownerServiceStats = useRevenueByService(selectedServiceId, servicePeriod);
+  const serviceStats = isStaff
+    ? staffStats.getStaffServiceRevenue(selectedServiceId, servicePeriod)
+    : ownerServiceStats;
 
   // Selection states for both charts
   const [selectedTotalKey, setSelectedTotalKey] = useState<string>('');

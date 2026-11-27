@@ -1,5 +1,6 @@
 import React from 'react';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { TouchableOpacity, Platform } from 'react-native';
 import { ArrowLeft } from 'lucide-react-native';
 import { ShareIcon } from '../../components/ShareIcon';
@@ -9,7 +10,7 @@ import { shareStore } from '../../utils/shareStore';
 
 export default function NotificationDetailRoute() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   return (
     <>
@@ -25,10 +26,10 @@ export default function NotificationDetailRoute() {
           headerLeft: () => (
             <TouchableOpacity
               onPress={() => {
-                if (router.canGoBack()) {
-                  router.back();
+                if (safeRouter.canGoBack()) {
+                  safeRouter.back();
                 } else {
-                  router.replace('/notifications' as any);
+                  safeRouter.replace('/notifications' as any);
                 }
               }}
               activeOpacity={0.7}

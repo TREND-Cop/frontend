@@ -14,6 +14,7 @@ import Svg, { Path } from 'react-native-svg';
 import { TimeSegmentInput, TimeSegmentValue } from '../../TimeSegmentInput';
 import { parseTimeString } from '../../../utils/staffFormatters';
 import { triggerLightHaptic } from '../../../utils/haptics';
+import { useSingleFlight } from '../../../utils/safeNavigation';
 
 const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
 const FONT_REGULAR = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular';
@@ -126,21 +127,22 @@ export const StaffWorkHoursSheet: React.FC<StaffWorkHoursSheetProps> = ({
 
   const canApply = isValid && isChanged;
 
-  const handleApply = () => {
-    if (!canApply) return;
+  const handleApply = useSingleFlight(() => {
+    if (!visible || !canApply) return;
     triggerLightHaptic();
     Keyboard.dismiss();
     onApply({
       start: openingStr,
       end: closingStr,
     });
-  };
+  });
 
-  const handleClose = () => {
+  const handleClose = useSingleFlight(() => {
+    if (!visible) return;
     triggerLightHaptic();
     Keyboard.dismiss();
     onClose();
-  };
+  });
 
   return (
     <Modal
@@ -172,7 +174,7 @@ export const StaffWorkHoursSheet: React.FC<StaffWorkHoursSheetProps> = ({
                   maxHeight: Dimensions.get('window').height - keyboardHeight - (insets.top || 20),
                 }
               : null,
-            { paddingBottom: keyboardHeight > 0 ? 8 : Math.max(insets.bottom, 24) },
+            { paddingBottom: keyboardHeight > 0 ? 8 : insets.bottom + 16 },
           ]}
         >
           {/* ── Header (62px) ── */}

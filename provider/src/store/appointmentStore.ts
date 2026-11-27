@@ -1,4 +1,104 @@
 import { useEffect, useState } from 'react';
+import { trendApi, getAuthToken, extractArray } from '../api/trendApi';
+
+let hasHydratedBookings = false;
+
+export async function hydrateProviderBookingsFromApi(): Promise<void> {
+  if (hasHydratedBookings) return;
+  try {
+    const token = await getAuthToken();
+    if (!token) return;
+    hasHydratedBookings = true;
+    const res = await trendApi.bookings.list();
+    if (!res.ok || !res.data) return;
+    const rows = extractArray<any>(res.data, ['bookings', 'appointments']);
+    if (rows.length === 0) return;
+
+    const pending: AppointmentItem[] = [];
+    const awaiting: AwaitingAppointmentItem[] = [];
+    const ongoing: OngoingAppointmentItem[] = [];
+
+    rows.forEach((b: any) => {
+      const status = String(b.status || '').toLowerCase();
+      const id = String(b.id || `bk_${Date.now()}`);
+      const numericPrice = Number(b.total_price ?? b.price ?? 0);
+      const formattedPrice = `₦${numericPrice.toLocaleString()}`;
+      const baseFields = {
+        id,
+        title: b.service_name || b.service?.name || 'Service',
+        duration: b.duration ? `${b.duration}min` : '1hr',
+        rating: String(b.rating || '5.0'),
+        price: formattedPrice,
+        numericPrice,
+        image:
+          b.service_image ||
+          b.service?.images?.[0] ||
+          require('../../assets/images/appointments/hair_cut.jpg'),
+        clientName: b.client_name || b.client?.name || 'Client',
+        clientStatus: 'Verified Client',
+        specialist: b.staff_name || b.staff?.name || 'Specialist',
+        specialistRole: b.staff_title || b.staff?.title || 'Specialist',
+        staff: b.staff_name || b.staff?.name || 'Specialist',
+        customerType: 'verified' as const,
+        paymentMethod: (b.payment_method === 'cash' ? 'cash' : 'transfer') as 'cash' | 'transfer',
+        appointmentType: (b.appointment_type === 'home_service' ? 'home-service' : 'in-person') as
+          | 'in-person'
+          | 'home-service',
+        bookedPackage: 'basic' as const,
+      };
+
+      if (status === 'in_progress' || status === 'ongoing') {
+        ongoing.push({
+          ...baseFields,
+          status: 'in-progress',
+          statusText: 'Appointment In-Progress',
+          elapsedTime: '0:00:00',
+          appointmentDate: b.date || 'Today',
+          appointmentTime: b.start || 'Now',
+          note: b.notes || '',
+        });
+      } else if (status === 'awaiting_arrival' || status === 'upcoming' || status === 'accepted') {
+        awaiting.push({
+          ...baseFields,
+          status: 'awaiting',
+          statusText: 'Awaiting client arrival',
+          appointmentDate: b.date || 'Today',
+          appointmentTime: b.start || 'Now',
+          note: b.notes || '',
+        });
+      } else if (status === 'pending') {
+        pending.push({
+          ...baseFields,
+          countdown: '2:59',
+          statusText: 'Waiting for you to Accept',
+          date: b.date || '',
+          time: b.start || '',
+        });
+      }
+    });
+
+    if (pending.length > 0) {
+      appointmentsState = [...pending, ...appointmentsState.filter((a) => !pending.some((p) => p.id === a.id))];
+      notify();
+    }
+    if (awaiting.length > 0) {
+      awaitingAppointmentsState = [
+        ...awaiting,
+        ...awaitingAppointmentsState.filter((a) => !awaiting.some((p) => p.id === a.id)),
+      ];
+      notifyAwaiting();
+    }
+    if (ongoing.length > 0) {
+      ongoingAppointmentsState = [
+        ...ongoing,
+        ...ongoingAppointmentsState.filter((a) => !ongoing.some((p) => p.id === a.id)),
+      ];
+      notifyOngoing();
+    }
+  } catch {
+    // Keep local store intact if offline
+  }
+}
 
 export interface AppointmentItem {
   id: string;
@@ -24,7 +124,6 @@ export interface AppointmentItem {
   bookedPackage?: 'basic' | 'premium' | 'exclusive';
   paymentType?: string;
   appointmentCost?: string;
-  trendPoints?: string;
   ticketNumber?: string;
   packagePrice?: string;
   total?: string;
@@ -42,7 +141,7 @@ export const DEFAULT_INITIAL_APPOINTMENTS: AppointmentItem[] = [
     statusText: 'Waiting for you to Accept',
     image: require('../../assets/images/appointments/hair_cut.jpg'),
     clientName: 'Ayobami Isaac',
-    clientStatus: 'Non Client',
+    clientStatus: 'New Client',
     gender: 'Male',
     membership: '5 Days ago',
     staff: 'Bisola Olarewaju',
@@ -68,7 +167,7 @@ export const DEFAULT_INITIAL_APPOINTMENTS: AppointmentItem[] = [
     clientName: 'Chukwuma Eze',
     clientStatus: 'New Client',
     gender: 'Male',
-    membership: 'Joined 3 mos ago',
+    membership: 'Joined 3 months ago',
     staff: 'Chioma Okeke',
     specialistRole: 'Esthetician',
     date: 'Today, 3:30 PM',
@@ -114,7 +213,7 @@ export const DEFAULT_INITIAL_APPOINTMENTS: AppointmentItem[] = [
     clientName: 'David Adeleke',
     clientStatus: 'Verified Client',
     gender: 'Male',
-    membership: 'Joined 6 mos ago',
+    membership: 'Joined 6 months ago',
     staff: 'Bisola Olarewaju',
     specialistRole: 'Master Stylist',
     date: 'Tomorrow, 10:00 AM',
@@ -206,7 +305,7 @@ export const DEFAULT_INITIAL_APPOINTMENTS: AppointmentItem[] = [
     clientName: 'Halima Yusuf',
     clientStatus: 'Subscriber Client',
     gender: 'Female',
-    membership: 'Joined 4 mos ago',
+    membership: 'Joined 4 months ago',
     staff: 'Chioma Okeke',
     specialistRole: 'Hair Specialist',
     date: 'Thu, 11 May, 10:00 AM',
@@ -229,7 +328,7 @@ export const DEFAULT_INITIAL_APPOINTMENTS: AppointmentItem[] = [
     clientName: 'Ngozi Okonjo',
     clientStatus: 'New Client',
     gender: 'Female',
-    membership: 'Joined 8 mos ago',
+    membership: 'Joined 8 months ago',
     staff: 'Ahsia Musa',
     specialistRole: 'Senior Nail Artist',
     date: 'Thu, 11 May, 01:30 PM',
@@ -252,7 +351,7 @@ export const DEFAULT_INITIAL_APPOINTMENTS: AppointmentItem[] = [
     clientName: 'Emeka Nnamdi',
     clientStatus: 'Verified Client',
     gender: 'Male',
-    membership: 'Joined 5 mos ago',
+    membership: 'Joined 5 months ago',
     staff: 'Adaeze Nwosu',
     specialistRole: 'Senior Pedicurist',
     date: 'Thu, 11 May, 03:00 PM',
@@ -286,6 +385,9 @@ export const appointmentStore = {
     appointmentsState = appointmentsState.filter((item) => item.id !== id);
     if (appointmentsState.length !== prevCount) {
       notify();
+      getAuthToken()
+        .then((token) => (token ? trendApi.bookings.cancel(id, 'Cancelled by business') : null))
+        .catch(() => {});
       return true;
     }
     return false;
@@ -366,7 +468,7 @@ export const DEFAULT_ONGOING_APPOINTMENTS: OngoingAppointmentItem[] = [
     clientName: 'Fabulous Jude',
     clientStatus: 'New Client',
     gender: 'Male',
-    membership: 'Joined 4 mos ago',
+    membership: 'Joined 4 months ago',
     specialist: 'Aisha Bello',
     specialistRole: 'Master Barber',
     staff: 'Aisha Bello',
@@ -467,6 +569,9 @@ export const ongoingAppointmentStore = {
     };
     ongoingAppointmentsState = [newItem, ...ongoingAppointmentsState.filter((a) => a.id !== newItem.id)];
     notifyOngoing();
+    getAuthToken()
+      .then((token) => (token ? trendApi.bookings.start(newItem.id) : null))
+      .catch(() => {});
   },
 };
 
@@ -474,6 +579,7 @@ export function useOngoingAppointments() {
   const [ongoingAppointments, setOngoingAppointments] = useState<OngoingAppointmentItem[]>(ongoingAppointmentsState);
 
   useEffect(() => {
+    hydrateProviderBookingsFromApi();
     const handleUpdate = () => {
       setOngoingAppointments([...ongoingAppointmentsState]);
     };
@@ -495,6 +601,7 @@ export function useAppointments() {
   const [appointments, setAppointments] = useState<AppointmentItem[]>(appointmentsState);
 
   useEffect(() => {
+    hydrateProviderBookingsFromApi();
     const handleUpdate = () => {
       setAppointments([...appointmentsState]);
     };
@@ -589,6 +696,9 @@ export const awaitingAppointmentStore = {
     awaitingAppointmentsState = awaitingAppointmentsState.filter((item) => item.id !== id);
     if (awaitingAppointmentsState.length !== prevCount) {
       notifyAwaiting();
+      getAuthToken()
+        .then((token) => (token ? trendApi.bookings.cancel(id, 'Cancelled by business') : null))
+        .catch(() => {});
       return true;
     }
     return false;
@@ -614,6 +724,7 @@ export function useAwaitingAppointments() {
   const [awaitingAppointments, setAwaitingAppointments] = useState<AwaitingAppointmentItem[]>(awaitingAppointmentsState);
 
   useEffect(() => {
+    hydrateProviderBookingsFromApi();
     const handleUpdate = () => {
       setAwaitingAppointments([...awaitingAppointmentsState]);
     };

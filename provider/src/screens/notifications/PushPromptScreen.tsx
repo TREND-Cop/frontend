@@ -8,7 +8,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
@@ -38,7 +38,7 @@ function NotificationBellIcon({ size = 24, color = '#FFFFFF' }: { size?: number;
 }
 
 export const PushPromptScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
 
   const handleEnablePush = () => {

@@ -382,10 +382,7 @@ export const ProviderDateFilterModal: React.FC<ProviderDateFilterModalProps> = (
                 style={[
                   styles.bottomActionContainer,
                   {
-                    paddingBottom:
-                      Platform.OS === 'android'
-                        ? Math.max(insets.bottom, 56)
-                        : Math.max(insets.bottom, 16),
+                    paddingBottom: insets.bottom + 16,
                   },
                 ]}
               >
@@ -504,10 +501,7 @@ export const ProviderDateFilterModal: React.FC<ProviderDateFilterModalProps> = (
                 style={[
                   styles.bottomActionContainer,
                   {
-                    paddingBottom:
-                      Platform.OS === 'android'
-                        ? Math.max(insets.bottom, 56)
-                        : Math.max(insets.bottom, 16),
+                    paddingBottom: insets.bottom + 16,
                   },
                 ]}
               >

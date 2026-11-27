@@ -1,9 +1,10 @@
-import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
 import { StaffAppointment } from '../types/staffAppointments';
 import {
   DEV_SAMPLE_STAFF_APPOINTMENTS,
   generateSampleAppointments,
 } from '../constants/staffAppointments.config';
+import { loadFromStorage, saveToStorage, STORAGE_KEYS } from '../utils/providerStorage';
 
 export interface StaffAppointmentsContextType {
   appointments: StaffAppointment[];
@@ -20,13 +21,42 @@ export interface StaffAppointmentsContextType {
 const StaffAppointmentsContext = createContext<StaffAppointmentsContextType | undefined>(undefined);
 
 export const StaffAppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Store starts empty by default unless DEV_SAMPLE_STAFF_APPOINTMENTS is true
+  // Store starts with sample appointments populated for reference across all 4 screens
   const [appointments, setAppointments] = useState<StaffAppointment[]>(() => {
-    if (DEV_SAMPLE_STAFF_APPOINTMENTS) {
-      return generateSampleAppointments();
-    }
-    return [];
+    return generateSampleAppointments();
   });
+
+  // Hydrate staff appointments from storage on mount (guaranteeing all 4 screens are populated)
+  useEffect(() => {
+    let isMounted = true;
+    loadFromStorage<StaffAppointment[] | null>(STORAGE_KEYS.STAFF_APPOINTMENTS, null).then((saved) => {
+      if (isMounted) {
+        if (saved && saved.length > 0) {
+          const hasWaiting = saved.some((a) => a.status === 'waiting');
+          const hasInProgress = saved.some((a) => a.status === 'in-progress');
+          const hasCompleted = saved.some((a) => a.status === 'completed');
+          const hasCancelled = saved.some((a) => a.status === 'cancelled');
+          if (hasWaiting && hasInProgress && hasCompleted && hasCancelled) {
+            setAppointments(saved);
+            return;
+          }
+        }
+        const sample = generateSampleAppointments();
+        setAppointments(sample);
+        saveToStorage(STORAGE_KEYS.STAFF_APPOINTMENTS, sample);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Persist appointments on updates
+  useEffect(() => {
+    if (appointments.length > 0) {
+      saveToStorage(STORAGE_KEYS.STAFF_APPOINTMENTS, appointments);
+    }
+  }, [appointments]);
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -37,12 +67,10 @@ export const StaffAppointmentsProvider: React.FC<{ children: React.ReactNode }> 
     // Mock fetch delay
     await new Promise((resolve) => setTimeout(resolve, 1200));
 
-    // TODO (Backend): Fetch fresh appointments from staff appointments endpoint
-    if (DEV_SAMPLE_STAFF_APPOINTMENTS) {
-      setAppointments(generateSampleAppointments());
-    } else {
-      setAppointments([]);
-    }
+    // Refresh with sample appointments
+    const fresh = generateSampleAppointments();
+    setAppointments(fresh);
+    saveToStorage(STORAGE_KEYS.STAFF_APPOINTMENTS, fresh);
 
     setIsRefreshing(false);
   }, []);

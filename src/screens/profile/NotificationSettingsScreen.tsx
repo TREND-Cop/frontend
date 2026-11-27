@@ -10,7 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ArrowLeft, Check } from 'lucide-react-native';
 import { useUserContext } from '../../store/UserContext';
 import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
@@ -83,7 +83,7 @@ const CustomToggleSwitch: React.FC<ToggleSwitchProps> = ({ value, onValueChange 
 };
 
 export const NotificationSettingsScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { profileData, setNotificationSettings } = useUserContext();
 
   // Notification toggle states initialized from persistent user context
@@ -102,10 +102,10 @@ export const NotificationSettingsScreen: React.FC = () => {
   const [showSuccessToast, setShowSuccessToast] = useState(false);
 
   const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
+    if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/profile' as any);
+      safeRouter.replace('/profile' as any);
     }
   };
 

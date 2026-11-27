@@ -20,9 +20,9 @@ export interface ReviewsContextType {
 const ReviewsContext = createContext<ReviewsContextType | undefined>(undefined);
 
 export const ReviewsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Starts with MOCK_SAMPLE_REVIEWS if DEV_SAMPLE_REVIEWS is true, otherwise empty []
+  // Seeds with MOCK_SAMPLE_REVIEWS so reviews are always populated
   const [reviews, setReviews] = useState<Review[]>(() => {
-    return DEV_SAMPLE_REVIEWS ? MOCK_SAMPLE_REVIEWS : [];
+    return MOCK_SAMPLE_REVIEWS && MOCK_SAMPLE_REVIEWS.length > 0 ? MOCK_SAMPLE_REVIEWS : [];
   });
   const [reportedReviews, setReportedReviews] = useState<ReportSubmission[]>([]);
 

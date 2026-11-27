@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { StaffMember } from '../../context/StaffContext';
+import { useSingleFlight } from '../../utils/safeNavigation';
 
 const FONT_MEDIUM = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium';
 const FONT_REGULAR = Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular';
@@ -50,6 +51,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
   skeleton = false,
   pulseOpacity,
 }) => {
+  const safePress = useSingleFlight(onPress);
   if (skeleton) {
     const AnimatedView = pulseOpacity ? Animated.View : View;
     const animStyle = pulseOpacity ? { opacity: pulseOpacity } : undefined;
@@ -90,7 +92,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
   return (
     <TouchableOpacity
       activeOpacity={0.8}
-      onPress={onPress}
+      onPress={safePress}
       style={styles.cardContainer}
       accessible
       accessibilityRole="button"
@@ -101,7 +103,7 @@ export const StaffCard: React.FC<StaffCardProps> = ({
       <View style={styles.avatarWrapper}>
         {photoUri ? (
           <Image
-            source={{ uri: photoUri }}
+            source={typeof photoUri === 'string' ? { uri: photoUri } : photoUri}
             style={styles.avatarImage}
             resizeMode="cover"
           />

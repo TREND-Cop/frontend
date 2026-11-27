@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   fieldLabel: {
-    ...typography.labelMed,
+    ...typography.bodyMed,
     color: '#000000',
     marginBottom: 8,
   },

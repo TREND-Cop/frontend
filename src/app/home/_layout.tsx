@@ -181,9 +181,15 @@ export default function TabsLayout() {
     >
       <Tabs.Screen
         name="index"
-        listeners={{
-          tabPress: () => tabSkeletonStore.triggerTab('home'),
-        }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            if (navigation.isFocused()) {
+              e.preventDefault();
+              return;
+            }
+            tabSkeletonStore.triggerTab('home');
+          },
+        })}
         options={{
           title: 'Home',
           tabBarIcon: ({ color, focused }) => (
@@ -200,9 +206,15 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="category"
-        listeners={{
-          tabPress: () => tabSkeletonStore.triggerTab('category'),
-        }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            if (navigation.isFocused()) {
+              e.preventDefault();
+              return;
+            }
+            tabSkeletonStore.triggerTab('category');
+          },
+        })}
         options={{
           title: 'Category',
           tabBarIcon: ({ color, focused }) => (
@@ -218,9 +230,15 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="explore"
-        listeners={{
-          tabPress: () => tabSkeletonStore.triggerTab('explore'),
-        }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            if (navigation.isFocused()) {
+              e.preventDefault();
+              return;
+            }
+            tabSkeletonStore.triggerTab('explore');
+          },
+        })}
         options={{
           title: 'Explore',
           tabBarIcon: ({ color, focused }) => (
@@ -236,9 +254,15 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="bookings"
-        listeners={{
-          tabPress: () => tabSkeletonStore.triggerTab('bookings'),
-        }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            if (navigation.isFocused()) {
+              e.preventDefault();
+              return;
+            }
+            tabSkeletonStore.triggerTab('bookings');
+          },
+        })}
         options={{
           title: 'Bookings',
           tabBarIcon: ({ color, focused }) => (
@@ -254,9 +278,15 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="messages"
-        listeners={{
-          tabPress: () => tabSkeletonStore.triggerTab('messages'),
-        }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            if (navigation.isFocused()) {
+              e.preventDefault();
+              return;
+            }
+            tabSkeletonStore.triggerTab('messages');
+          },
+        })}
         options={{
           ...(profileData.isLoggedIn ? {} : { href: null }),
           title: 'Message',

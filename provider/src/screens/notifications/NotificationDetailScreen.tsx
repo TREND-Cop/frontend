@@ -11,7 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import { useNotifications, NotificationItem } from '../../context/NotificationsContext';
@@ -117,7 +117,7 @@ interface NotificationDetailScreenProps {
 }
 
 export const NotificationDetailScreen: React.FC<NotificationDetailScreenProps> = ({ id }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { notifications, markAsRead, approveNotification, declineNotification } = useNotifications();
 
@@ -178,7 +178,7 @@ export const NotificationDetailScreen: React.FC<NotificationDetailScreenProps> =
         setIsApproving(false);
         // Auto-redirect to inbox per user clarification
         setTimeout(() => {
-          router.back();
+          safeRouter.back();
         }, APPROVE_REDIRECT_DELAY_MS);
       }, 600);
     });
@@ -221,14 +221,14 @@ export const NotificationDetailScreen: React.FC<NotificationDetailScreenProps> =
       // Wait a moment then redirect to inbox
       setTimeout(() => {
         setIsDeleting(false);
-        router.back();
+        safeRouter.back();
       }, DECLINE_REDIRECT_DELAY_MS);
     });
   };
 
   const handleOpenViewer = (initialIndex: number) => {
     if (!item) return;
-    router.push({
+    safeRouter.push({
       pathname: `/notification-viewer/${item.id}`,
       params: { index: initialIndex.toString() },
     } as any);
@@ -238,7 +238,7 @@ export const NotificationDetailScreen: React.FC<NotificationDetailScreenProps> =
     return (
       <SafeAreaView edges={['top']} style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity activeOpacity={0.7} onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity activeOpacity={0.7} onPress={() => safeRouter.back()} style={styles.backButton}>
             <ArrowLeftIcon size={24} color="#000814" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Notification</Text>
@@ -261,7 +261,7 @@ export const NotificationDetailScreen: React.FC<NotificationDetailScreenProps> =
       <View style={styles.header}>
         <TouchableOpacity
           activeOpacity={0.7}
-          onPress={() => router.back()}
+          onPress={() => safeRouter.back()}
           style={styles.backButton}
           accessibilityLabel="Go back"
         >
@@ -381,7 +381,7 @@ export const NotificationDetailScreen: React.FC<NotificationDetailScreenProps> =
 
       {/* ── Fixed Bottom Bar for Media Approval (Frame 1000006530) ── */}
       {showBottomBar && (
-        <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }]}>
           {/* Decline Upload (Light red pill button) */}
           <TouchableOpacity
             activeOpacity={0.8}

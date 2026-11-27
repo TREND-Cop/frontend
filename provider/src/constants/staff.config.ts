@@ -25,6 +25,9 @@ const SAMPLE_PORTFOLIO_2 = require('../../assets/images/portfolio/staff_portfoli
 const SAMPLE_PORTFOLIO_3 = require('../../assets/images/portfolio/staff_portfolio_3.png');
 const SAMPLE_PORTFOLIO_4 = require('../../assets/images/portfolio/staff_portfolio_4.png');
 
+const ANNABELLE_HEADSHOT = require('../../assets/images/staff/annabelle_gideon.png');
+const UDOKA_HEADSHOT = require('../../assets/images/profile/gavin_nwosis_avatar.png');
+
 /**
  * Design sample staff data from Figma frames:
  * - staff_1: Unverified member (matches D1: banner, 'Not Verified', 4 portfolio photos with 1st 'New' tag, matches P2-P4)
@@ -34,8 +37,8 @@ export const MOCK_SAMPLE_STAFF: StaffMember[] = [
   {
     id: 'staff_1',
     name: 'Annabelle Gideon',
-    photoUri: null,
-    avatarUri: null,
+    photoUri: ANNABELLE_HEADSHOT as any,
+    avatarUri: ANNABELLE_HEADSHOT as any,
     roles: ['Nail Artist', 'Barber'],
     role: 'Nail Artist',
     experienceYears: 5,
@@ -55,8 +58,8 @@ export const MOCK_SAMPLE_STAFF: StaffMember[] = [
   {
     id: 'staff_2',
     name: 'Udoka Oyemechi',
-    photoUri: null,
-    avatarUri: null,
+    photoUri: UDOKA_HEADSHOT as any,
+    avatarUri: UDOKA_HEADSHOT as any,
     roles: ['Nail Artist'],
     role: 'Nail Artist',
     experienceYears: 3,
@@ -64,7 +67,23 @@ export const MOCK_SAMPLE_STAFF: StaffMember[] = [
     workHours: { start: '8:00am', end: '6:00pm' },
     breakHours: null,
     workDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
-    loginCode: '5678',
+    loginCode: '1234',
+    isVerified: true,
+    portfolio: [],
+  },
+  {
+    id: 'staff_3',
+    name: 'Godwill Thomas',
+    photoUri: require('../../assets/images/profile/godwin_profile_avatar.png'),
+    avatarUri: require('../../assets/images/profile/godwin_profile_avatar.png'),
+    roles: ['Nail Specialist', 'Barber'],
+    role: 'Nail Specialist',
+    experienceYears: 4,
+    yearsExperience: 4,
+    workHours: { start: '8:00am', end: '9:00pm' },
+    breakHours: null,
+    workDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+    loginCode: '1234',
     isVerified: true,
     portfolio: [],
   },

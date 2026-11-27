@@ -8,10 +8,12 @@ import {
   StyleProp,
 } from 'react-native';
 import { TutorialTarget } from './tutorial/TutorialTarget';
+import { StaffTutorialTarget } from './staff/tutorial/StaffTutorialTarget';
 import { TactilePressable } from './ui/TactilePressable';
 
 export interface DashboardCardProps {
   targetId?: string;
+  staffTargetId?: string;
   title: string;
   cardHeight?: 120 | 136;
   count?: number | string | null;
@@ -23,6 +25,7 @@ export interface DashboardCardProps {
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   variant?: 'white' | 'grey';
+  titleNumberOfLines?: number;
 }
 
 /**
@@ -36,6 +39,7 @@ export interface DashboardCardProps {
  */
 export const DashboardCard: React.FC<DashboardCardProps> = ({
   targetId,
+  staffTargetId,
   title,
   cardHeight = 136,
   count,
@@ -47,6 +51,7 @@ export const DashboardCard: React.FC<DashboardCardProps> = ({
   disabled = false,
   style,
   variant = 'white',
+  titleNumberOfLines = 2,
 }) => {
   const is120 = cardHeight === 120;
 
@@ -64,7 +69,9 @@ export const DashboardCard: React.FC<DashboardCardProps> = ({
       <View style={is120 ? styles.cardHeaderRow : styles.cardHeaderRowMultiLine}>
         <Text
           style={is120 ? styles.cardTitleText : styles.cardTitleTextMultiLine}
-          numberOfLines={is120 ? 1 : 2}
+          numberOfLines={titleNumberOfLines}
+          adjustsFontSizeToFit
+          minimumFontScale={0.8}
         >
           {title}
         </Text>
@@ -105,6 +112,18 @@ export const DashboardCard: React.FC<DashboardCardProps> = ({
     </TactilePressable>
   );
 
+  if (staffTargetId) {
+    return (
+      <StaffTutorialTarget
+        id={staffTargetId}
+        borderRadius={24}
+        style={is120 ? styles.cardWrapper120 : styles.cardWrapper136}
+      >
+        {cardContent}
+      </StaffTutorialTarget>
+    );
+  }
+
   if (targetId) {
     return (
       <TutorialTarget
@@ -129,17 +148,17 @@ export default DashboardCard;
 const styles = StyleSheet.create({
   cardWrapper120: {
     position: 'relative',
-    width: 167,
+    width: '48%',
     height: 120,
   },
   cardWrapper136: {
     position: 'relative',
-    width: 167,
+    width: '48%',
     height: 136,
   },
   card120: {
     position: 'relative',
-    width: 167,
+    width: '100%',
     height: 120,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -154,7 +173,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   card136: {
-    width: 167,
+    width: '100%',
     height: 136,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -173,13 +192,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(192, 192, 204, 0.96)',
   },
   cardHeaderRow: {
-    width: 135,
-    height: 24,
-    justifyContent: 'center',
+    width: '100%',
+    minHeight: 24,
+    maxHeight: 48,
+    justifyContent: 'flex-start',
   },
   cardHeaderRowMultiLine: {
-    width: 135,
-    height: 48,
+    width: '100%',
+    minHeight: 48,
     justifyContent: 'flex-start',
   },
   cardTitleText: {

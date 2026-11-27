@@ -1,30 +1,34 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import * as ImagePicker from 'expo-image-picker';
+import { StatusBar } from 'expo-status-bar';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ScrollView,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
-  Image,
-  Keyboard,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import Svg, { Path } from 'react-native-svg';
-import * as ImagePicker from 'expo-image-picker';
-import { StepProgressHeader } from '../../components/StepProgressHeader';
-import { OperatingDaysBottomSheet } from '../../components/OperatingDaysBottomSheet';
-import { TimeSegmentInput, TimeSegmentValue } from '../../components/TimeSegmentInput';
-import { ProviderPhotoUploadSheet } from '../../components/ProviderPhotoUploadSheet';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { AmenitiesBottomSheet } from '../../components/AmenitiesBottomSheet';
+import { ImageUploadGrid } from '../../components/ImageUploadGrid';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
-import { DashedPhotoSlot } from '../../components/wizard/DashedPhotoSlot';
+import { OperatingDaysBottomSheet } from '../../components/OperatingDaysBottomSheet';
+import { ProviderPhotoUploadSheet } from '../../components/ProviderPhotoUploadSheet';
+import { StepProgressHeader } from '../../components/StepProgressHeader';
+import { TimeSegmentInput, TimeSegmentValue } from '../../components/TimeSegmentInput';
 import { useProviderOnboarding } from '../../context/ProviderOnboardingContext';
 import { businessStore } from '../../store/businessStore';
+import { triggerLightHaptic } from '../../utils/haptics';
+import { useSafeRouter } from '../../utils/safeNavigation';
+import {
+  trendApi,
+  getPendingProviderAuthDraft,
+  clearPendingProviderAuthDraft,
+} from '../../api/trendApi';
 
 const ALL_WEEKDAYS = [
   'Monday',
@@ -38,7 +42,12 @@ const ALL_WEEKDAYS = [
 
 function parseDaysStringToList(daysStr: string): string[] {
   if (!daysStr) return [];
-  if (daysStr === 'Mondays & Sundays' || daysStr === 'Everyday') {
+  if (
+    daysStr === 'Mondays & Sundays' ||
+    daysStr === 'Everyday' ||
+    daysStr.includes('Monday, Tuesday, Wednesday, Thursday, Friday, Saturday and Sunday') ||
+    daysStr.includes('Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday')
+  ) {
     return [...ALL_WEEKDAYS];
   }
   if (daysStr.includes(' - ')) {
@@ -50,6 +59,7 @@ function parseDaysStringToList(daysStr: string): string[] {
     }
   }
   return daysStr
+    .replace(' and ', ', ')
     .split(',')
     .map((s) => s.trim())
     .filter((s) => ALL_WEEKDAYS.includes(s));
@@ -57,9 +67,10 @@ function parseDaysStringToList(daysStr: string): string[] {
 
 /**
  * Minimum salon photos required for onboarding.
- * Subtitle states: "You can add more photos anytime after creating your account."
+ * Strictly compulsory (minimum 3, up to 6 slots) per founder guidelines.
+ * Salons without photos cannot be discovered or booked by customers on Trend.
  */
-export const MIN_SALON_PHOTOS = 0;
+export const MIN_SALON_PHOTOS = 3;
 
 export interface OperatingPreset {
   id: string;
@@ -68,7 +79,7 @@ export interface OperatingPreset {
 
 // Presets from Figma
 export const OPERATING_DAYS_PRESETS: OperatingPreset[] = [
-  { id: 'mon_sun', label: 'Mondays & Sundays' },
+  { id: 'everyday', label: 'Monday, Tuesday, Wednesday, Thursday, Friday, Saturday and Sunday' },
   { id: 'mon_sat', label: 'Monday - Saturday' },
   { id: 'mon_fri', label: 'Monday - Friday' },
   { id: 'mon_wed', label: 'Monday - Wednesday' },
@@ -105,6 +116,28 @@ function ChevronDownIcon({ size = 24, color = 'rgba(0, 8, 20, 0.96)' }: { size?:
   );
 }
 
+// ── Warning Alert Triangle Icon (18x18) ──
+function AlertTriangleIcon({ size = 18, color = '#D97706' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 2L1 21h22L12 2z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M12 9v4"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <Circle cx="12" cy="17" r="1.2" fill={color} />
+    </Svg>
+  );
+}
+
 // ── 1:1 Vector camera-01 Icon inside photo slots (24x24) ──
 function CameraSlotIcon({ size = 24 }: { size?: number }) {
   return (
@@ -135,7 +168,7 @@ function CameraSlotIcon({ size = 24 }: { size?: number }) {
 }
 
 export const BusinessPhotosScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { salonDetails, setSalonDetails, ownerProfile, businessName, location } = useProviderOnboarding();
 
@@ -252,6 +285,9 @@ export const BusinessPhotosScreen: React.FC = () => {
         // Update context
         const nonNullPhotos = updated.filter(Boolean) as string[];
         setSalonDetails({ photos: nonNullPhotos });
+        if (nonNullPhotos.length >= MIN_SALON_PHOTOS) {
+          setErrors((prev) => ({ ...prev, photos: undefined }));
+        }
       }
     } catch (e) {
       // Handled safely
@@ -283,6 +319,9 @@ export const BusinessPhotosScreen: React.FC = () => {
         // Update context
         const nonNullPhotos = updated.filter(Boolean) as string[];
         setSalonDetails({ photos: nonNullPhotos });
+        if (nonNullPhotos.length >= MIN_SALON_PHOTOS) {
+          setErrors((prev) => ({ ...prev, photos: undefined }));
+        }
       }
     } catch (e) {
       // Handled safely
@@ -311,13 +350,23 @@ export const BusinessPhotosScreen: React.FC = () => {
     return `${h}:${m} ${p}`;
   };
 
+  // Validation state: form is complete when minimum photos (>= 3), operating days, opening time, closing time, and amenities are all set
+  const filledPhotosCount = photos.filter(Boolean).length;
+  const isPhotosValid = filledPhotosCount >= MIN_SALON_PHOTOS;
+  const isFormValid =
+    isPhotosValid &&
+    Boolean(operatingDays && operatingDays.trim()) &&
+    Boolean(openingTime && openingTime.hour !== null) &&
+    Boolean(closingTime && closingTime.hour !== null) &&
+    Boolean(amenities && amenities.trim());
+
   // ── Submit / Next Handler ──
   const handleNextPress = async () => {
     const newErrors: typeof errors = {};
     const filledPhotos = photos.filter(Boolean) as string[];
 
     if (filledPhotos.length < MIN_SALON_PHOTOS) {
-      newErrors.photos = `Please upload at least ${MIN_SALON_PHOTOS} photo`;
+      newErrors.photos = `Please upload at least ${MIN_SALON_PHOTOS} photos of your salon (interior and exterior) to proceed`;
     }
 
     // Validation on Next: both times must be set (an hour entered)
@@ -330,11 +379,16 @@ export const BusinessPhotosScreen: React.FC = () => {
     }
 
     if (Object.keys(newErrors).length > 0) {
+      triggerLightHaptic();
       setErrors(newErrors);
+      // Auto-scroll back up smoothly if photos are missing so the warning & slots are prominent
+      if (newErrors.photos) {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      }
       return;
     }
 
-    const finalDays = operatingDays || 'Mondays & Sundays';
+    const finalDays = operatingDays || 'Monday, Tuesday, Wednesday, Thursday, Friday, Saturday and Sunday';
     const finalOpen = formatTimeSegment(openingTime, '0:00 am');
     const finalClose = formatTimeSegment(closingTime, '0:00 pm');
     const finalHours = `${finalOpen} - ${finalClose}`;
@@ -360,12 +414,90 @@ export const BusinessPhotosScreen: React.FC = () => {
       gender: location.gender || 'Unisex',
     });
 
+    // Register business owner account & salon profile with live Trend backend
+    try {
+      const draft = getPendingProviderAuthDraft();
+      const rawPhone = (
+        draft.phone ||
+        `${ownerProfile.countryCode || '+234'}${ownerProfile.phone || ''}`
+      ).replace(/\s+/g, '');
+
+      if (draft.password && rawPhone) {
+        const regRes = await trendApi.auth.register({
+          role: 'business',
+          name: ownerProfile.fullName || businessName || 'Business Owner',
+          phone: rawPhone,
+          email: (ownerProfile as any).email || undefined,
+          password: draft.password,
+        });
+
+        if (regRes.ok) {
+          clearPendingProviderAuthDraft();
+          const to24h = (t: TimeSegmentValue | null, fallback: string) => {
+            if (!t || t.hour === null) return fallback;
+            let h = t.hour;
+            if (t.period === 'pm' && h < 12) h += 12;
+            if (t.period === 'am' && h === 12) h = 0;
+            return `${String(h).padStart(2, '0')}:${String(t.minute ?? 0).padStart(2, '0')}`;
+          };
+          const open24 = to24h(openingTime, '09:00');
+          const close24 = to24h(closingTime, '18:00');
+          const dayMap: Record<string, string> = {
+            Monday: 'mon',
+            Tuesday: 'tue',
+            Wednesday: 'wed',
+            Thursday: 'thu',
+            Friday: 'fri',
+            Saturday: 'sat',
+            Sunday: 'sun',
+          };
+          const hours: Record<string, [string, string]> = {};
+          const activeDays = operatingDaysList.length > 0 ? operatingDaysList : ALL_WEEKDAYS;
+          activeDays.forEach((d) => {
+            const key = dayMap[d];
+            if (key) hours[key] = [open24, close24];
+          });
+
+          const uploadedSalonPhotos: string[] = [];
+          for (let i = 0; i < filledPhotos.length; i++) {
+            const up = await trendApi.uploads.uploadMedia(
+              filledPhotos[i],
+              `salon_${i + 1}.jpg`,
+              'image/jpeg',
+              'business'
+            );
+            const url = up.data?.url || up.data?.secure_url;
+            if (up.ok && url) uploadedSalonPhotos.push(url);
+          }
+
+          await trendApi.business.register({
+            name: businessName || 'Luminous Lux',
+            category: 'Beauty & Grooming',
+            description: amenities || '',
+            address: location.address || '',
+            city: location.state || location.country || '',
+            phone: rawPhone,
+            photos: uploadedSalonPhotos,
+            amenities: amenities || '',
+            gender: location.gender || 'Unisex',
+            hours,
+          });
+        }
+      }
+
+      if (rawPhone) {
+        trendApi.auth.otpSend({ target: rawPhone }).catch(() => {});
+      }
+    } catch {
+      // Keep onboarding navigable if offline
+    }
+
     // Navigate to Number Verification (OTP)
-    router.push('/business-otp' as any);
+    safeRouter.push('/business-otp' as any);
   };
 
   const handleBackPress = () => {
-    router.back();
+    safeRouter.back();
   };
 
   return (
@@ -409,41 +541,87 @@ export const BusinessPhotosScreen: React.FC = () => {
             </Text>
           </View>
 
-          {/* ── Photo Slots Grid (top: 301px, 358px x 224px, 103.33px cells, colGap: 24px, rowGap: 16.67px) ── */}
-          <View style={styles.gridContainer}>
-            <View style={styles.gridRow}>
-              {[0, 1, 2].map((slotIdx) => {
-                const uri = photos[slotIdx];
-                return (
-                  <DashedPhotoSlot
-                    key={slotIdx}
-                    imageUri={uri}
-                    showRemoveBadge={true}
-                    onPress={() => handleSlotPress(slotIdx)}
-                    onRemove={() => handleRemovePhoto(slotIdx)}
-                    accessibilityLabel={uri ? `Replace photo ${slotIdx + 1}` : `Upload photo slot ${slotIdx + 1}`}
-                  />
-                );
-              })}
+          {/* ── Salon Photos Notice Banner ── */}
+          <View
+            style={[
+              styles.warningBanner,
+              errors.photos ? styles.warningBannerError : null,
+            ]}
+          >
+            <View style={styles.warningHeader}>
+              <View style={styles.warningTitleRow}>
+                <AlertTriangleIcon
+                  size={18}
+                  color={errors.photos ? '#DC2626' : '#D97706'}
+                />
+                <Text
+                  style={[
+                    styles.warningTitle,
+                    errors.photos ? styles.warningTitleError : null,
+                  ]}
+                  numberOfLines={1}
+                >
+                  Minimum 3 Photos
+                </Text>
+              </View>
+              <View
+                style={[
+                  styles.warningBadge,
+                  filledPhotosCount >= MIN_SALON_PHOTOS
+                    ? styles.warningBadgeSuccess
+                    : null,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.warningBadgeText,
+                    filledPhotosCount >= MIN_SALON_PHOTOS
+                      ? styles.warningBadgeTextSuccess
+                      : null,
+                  ]}
+                >
+                  {filledPhotosCount >= MIN_SALON_PHOTOS
+                    ? `✓ ${filledPhotosCount} added`
+                    : `${filledPhotosCount} / ${MIN_SALON_PHOTOS} required`}
+                </Text>
+              </View>
             </View>
-
-            <View style={styles.gridRow}>
-              {[3, 4, 5].map((slotIdx) => {
-                const uri = photos[slotIdx];
-                return (
-                  <DashedPhotoSlot
-                    key={slotIdx}
-                    imageUri={uri}
-                    showRemoveBadge={true}
-                    onPress={() => handleSlotPress(slotIdx)}
-                    onRemove={() => handleRemovePhoto(slotIdx)}
-                    accessibilityLabel={uri ? `Replace photo ${slotIdx + 1}` : `Upload photo slot ${slotIdx + 1}`}
-                  />
-                );
-              })}
-            </View>
+            <Text
+              style={[
+                styles.warningBody,
+                errors.photos ? styles.warningBodyError : null,
+              ]}
+            >
+              Upload at least 3 photos of your salon’s interior and exterior to continue. Adding photos helps clients discover your salon on trend.
+            </Text>
           </View>
-          {errors.photos && <Text style={styles.errorText}>{errors.photos}</Text>}
+
+          {/* ── Photo Slots Grid (top: 301px, 358px x 224px, 103.33px cells, colGap: 24px, rowGap: 16.67px) ── */}
+          <ImageUploadGrid
+            images={photos}
+            maxImages={6}
+            columns={3}
+            columnGap={24}
+            rowGap={16.67}
+            borderRadius={24}
+            cameraSize={24}
+            isError={Boolean(errors.photos)}
+            showRemoveBadge={true}
+            onSlotPress={(slotIdx) => {
+              if (errors.photos) {
+                setErrors((prev) => ({ ...prev, photos: undefined }));
+              }
+              handleSlotPress(slotIdx);
+            }}
+            onRemoveImage={(slotIdx) => handleRemovePhoto(slotIdx)}
+            accessibilityLabelPrefix="Salon photo"
+            style={{ marginBottom: errors.photos ? 8 : 41 }}
+          />
+          {errors.photos && (
+            <Text style={[styles.errorText, { marginBottom: 32 }]}>
+              {errors.photos}
+            </Text>
+          )}
 
           {/* ── Frame 1000006621: Form Inputs Container (top: 566px, width: 358px, gap: 40px) ── */}
           <View
@@ -475,8 +653,9 @@ export const BusinessPhotosScreen: React.FC = () => {
                     !operatingDays ? styles.placeholderText : null,
                   ]}
                   numberOfLines={1}
+                  ellipsizeMode="tail"
                 >
-                  {operatingDays || 'Mondays & Sundays'}
+                  {operatingDays || 'Monday, Tuesday, Wednesday, Thursday, Friday, Saturday and Sunday'}
                 </Text>
                 <ChevronDownIcon size={24} />
               </TouchableOpacity>
@@ -569,11 +748,22 @@ export const BusinessPhotosScreen: React.FC = () => {
 
           {/* ── Next Button (358px x 48px, radius 24px) ── */}
           <TouchableOpacity
-            activeOpacity={0.85}
-            style={styles.nextButton}
+            activeOpacity={isFormValid ? 0.85 : 0.6}
+            style={[
+              styles.nextButton,
+              isFormValid ? styles.nextButtonActive : styles.nextButtonInactive,
+            ]}
             onPress={handleNextPress}
+            accessibilityLabel="Next"
           >
-            <Text style={styles.nextButtonText}>Next</Text>
+            <Text
+              style={[
+                styles.nextButtonText,
+                isFormValid ? styles.nextButtonTextActive : styles.nextButtonTextInactive,
+              ]}
+            >
+              Next
+            </Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -608,9 +798,9 @@ export const BusinessPhotosScreen: React.FC = () => {
         selectedAmenities={
           amenities
             ? amenities
-                .split(',')
-                .map((s) => s.trim())
-                .filter(Boolean)
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean)
             : []
         }
         onConfirm={(selected, custom) => {
@@ -646,12 +836,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
-  /* Title Section (sign up header: width: 358, height: 120, gap: 16, marginBottom: 40) */
+  /* Title Section (sign up header: width: 358, height: 120, gap: 16, marginBottom: 20) */
   titleSection: {
     width: '100%',
     maxWidth: 358,
     gap: 16,
-    marginBottom: 40,
+    marginBottom: 20,
   },
   screenTitle: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
@@ -671,6 +861,78 @@ const styles = StyleSheet.create({
     color: 'rgba(96, 96, 102, 0.96)',
     includeFontPadding: false,
   },
+
+  /* Warning Notice Banner */
+  warningBanner: {
+    width: '100%',
+    maxWidth: 358,
+    backgroundColor: '#FFFBEB',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    padding: 14,
+    marginBottom: 20,
+  },
+  warningBannerError: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FCA5A5',
+  },
+  warningHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  warningTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    marginRight: 8,
+  },
+  warningTitle: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_600SemiBold',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#92400E',
+    includeFontPadding: false,
+  },
+  warningTitleError: {
+    color: '#991B1B',
+  },
+  warningBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  warningBadgeSuccess: {
+    backgroundColor: '#ECFDF5',
+    borderColor: '#10B981',
+  },
+  warningBadgeText: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#B45309',
+    includeFontPadding: false,
+  },
+  warningBadgeTextSuccess: {
+    color: '#047857',
+  },
+  warningBody: {
+    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#78350F',
+    includeFontPadding: false,
+  },
+  warningBodyError: {
+    color: '#7F1D1D',
+  },
+
 
   /* Photo Slots Grid (image frames: 358x224, 103.33px cells, colGap: 24, rowGap: 16.67, marginBottom: 41) */
   gridContainer: {
@@ -835,21 +1097,26 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 
-  /* Filled Action Button (358x48, radius 24, padding 16) */
+  /* Action Button (358x48, radius 24, padding 16) */
   nextButton: {
     width: '100%',
     maxWidth: 358,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(0, 8, 20, 0.96)',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 40,
+  },
+  nextButtonActive: {
+    backgroundColor: 'rgba(0, 8, 20, 0.96)',
     shadowColor: 'rgba(133, 139, 148, 0.04)',
     shadowOffset: { width: 4, height: 10 },
     shadowOpacity: 0.04,
     shadowRadius: 24,
     elevation: 4,
-    marginBottom: 40,
+  },
+  nextButtonInactive: {
+    backgroundColor: 'rgba(247, 247, 247, 0.96)',
   },
   nextButtonText: {
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',
@@ -857,7 +1124,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     letterSpacing: 0.15,
-    color: '#FFFFFF',
     includeFontPadding: false,
+  },
+  nextButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  nextButtonTextInactive: {
+    color: 'rgba(192, 192, 204, 0.96)',
   },
 });

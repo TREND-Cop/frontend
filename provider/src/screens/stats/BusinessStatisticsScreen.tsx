@@ -9,7 +9,7 @@ import {
   BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 
 import {
@@ -31,6 +31,8 @@ import { ClientsTab } from './tabs/ClientsTab';
 import { AppointmentsTab } from './tabs/AppointmentsTab';
 import { StaffTab } from './tabs/StaffTab';
 import { MarketingTab } from './tabs/MarketingTab';
+import { markStaffSubScreenNavigation } from '../../hooks/useStaffDashboardSkeleton';
+import { STAFF_STATS_TABS, StaffStatsTabName } from '../../constants/staffStats.config';
 
 /**
  * Dev-only constant controlling whether the developer test playground
@@ -47,7 +49,7 @@ export const STATS_TABS = [
   'Marketing & Growth',
 ] as const;
 
-export type StatsTabName = (typeof STATS_TABS)[number];
+export type StatsTabName = (typeof STATS_TABS)[number] | StaffStatsTabName;
 
 const FONT_HEADER = Platform.select({
   ios: 'SF Pro',
@@ -101,8 +103,15 @@ const TAB_NEXT_PROMPTS: Record<StatsTabName, string> = {
 /**
  * Inner component driven by StatsContext
  */
-const BusinessStatisticsContent: React.FC = () => {
-  const router = useRouter();
+export interface BusinessStatisticsScreenProps {
+  isStaff?: boolean;
+}
+
+/**
+ * Inner component driven by StatsContext
+ */
+const BusinessStatisticsContent: React.FC<BusinessStatisticsScreenProps> = ({ isStaff = false }) => {
+  const safeRouter = useSafeRouter();
   const [activeTab, setActiveTab] = useState<StatsTabName>('Revenue');
   const [isInfoModalVisible, setIsInfoModalVisible] = useState(false);
 
@@ -123,13 +132,15 @@ const BusinessStatisticsContent: React.FC = () => {
 
   // Back button handler returning to dashboard
   const handleBack = useCallback(() => {
-    // TODO (Skeleton): Route through global dashboard-entry mechanism when skeleton prompt is implemented
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/dashboard' as any);
+    if (isStaff) {
+      markStaffSubScreenNavigation();
     }
-  }, [router]);
+    if (safeRouter.canGoBack()) {
+      safeRouter.back();
+    } else {
+      safeRouter.replace((isStaff ? '/(staff)/staff-home' : '/dashboard') as any);
+    }
+  }, [safeRouter, isStaff]);
 
   // Android hardware back button handler
   useEffect(() => {
@@ -176,11 +187,11 @@ const BusinessStatisticsContent: React.FC = () => {
         }
     : null;
 
-  const sectionKey = `${activeTab.toLowerCase().replace(/[^a-z0-9]/g, '_')}.main`;
+  const tabsToDisplay = isStaff ? STAFF_STATS_TABS : STATS_TABS;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      {/* ── 1. Page Header (Figma S1: height 64px, back button 48x48, title "Business Statistic") ── */}
+      {/* ── 1. Page Header (Figma S1: height 64px, back button 48x48, title "Personal Statistics" for staff, "Business Statistic" for owner) ── */}
       <View style={styles.header}>
         <TouchableOpacity
           activeOpacity={0.7}
@@ -188,26 +199,26 @@ const BusinessStatisticsContent: React.FC = () => {
           style={styles.backButton}
           accessible
           accessibilityRole="button"
-          accessibilityLabel="Go back to dashboard"
+          accessibilityLabel={isStaff ? 'Go back to staff home' : 'Go back to dashboard'}
         >
           <ArrowLeftIcon size={24} />
         </TouchableOpacity>
 
         <Text style={styles.headerTitle} numberOfLines={1}>
-          Business Statistic
+          {isStaff ? 'Personal Statistics' : 'Business Statistic'}
         </Text>
 
         {/* Dummy spacer to balance back button and center title */}
         <View style={styles.headerSpacer} pointerEvents="none" />
       </View>
 
-      {/* ── 2. Top Scrollable PillTabs (Frame 1000006418: Revenue, Clients, Appointments, Staff, Marketing & Growth) ── */}
+      {/* ── 2. Top Scrollable PillTabs (Staff: 3 tabs; Owner: 5 tabs) ── */}
       <View style={styles.tabsWrapper}>
         <PillTabs
-          tabs={STATS_TABS}
+          tabs={tabsToDisplay}
           activeTab={activeTab}
           onSelectTab={(tab) => setActiveTab(tab as StatsTabName)}
-          scrollable
+          scrollable={!isStaff}
         />
       </View>
 
@@ -218,21 +229,24 @@ const BusinessStatisticsContent: React.FC = () => {
         showsVerticalScrollIndicator={false}
       >
         {activeTab === 'Revenue' ? (
-          /* ── Revenue Tab Body (Prompt 2: Total income + Revenue per service) ── */
-          <RevenueTab onOpenInfoModal={() => setIsInfoModalVisible(true)} />
+          /* ── Revenue Tab Body (Total income + Revenue per service) ── */
+          <RevenueTab
+            onOpenInfoModal={() => setIsInfoModalVisible(true)}
+            isStaff={isStaff}
+          />
         ) : activeTab === 'Clients' ? (
-          /* ── Clients Tab Body (Prompt 3: Over time + Donut + Top clients) ── */
-          <ClientsTab />
+          /* ── Clients Tab Body (Over time + Donut + Top clients) ── */
+          <ClientsTab isStaff={isStaff} />
         ) : activeTab === 'Appointments' ? (
-          /* ── Appointments Tab Body (Prompt 4: Over time + Pie + Busiest times) ── */
-          <AppointmentsTab />
-        ) : activeTab === 'Staff' ? (
-          /* ── Staff Tab Body (Prompt 5: Staff count, list & 3 top lists) ── */
+          /* ── Appointments Tab Body (Over time + Pie + Busiest times) ── */
+          <AppointmentsTab isStaff={isStaff} />
+        ) : activeTab === 'Staff' && !isStaff ? (
+          /* ── Staff Tab Body (Owner only) ── */
           <StaffTab />
-        ) : (
-          /* ── Marketing & Growth Tab Body (Prompt 5: Client sources & progress bars) ── */
+        ) : !isStaff ? (
+          /* ── Marketing & Growth Tab Body (Owner only) ── */
           <MarketingTab />
-        )}
+        ) : null}
       </ScrollView>
 
       {/* ── 4. Shared DateFilterSheet (S3/S4) ── */}
@@ -248,8 +262,12 @@ const BusinessStatisticsContent: React.FC = () => {
       {/* ── 5. Total Revenue Info Modal (S5) ── */}
       <InfoModal
         visible={isInfoModalVisible}
-        title="Total Revenue"
-        description="Total Revenue shows the overall income your business generated from its services within a period of time, in other words how much money is coming into the business."
+        title={isStaff ? 'Revenue' : 'Total Revenue'}
+        description={
+          isStaff
+            ? 'Revenue shows the overall income you have generated for the business based on completed appointments.'
+            : 'Total Revenue shows the overall income your business generated from its services within a period of time, in other words how much money is coming into the business.'
+        }
         onClose={() => setIsInfoModalVisible(false)}
       />
 
@@ -262,10 +280,10 @@ const BusinessStatisticsContent: React.FC = () => {
 /**
  * Screen root exporting with StatsProvider
  */
-export const BusinessStatisticsScreen: React.FC = () => {
+export const BusinessStatisticsScreen: React.FC<BusinessStatisticsScreenProps> = (props) => {
   return (
     <StatsProvider>
-      <BusinessStatisticsContent />
+      <BusinessStatisticsContent {...props} />
     </StatsProvider>
   );
 };

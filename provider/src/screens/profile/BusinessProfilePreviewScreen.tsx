@@ -11,7 +11,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 import { useEditProfileDraft } from '../../context/EditProfileDraftContext';
 import { useProviderOnboarding } from '../../context/ProviderOnboardingContext';
@@ -273,7 +273,7 @@ function CameraPlaceholderIcon({ size = 24, color = 'rgba(96, 96, 102, 0.96)' }:
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function BusinessProfilePreviewScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { width: screenWidth } = useWindowDimensions();
 
   // Safely read draft working copy and diffs from context
@@ -385,7 +385,7 @@ export function BusinessProfilePreviewScreen() {
           <TouchableOpacity
             activeOpacity={0.7}
             style={styles.headerBackBtn}
-            onPress={() => router.back()}
+            onPress={() => safeRouter.back()}
             accessibilityRole="button"
             accessibilityLabel="Back to edit business profile"
           >
@@ -705,8 +705,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(235, 235, 245, 0.96)',
     justifyContent: 'center',
   },
   headerContent: {
@@ -872,8 +870,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 16,
     width: '100%',
-    flexWrap: 'wrap',
-    gap: 12,
   },
   infoItem: {
     flexDirection: 'row',

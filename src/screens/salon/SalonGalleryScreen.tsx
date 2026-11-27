@@ -10,7 +10,8 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ArrowLeft } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { ShareIcon } from '../../components/ShareIcon';
@@ -132,7 +133,7 @@ export const SALON_MASONRY_IMAGES = [
 
 export const SalonGalleryScreen = () => {
   const params = useLocalSearchParams();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
 
   const salonId = (params.salonId as string) || '1';
@@ -179,7 +180,7 @@ export const SalonGalleryScreen = () => {
       })),
       index
     );
-    router.push({
+    safeRouter.push({
       pathname: '/professional/gallery-preview',
       params: { index, initialIndex: index, source: 'salon', title: `${salon.name} Gallery` },
     } as any);
@@ -191,7 +192,7 @@ export const SalonGalleryScreen = () => {
       <View style={styles.headerRow}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => (router.canGoBack() ? router.back() : router.replace(`/salon/${salon.id}` as any))}
+          onPress={() => (safeRouter.canGoBack() ? safeRouter.back() : safeRouter.replace(`/salon/${salon.id}` as any))}
           activeOpacity={0.7}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >

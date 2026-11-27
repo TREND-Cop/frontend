@@ -14,12 +14,15 @@ import {
   KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { SafeImage } from '../../components/ui/SafeImage';
 import * as ImagePicker from 'expo-image-picker';
 import { typography } from '../../constants/theme';
 import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
+import { ConfettiBurst } from '../../components/ui/ConfettiBurst';
+import { trendApi, getAuthToken } from '../../api/trendApi';
 
 // ── Exact Figma Vector Icons ──
 
@@ -112,7 +115,7 @@ const SATISFYING_OPTIONS: SatisfyingOption[] = [
 ];
 
 export const CustomerReviewScreen = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const bottomInset = Platform.OS === 'android' ? Math.max(insets.bottom, 56) : Math.max(insets.bottom, 16);
   const params = useLocalSearchParams();
@@ -138,12 +141,13 @@ export const CustomerReviewScreen = () => {
   // 4. Satisfying Location Tags
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
-  // 5. Success Dialog Modal
+  // 5. Success Dialog Modal & Arrival Celebration Confetti
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [showConfetti, setShowConfetti] = useState<boolean>(() => params.celebrate !== '0');
 
   // ── Handlers ──
   const handleGoBack = () => {
-    router.replace('/home/bookings' as any);
+    safeRouter.replace('/home/bookings' as any);
   };
 
   const handleAddPhoto = async () => {
@@ -251,12 +255,37 @@ export const CustomerReviewScreen = () => {
       );
       return;
     }
+
+    const serviceId = String(params.serviceId || params.salonId || '');
+    const bookingId = String(params.bookingId || params.appointmentId || '');
+    const ratingValue = Math.max(1, Math.min(5, experienceRating || specialistRating || 5));
+    const combinedComment = [
+      experienceComment.trim(),
+      specialistComment.trim(),
+      selectedTags.length > 0 ? `Tags: ${selectedTags.join(', ')}` : '',
+    ]
+      .filter(Boolean)
+      .join(' — ');
+
+    if (serviceId && bookingId) {
+      getAuthToken()
+        .then((token) => {
+          if (!token) return null;
+          return trendApi.services.createReview(serviceId, {
+            booking_id: bookingId,
+            rating: ratingValue,
+            comment: combinedComment || 'Great experience',
+          });
+        })
+        .catch(() => {});
+    }
+
     setIsSuccessModalOpen(true);
   };
 
   const handleDismissSuccess = () => {
     setIsSuccessModalOpen(false);
-    router.replace('/home/bookings' as any);
+    safeRouter.replace('/home' as any);
   };
 
   // Experience level labels
@@ -614,6 +643,12 @@ export const CustomerReviewScreen = () => {
 
       <NativeDockSpacer />
 
+      <ConfettiBurst
+        visible={showConfetti && !isSuccessModalOpen}
+        durationMs={2000}
+        onAnimationEnd={() => setShowConfetti(false)}
+      />
+
       {/* ── Review Submitted Success Modal ── */}
       <Modal
         visible={isSuccessModalOpen}
@@ -637,7 +672,7 @@ export const CustomerReviewScreen = () => {
               activeOpacity={0.85}
               onPress={handleDismissSuccess}
             >
-              <Text style={styles.successDoneButtonText}>Back to Bookings</Text>
+              <Text style={styles.successDoneButtonText}>Back to Home</Text>
             </TouchableOpacity>
           </View>
         </View>

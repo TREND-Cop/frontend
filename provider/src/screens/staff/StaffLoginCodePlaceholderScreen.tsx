@@ -1,7 +1,8 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import React, { useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, BackHandler } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ArrowLeft02Icon } from '../../components/staff/StaffIcons';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 import { triggerLightHaptic } from '../../utils/haptics';
@@ -14,13 +15,22 @@ const FONT_BUTTON = Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium';
  * Placeholder for Staff Login Code (Not designed)
  */
 export const StaffLoginCodePlaceholderScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     triggerLightHaptic();
-    router.replace('/staffs' as any);
-  };
+    safeRouter.replace('/staffs' as any);
+  }, [safeRouter]);
+
+  useEffect(() => {
+    const onBackPress = () => {
+      handleBack();
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [handleBack]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

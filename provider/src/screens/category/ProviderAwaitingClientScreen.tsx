@@ -12,7 +12,7 @@ import {
   Share,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
@@ -122,7 +122,7 @@ function WalkingPersonIcon({ size = 16, color = 'rgba(248, 155, 24, 0.96)' }: { 
 }
 
 export default function ProviderAwaitingClientScreen() {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { awaitingAppointments, refreshAwaitingAppointments } = useAwaitingAppointments();
 
@@ -190,7 +190,7 @@ export default function ProviderAwaitingClientScreen() {
           <TouchableOpacity
             activeOpacity={0.7}
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => safeRouter.replace('/category')}
           >
             <ArrowLeft02Icon size={24} color="rgba(0, 8, 20, 0.96)" />
           </TouchableOpacity>
@@ -256,10 +256,7 @@ export default function ProviderAwaitingClientScreen() {
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingBottom:
-              (Platform.OS === 'android'
-                ? Math.max(insets.bottom, 56)
-                : Math.max(insets.bottom, 24)) + 40,
+            paddingBottom: insets.bottom + 40,
           },
         ]}
         showsVerticalScrollIndicator={false}
@@ -293,7 +290,7 @@ export default function ProviderAwaitingClientScreen() {
                 style={styles.topCard}
                 activeOpacity={0.85}
                 onPress={() => {
-                  router.push({
+                  safeRouter.push({
                     pathname: '/appointment/[id]',
                     params: {
                       id: item.id,

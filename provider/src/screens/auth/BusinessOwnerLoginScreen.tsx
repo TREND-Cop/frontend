@@ -12,15 +12,22 @@ import {
   FlatList,
   Pressable,
   Keyboard,
+  BackHandler,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path } from 'react-native-svg';
 import { Search, X, Check, Eye, EyeOff } from 'lucide-react-native';
 import { Country as CountryData } from 'country-state-city';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 import { DommyLoader } from '../../components/DommyLoader';
+import { trendApi } from '../../api/trendApi';
+import {
+  signInProviderWithGoogle,
+  consumeProviderGoogleRedirectResult,
+} from '../../api/firebaseAuth';
+import { businessStore } from '../../store/businessStore';
 
 // ── Google SVG Icon (24x24 Official Colors) ──
 const GoogleIcon = ({ size = 24 }: { size?: number }) => (
@@ -58,8 +65,18 @@ export interface BusinessOwnerLoginScreenProps {
 export const BusinessOwnerLoginScreen: React.FC<BusinessOwnerLoginScreenProps> = ({
   onNavigateSignUp,
 }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
+
+  // Hardware back press on login screen always navigates back cleanly to root onboarding screen
+  useEffect(() => {
+    const onBackPress = () => {
+      safeRouter.replace('/' as any);
+      return true;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => sub.remove();
+  }, [safeRouter]);
 
   // ── Form State ──
   const [identifier, setIdentifier] = useState('');
@@ -125,7 +142,7 @@ export const BusinessOwnerLoginScreen: React.FC<BusinessOwnerLoginScreenProps> =
     }
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setIdentifierTouched(true);
     setPasswordTouched(true);
 
@@ -140,10 +157,99 @@ export const BusinessOwnerLoginScreen: React.FC<BusinessOwnerLoginScreenProps> =
 
     // Trigger 1:1 Figma Dommy Loader Screen Overlay
     setIsLoading(true);
-    setTimeout(() => {
+    setIdentifierError(null);
+    setPasswordError(null);
+
+    const rawId = identifier.trim();
+    let res = await trendApi.auth.login({
+      identifier: rawId,
+      password,
+    });
+
+    if (!res.ok && res.status === 401 && /^\d+$/.test(rawId)) {
+      const withCode = `${selectedCountry.code}${rawId.replace(/^0/, '')}`;
+      res = await trendApi.auth.login({
+        identifier: withCode,
+        password,
+      });
+    }
+
+    if (!res.ok) {
       setIsLoading(false);
-      router.replace('/dashboard' as any);
-    }, 2000);
+      const errMsg = res.error || 'Incorrect business name or number';
+      if (errMsg.toLowerCase().includes('password') && !errMsg.toLowerCase().includes('credentials')) {
+        setPasswordError(errMsg);
+      } else {
+        setIdentifierError(errMsg);
+      }
+      return;
+    }
+
+    try {
+      const bizRes = await trendApi.business.getMe('business');
+      if (bizRes.ok && bizRes.data) {
+        const biz = bizRes.data.business || bizRes.data;
+        businessStore.updateProfile({
+          name: biz.name || undefined,
+          address: biz.address || undefined,
+        });
+      }
+    } catch {
+      // Non-fatal hydration error
+    }
+
+    setIsLoading(false);
+    safeRouter.resetRoot('/dashboard' as any);
+  };
+
+  const finishProviderGoogleAuth = useCallback(
+    async (res: Awaited<ReturnType<typeof signInProviderWithGoogle>>) => {
+      if (!res.ok) {
+        setIsLoading(false);
+        if (!res.cancelled && !res.redirecting && res.error) {
+          setIdentifierTouched(true);
+          setIdentifierError(res.error);
+        }
+        return;
+      }
+
+      let hasBusiness = false;
+      try {
+        const bizRes = await trendApi.business.getMe('business');
+        if (bizRes.ok && bizRes.data) {
+          hasBusiness = true;
+          const biz = bizRes.data.business || bizRes.data;
+          businessStore.updateProfile({
+            name: biz.name || undefined,
+            address: biz.address || undefined,
+          });
+        }
+      } catch {
+        // Non-fatal hydration error
+      }
+
+      setIsLoading(false);
+      if (res.created || !hasBusiness) {
+        safeRouter.push('/business-owner-profile' as any);
+      } else {
+        safeRouter.resetRoot('/dashboard' as any);
+      }
+    },
+    [safeRouter]
+  );
+
+  useEffect(() => {
+    consumeProviderGoogleRedirectResult().then((res) => {
+      if (res) finishProviderGoogleAuth(res);
+    });
+  }, [finishProviderGoogleAuth]);
+
+  const handleGoogleLogin = async () => {
+    setIdentifierError(null);
+    setPasswordError(null);
+    setIsLoading(true);
+    const res = await signInProviderWithGoogle();
+    await finishProviderGoogleAuth(res);
   };
 
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -332,7 +438,7 @@ export const BusinessOwnerLoginScreen: React.FC<BusinessOwnerLoginScreenProps> =
             <TouchableOpacity
               style={styles.socialButton}
               activeOpacity={0.8}
-              onPress={() => console.log('Google Sign In')}
+              onPress={handleGoogleLogin}
             >
               <GoogleIcon size={24} />
             </TouchableOpacity>
@@ -355,7 +461,7 @@ export const BusinessOwnerLoginScreen: React.FC<BusinessOwnerLoginScreenProps> =
                 if (onNavigateSignUp) {
                   onNavigateSignUp();
                 } else {
-                  router.push('/sign-up-business-owner' as any);
+                  safeRouter.push('/sign-up-business-owner' as any);
                 }
               }}
             >

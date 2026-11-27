@@ -8,6 +8,7 @@ import {
   Platform,
   Image,
 } from 'react-native';
+import { useSingleFlight } from '../../utils/safeNavigation';
 
 const WARNING_ICON = require('../../../assets/images/payout/warning_triangle.png');
 
@@ -38,19 +39,28 @@ export const RemoveStaffDialog: React.FC<RemoveStaffDialogProps> = ({
   onCancel,
   onConfirm,
 }) => {
+  const safeConfirm = useSingleFlight(() => {
+    if (!visible) return;
+    onConfirm();
+  });
+  const safeCancel = useSingleFlight(() => {
+    if (!visible) return;
+    onCancel();
+  });
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="fade"
       statusBarTranslucent
-      onRequestClose={onCancel}
+      onRequestClose={safeCancel}
     >
       <View style={styles.backdropOverlay}>
         <TouchableOpacity
           style={StyleSheet.absoluteFill}
           activeOpacity={1}
-          onPress={onCancel}
+          onPress={safeCancel}
           accessibilityLabel="Dismiss dialog backdrop"
         />
 
@@ -79,7 +89,7 @@ export const RemoveStaffDialog: React.FC<RemoveStaffDialogProps> = ({
             <TouchableOpacity
               style={styles.yesButton}
               activeOpacity={0.8}
-              onPress={onConfirm}
+              onPress={safeConfirm}
               accessibilityRole="button"
               accessibilityLabel="Yes, Remove"
             >
@@ -90,7 +100,7 @@ export const RemoveStaffDialog: React.FC<RemoveStaffDialogProps> = ({
             <TouchableOpacity
               style={styles.noButton}
               activeOpacity={0.8}
-              onPress={onCancel}
+              onPress={safeCancel}
               accessibilityRole="button"
               accessibilityLabel="No, Cancel It."
             >

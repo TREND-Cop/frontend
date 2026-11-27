@@ -254,7 +254,7 @@ export const ServiceCategorySheet: React.FC<ServiceCategorySheetProps> = ({
             styles.sheetContainer,
             {
               maxHeight: maxSheetHeight,
-              paddingBottom: Math.max(insets.bottom, 16),
+              paddingBottom: insets.bottom + 16,
             },
           ]}
         >

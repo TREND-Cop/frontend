@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
@@ -44,15 +44,11 @@ function ArrowLeftIcon({ size = 24 }: { size?: number }) {
 function ShareIcon({ size = 24 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="18" cy="5" r="3" stroke="#141B34" strokeWidth="1.5" />
+      <Circle cx="6" cy="12" r="3" stroke="#141B34" strokeWidth="1.5" />
+      <Circle cx="18" cy="19" r="3" stroke="#141B34" strokeWidth="1.5" />
       <Path
-        d="M12 3v11M12 3l-4 4M12 3l4 4"
-        stroke="#141B34"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7"
+        d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"
         stroke="#141B34"
         strokeWidth="1.5"
         strokeLinecap="round"
@@ -114,7 +110,7 @@ function normalizePhoneDigits(input: string): string {
 }
 
 export const PhoneNumberChangeScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const { ownerPhone, ownerEmail, updateOwnerPhone } = useProviderProfile();
 
@@ -168,7 +164,7 @@ export const PhoneNumberChangeScreen: React.FC = () => {
     await updateOwnerPhone(formattedPhone);
 
     // Return to profile hub with toast confirmation
-    router.replace('/profile?toast=Phone%20number%20updated' as any);
+    safeRouter.replace('/profile?toast=Phone%20number%20updated' as any);
   };
 
   const handleSharePress = async () => {
@@ -210,7 +206,7 @@ export const PhoneNumberChangeScreen: React.FC = () => {
             <TouchableOpacity
               activeOpacity={0.7}
               style={styles.backButton}
-              onPress={() => router.back()}
+              onPress={() => safeRouter.back()}
               accessibilityLabel="Back to Profile"
             >
               <ArrowLeftIcon size={24} />
@@ -245,7 +241,7 @@ export const PhoneNumberChangeScreen: React.FC = () => {
                 <Text style={styles.prefixText}>+234</Text>
               </View>
               <Text style={styles.currentPhoneValue} numberOfLines={1}>
-                {ownerPhone || '+234 8110783610'}
+                {ownerPhone ? ownerPhone.replace(/^\+234\s*/, '') : '8110783610'}
               </Text>
               <GreyCheckmarkIcon size={20} />
             </View>
@@ -288,7 +284,7 @@ export const PhoneNumberChangeScreen: React.FC = () => {
         </ScrollView>
 
         {/* ── Fixed Bottom Save Changes Button ── */}
-        <View style={[styles.bottomContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <View style={[styles.bottomContainer, { paddingBottom: insets.bottom + 16 }]}>
           <TouchableOpacity
             activeOpacity={isSaveActive ? 0.85 : 1}
             disabled={!isSaveActive}

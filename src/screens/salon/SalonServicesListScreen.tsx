@@ -1,4 +1,5 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import {
   ArrowLeft,
   Clock,
@@ -320,7 +321,7 @@ const CATEGORY_SERVICES_MAP: Record<string, DynamicSalonService[]> = {
 
 export const SalonServicesListScreen = () => {
   const params = useLocalSearchParams();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
 
   // Parse category / serviceType from params dynamically
@@ -476,7 +477,7 @@ export const SalonServicesListScreen = () => {
     bookingStore.setDuration(item.duration);
     bookingStore.setRating(item.rating);
 
-    router.push({
+    safeRouter.push({
       pathname: '/professional/style-details',
       params: {
         id: item.id,
@@ -501,7 +502,7 @@ export const SalonServicesListScreen = () => {
       <View style={styles.headerRow}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => (router.canGoBack() ? router.back() : router.replace(`/salon/${salonId}` as any))}
+          onPress={() => (safeRouter.canGoBack() ? safeRouter.back() : safeRouter.replace(`/salon/${salonId}` as any))}
           activeOpacity={0.7}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >

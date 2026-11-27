@@ -33,6 +33,7 @@ import { MessagesProvider } from '../store/MessagesContext';
 import { InAppShareModal } from '../components/InAppShareModal';
 import { BookmarkBottomSheetModal } from '../components/BookmarkBottomSheetModal';
 import { GlobalTopToast } from '../components/ui/GlobalTopToast';
+import { ExitAppDialog } from '../components/ExitAppDialog';
 import { calculateNativeDock } from '../utils/useNativeDock';
 
 /**
@@ -167,6 +168,7 @@ export default function RootLayout() {
                 <Stack.Screen name="user-gender" />
                 <Stack.Screen name="username" />
                 <Stack.Screen name="change-location" />
+                <Stack.Screen name="delete-account" />
 
                 {/* ─── Main App ───────────────────────────────────────────── */}
                 <Stack.Screen name="home" />
@@ -190,6 +192,9 @@ export default function RootLayout() {
 
               {/* ─── Global Top Toast Notification ─────────────────────── */}
               <GlobalTopToast />
+
+              {/* ─── Global Native Back Exit Confirmation Dialog ───────── */}
+              <ExitAppDialog />
               </MessagesProvider>
             </FavoritesProvider>
           </BookingProvider>

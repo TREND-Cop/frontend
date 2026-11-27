@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Camera, X } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { SafeImage } from '../../components/ui/SafeImage';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -24,7 +24,7 @@ const CONFETTI_IMAGE = require('../../../assets/images/custom/booking_success_co
 const CHARACTERS_IMAGE = require('../../../assets/images/custom/booking_success_characters.png');
 
 export const ContactSupportScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   // Screen states
   const [isSuccess, setIsSuccess] = useState(false);
@@ -68,10 +68,10 @@ export const ContactSupportScreen: React.FC = () => {
       setIsSuccess(false);
       return;
     }
-    if (router.canGoBack()) {
-      router.back();
+    if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/profile' as any);
+      safeRouter.replace('/profile' as any);
     }
   };
 
@@ -478,7 +478,7 @@ export const ContactSupportScreen: React.FC = () => {
         <View style={styles.successHeaderRow}>
           <TouchableOpacity
             style={styles.successBackButton}
-            onPress={() => router.replace('/profile' as any)}
+            onPress={() => safeRouter.replace('/profile' as any)}
             activeOpacity={0.7}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
@@ -554,7 +554,7 @@ export const ContactSupportScreen: React.FC = () => {
         >
           <TouchableOpacity
             style={styles.backToProfileButton}
-            onPress={() => router.replace('/profile' as any)}
+            onPress={() => safeRouter.replace('/profile' as any)}
             activeOpacity={0.85}
           >
             <Text style={styles.backToProfileButtonText}>Back to profile</Text>

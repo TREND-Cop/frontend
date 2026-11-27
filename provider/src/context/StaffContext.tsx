@@ -1,5 +1,72 @@
-import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
 import { DEV_SAMPLE_STAFF, MOCK_SAMPLE_STAFF } from '../constants/staff.config';
+import { loadFromStorage, saveToStorage, STORAGE_KEYS } from '../utils/providerStorage';
+import { addStaffMember as addStoreStaffMember } from '../store/staffStore';
+import { trendApi, getAuthToken, extractArray } from '../api/trendApi';
+
+function syncMemberToStore(member: StaffMember) {
+  try {
+    const rawPhoto = member.photoUri ?? member.avatarUri;
+    const avatar = rawPhoto
+      ? (typeof rawPhoto === 'string' ? { uri: rawPhoto } : rawPhoto)
+      : require('../../assets/images/profile/1007604716.jpg');
+
+    addStoreStaffMember({
+      id: member.id,
+      name: member.name,
+      role: member.role || (member.roles && member.roles[0]) || 'Barber',
+      status: 'Available',
+      statusCode: 'available',
+      hours: member.workHours ? `${member.workHours.start} - ${member.workHours.end}` : '8am - 10pm',
+      avatar,
+      gender: 'Male',
+      experience: `${member.experienceYears || 1} Years experience`,
+      client: {
+        name: 'Client',
+        badge: 'Regular',
+        avatar,
+        gender: 'Male',
+        badgeStatus: 'active',
+        membership: 'Standard',
+      },
+      service: {
+        title: 'Professional Service',
+        rating: '5.0',
+        duration: '1hr',
+        price: '₦10,000',
+        image: avatar,
+      },
+      appointmentInfo: {
+        date: 'Today',
+        time: '12:00 PM',
+        type: 'Walk-in',
+      },
+      addOn: {
+        title: 'Package Add-on',
+        price: '₦2,500',
+        duration: '15 mins',
+        rating: '5.0',
+        image: avatar,
+      },
+      note: {
+        text: 'Staff specialist',
+        count: '1',
+      },
+      package: {
+        price: '₦12,500',
+        images: [avatar],
+        items: ['Service'],
+      },
+      summary: {
+        appointmentCost: '₦10,000',
+        paymentType: 'Card',
+        total: '₦12,500',
+      },
+    });
+  } catch (err) {
+    console.warn('[StaffContext] Failed to sync member to store:', err);
+  }
+}
 
 /**
  * StaffMember UI View-Model
@@ -29,6 +96,7 @@ export interface StaffMember {
   workDays?: string[];
   loginCode?: string | null;
   isVerified?: boolean;
+  isAtWork?: boolean;
   portfolio?: PortfolioPhoto[];
 }
 
@@ -53,32 +121,116 @@ export const StaffProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Business-level flag: the owner chose "I don't have staff"
   const [ownerIsProvider, setOwnerIsProvider] = useState<boolean>(false);
 
+  // Hydrate staff list from storage and live backend on mount
+  useEffect(() => {
+    let isMounted = true;
+    const hydrateStaff = async () => {
+      const saved = await loadFromStorage<StaffMember[] | null>(STORAGE_KEYS.STAFF_LIST, null);
+      const base = DEV_SAMPLE_STAFF ? MOCK_SAMPLE_STAFF : [];
+      let localList: StaffMember[] = base;
+
+      if (isMounted && saved) {
+        const normalizedSaved = saved.map((s) => ({
+          ...s,
+          loginCode: s.loginCode || '1234',
+        }));
+        const existingIds = new Set(normalizedSaved.map((s) => s.id));
+        localList = [...normalizedSaved, ...base.filter((s) => !existingIds.has(s.id))];
+        setStaff(localList);
+        normalizedSaved.forEach((m) => syncMemberToStore(m));
+      }
+
+      try {
+        const token = await getAuthToken('business');
+        if (!token || !isMounted) return;
+        const res = await trendApi.business.listStaff();
+        if (!res.ok || !res.data || !isMounted) return;
+        const remoteRows = extractArray<any>(res.data, ['staff']);
+        if (remoteRows.length === 0) return;
+
+        const mappedRemote: StaffMember[] = remoteRows.map((row: any) => ({
+          id: String(row.id || `staff_${Date.now()}`),
+          name: row.name || 'Staff Member',
+          role: row.title || row.role || 'Specialist',
+          roles: [row.title || row.role || 'Specialist'],
+          photoUri: row.image || null,
+          avatarUri: row.image || null,
+          experienceYears: Number(row.experience_years || 1),
+          yearsExperience: Number(row.experience_years || 1),
+          workHours: null,
+          breakHours: null,
+          workDays: [],
+          loginCode: row.login_code || row.code || null,
+          isVerified: Boolean(row.verified ?? row.is_verified ?? true),
+        }));
+        const remoteIds = new Set(mappedRemote.map((m) => m.id));
+        const merged = [...mappedRemote, ...localList.filter((m) => !remoteIds.has(m.id))];
+        setStaff(merged);
+        mappedRemote.forEach((m) => syncMemberToStore(m));
+      } catch {
+        // Keep local list intact
+      }
+    };
+    hydrateStaff();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Persist staff list on updates
+  useEffect(() => {
+    saveToStorage(STORAGE_KEYS.STAFF_LIST, staff);
+  }, [staff]);
+
   const addStaff = useCallback((member: Omit<StaffMember, 'id'> | StaffMember) => {
-    setStaff((prev) => {
-      const id = 'id' in member && member.id ? member.id : `staff_${Date.now()}`;
-      const roles = member.roles || (member.role ? [member.role] : []);
-      const role = member.role || (roles.length > 0 ? roles[0] : '');
-      const experienceYears = member.experienceYears ?? member.yearsExperience ?? 0;
-      const photoUri = member.photoUri ?? member.avatarUri ?? null;
+    const id = 'id' in member && member.id ? member.id : `staff_${Date.now()}`;
+    const roles = member.roles || (member.role ? [member.role] : []);
+    const role = member.role || (roles.length > 0 ? roles[0] : '');
+    const experienceYears = member.experienceYears ?? member.yearsExperience ?? 0;
+    const photoUri = member.photoUri ?? member.avatarUri ?? null;
 
-      const newMember: StaffMember = {
-        ...member,
-        id,
-        photoUri,
-        avatarUri: photoUri,
-        roles,
-        role,
-        experienceYears,
-        yearsExperience: experienceYears,
-        workHours: member.workHours ?? null,
-        breakHours: member.breakHours ?? null,
-        workDays: member.workDays ?? [],
-        loginCode: member.loginCode ?? null,
-        isVerified: member.isVerified ?? false,
-      };
+    const newMember: StaffMember = {
+      ...member,
+      id,
+      photoUri,
+      avatarUri: photoUri,
+      roles,
+      role,
+      experienceYears,
+      yearsExperience: experienceYears,
+      workHours: member.workHours ?? null,
+      breakHours: member.breakHours ?? null,
+      workDays: member.workDays ?? [],
+      loginCode: member.loginCode ?? null,
+      isVerified: member.isVerified ?? false,
+    };
 
-      return [...prev, newMember];
-    });
+    // Prepend newly added staff to front so they appear prominently
+    setStaff((prev) => [newMember, ...prev.filter((item) => item.id !== id)]);
+    syncMemberToStore(newMember);
+
+    getAuthToken('business')
+      .then(async (token) => {
+        if (!token) return;
+        const res = await trendApi.business.addStaff({
+          name: newMember.name,
+          phone: (newMember as any).phone || '',
+          title: newMember.role || 'Specialist',
+        });
+        if (res.ok && res.data) {
+          const remoteStaff = res.data.staff || res.data;
+          const remoteId = remoteStaff?.id ? String(remoteStaff.id) : id;
+          const remoteCode = remoteStaff?.login_code || remoteStaff?.code || newMember.loginCode;
+          setStaff((prev) =>
+            prev.map((item) =>
+              item.id === id
+                ? { ...item, id: remoteId, loginCode: remoteCode ?? item.loginCode }
+                : item
+            )
+          );
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const updateStaff = useCallback((id: string, updates: Partial<StaffMember>) => {
@@ -103,10 +255,26 @@ export const StaffProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         };
       })
     );
+    getAuthToken('business')
+      .then((token) => {
+        if (!token) return null;
+        const payload: Record<string, any> = {};
+        if (updates.name) payload.name = updates.name;
+        if (updates.role || (updates.roles && updates.roles[0])) {
+          payload.title = updates.role || updates.roles?.[0];
+        }
+        if ((updates as any).phone) payload.phone = (updates as any).phone;
+        if (Object.keys(payload).length === 0) return null;
+        return trendApi.business.updateStaff(id, payload);
+      })
+      .catch(() => {});
   }, []);
 
   const removeStaff = useCallback((id: string) => {
     setStaff((prev) => prev.filter((item) => item.id !== id));
+    getAuthToken('business')
+      .then((token) => (token ? trendApi.business.deleteStaff(id) : null))
+      .catch(() => {});
   }, []);
 
   const removePortfolioPhotos = useCallback((staffId: string, photoIds: string[]) => {

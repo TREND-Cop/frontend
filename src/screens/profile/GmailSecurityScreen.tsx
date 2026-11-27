@@ -6,29 +6,29 @@ import { Platform, View,
   ScrollView, } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { ProfileChevronRight } from '../../components/profile/ProfileIcons';
 
 export const GmailSecurityScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
 
   const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
+    if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/profile' as any);
+      safeRouter.replace('/profile' as any);
     }
   };
 
   const handleAddGmail = () => {
-    router.push({
+    safeRouter.push({
       pathname: '/add-gmail',
       params: { mode: 'add' },
     });
   };
 
   const handleUpdateGmail = () => {
-    router.push({
+    safeRouter.push({
       pathname: '/change-gmail',
       params: { mode: 'update' },
     });

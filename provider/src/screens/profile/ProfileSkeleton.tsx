@@ -124,7 +124,7 @@ export const ProfileSkeleton: React.FC = () => {
         </View>
       </View>
 
-      {/* Privacy & Terms Container (358x56) */}
+      {/* Terms of Service Container (358x56) */}
       <View style={styles.singleCard}>
         <SkeletonItem width={24} height={24} borderRadius={6} />
         <SkeletonItem width={130} height={18} borderRadius={4} />
@@ -144,7 +144,7 @@ export const ProfileSkeleton: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 16,
     paddingBottom: 140,
   },
   headerRow: {
@@ -152,26 +152,28 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     height: 48,
-    marginBottom: 24,
+    marginBottom: 28,
   },
   profileCard: {
     width: '100%',
-    height: 238,
+    minHeight: 254,
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     borderWidth: 1,
     borderColor: 'rgba(235, 235, 245, 0.96)',
     alignItems: 'center',
-    padding: 16,
-    marginBottom: 24,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 24,
+    marginBottom: 32,
   },
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 16,
   },
   sectionHeader: {
-    marginBottom: 12,
+    marginBottom: 20,
     paddingLeft: 4,
   },
   cardGroup: {
@@ -181,12 +183,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(235, 235, 245, 0.96)',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginBottom: 24,
+    paddingVertical: 16,
+    gap: 12,
+    marginBottom: 32,
   },
   singleCard: {
     width: '100%',
-    height: 56,
+    height: 60,
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     borderWidth: 1,
@@ -194,14 +197,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    gap: 12,
-    marginBottom: 16,
+    gap: 16,
+    marginBottom: 28,
   },
   rowPlaceholder: {
     flexDirection: 'row',
     alignItems: 'center',
     height: 48,
-    gap: 12,
+    gap: 16,
   },
   rowDivider: {
     height: 1,

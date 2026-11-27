@@ -1,18 +1,16 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Image,
   BackHandler,
   Platform,
-  Animated,
-  Easing,
+  useWindowDimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import Svg, { Circle } from 'react-native-svg';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 
 import { useStaffAppointments } from '../../context/StaffAppointmentsContext';
 import {
@@ -20,92 +18,42 @@ import {
   DEV_STAFF_CLIENT_NEVER_VERIFIES,
 } from '../../constants/staffAppointments.config';
 import { STAFF_ROUTES } from '../../constants/staffRoutes';
-
-const HOURGLASS_IMAGE = require('../../../assets/images/appointments/verifying_hourglass.png');
-
-function GreenRotatingSpinner({ size = 32 }: { size?: number }) {
-  const spinValue = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.timing(spinValue, {
-        toValue: 1,
-        duration: 1000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [spinValue]);
-
-  const rotate = spinValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-
-  return (
-    <Animated.View style={{ width: size, height: size, transform: [{ rotate }] }}>
-      <Svg width={size} height={size} viewBox="0 0 32 32" fill="none">
-        <Circle cx="16" cy="16" r="12" stroke="rgba(235, 235, 245, 0.96)" strokeWidth="3" />
-        <Circle
-          cx="16"
-          cy="16"
-          r="12"
-          stroke="rgba(12, 121, 12, 0.96)"
-          strokeWidth="3"
-          strokeDasharray="28 50"
-          strokeLinecap="round"
-        />
-      </Svg>
-    </Animated.View>
-  );
-}
+import { AnimatedHourglassLoader } from '../../components/ui/AnimatedHourglassLoader';
+import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 
 /**
  * 1:1 Figma Verifying Appointment Status Screen
- * Frame: App Successful Screen (first instance: 390x844)
+ * Figma Frame: App Successful Screen (top: 79px, left: 1250px, width: 390px, height: 844px)
+ * Measurements:
+ * - Hourglass: 213x153px, top: 187px, centered
+ * - Text Block: Frame 1000006442, 358x116px, top: 404px, gap: 16px
+ * - Title: 20px 500, line height 28px, letter spacing 0.2px, #000000
+ * - Subtitle: 16px 400, line height 24px, letter spacing 0.4px, rgba(96, 96, 102, 0.96)
  */
 export function StaffVerifyingStatusScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const { height: windowHeight } = useWindowDimensions();
+  const safeRouter = useSafeRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { completeAppointment } = useStaffAppointments();
 
-  // Gentle breathing float on the hourglass illustration
-  const floatAnim = useRef(new Animated.Value(0)).current;
+  // Reference scale factor for height relative to 844px Figma canvas
+  const canvasHeight = Math.max(windowHeight, 700);
+  const scaleY = canvasHeight / 844;
+  // Calculated offsets matching Figma coordinates
+  const hourglassMarginTop = Math.max(20, Math.round(187 * scaleY - insets.top));
+  const hourglassToTextGap = Math.max(32, Math.round((404 - (187 + 153)) * scaleY));
 
   useEffect(() => {
-    // 1. Android hardware back does nothing here (design has no back navigation)
+    // 1. Android hardware back disabled (design has no back navigation)
     const backSub = BackHandler.addEventListener('hardwareBackPress', () => true);
 
-    // 2. Gentle float animation
-    const floatLoop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatAnim, {
-          toValue: -8,
-          duration: 1400,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(floatAnim, {
-          toValue: 4,
-          duration: 1400,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    floatLoop.start();
-
-    // 3. Mock client verification delay
+    // 2. Mock client verification delay (or real-time push when connected)
     let timer: NodeJS.Timeout | null = null;
     if (!DEV_STAFF_CLIENT_NEVER_VERIFIES && id) {
       timer = setTimeout(() => {
-        // Complete appointment in store
         completeAppointment(id);
-        // Replace screen with Successful screen so back is impossible
-        router.replace({
+        safeRouter.replace({
           pathname: STAFF_ROUTES.COMPLETION_SUCCESS as any,
           params: { id },
         });
@@ -114,39 +62,36 @@ export function StaffVerifyingStatusScreen() {
 
     return () => {
       backSub.remove();
-      floatLoop.stop();
       if (timer) clearTimeout(timer);
     };
-  }, [id, floatAnim, completeAppointment, router]);
+  }, [id, completeAppointment, safeRouter]);
 
   return (
-    <View style={[styles.screenContainer, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+    <View style={[styles.screenContainer, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
 
-      <View style={styles.contentContainer}>
-        {/* Hourglass Illustration: 213x153px */}
-        <Animated.View style={[styles.hourglassWrapper, { transform: [{ translateY: floatAnim }] }]}>
-          <Image
-            source={HOURGLASS_IMAGE}
-            style={styles.hourglassImage}
-            resizeMode="contain"
-          />
-        </Animated.View>
+      {/* ── Top/Center Content Group ── */}
+      <View style={styles.mainContent}>
+        {/* Animated Loading Hourglass Illustration: 213x153px (Rectangle 296, top: 187px) */}
+        <AnimatedHourglassLoader
+          width={213}
+          height={153}
+          style={{
+            marginTop: hourglassMarginTop,
+            marginBottom: hourglassToTextGap,
+          }}
+        />
 
-        {/* Text Block (Frame 1000006442) */}
+        {/* Text Block: Frame 1000006442 (358x116px, gap: 16px, top: 404px) */}
         <View style={styles.textBlock}>
           <Text style={styles.titleText}>Verifying Appointment Status</Text>
           <Text style={styles.subtitleText}>
             Waiting for your client to verify the appointment is completed, this wont take long.
           </Text>
         </View>
-
-        {/* Mini Loader & Status Text (mini loader in CSS) */}
-        <View style={styles.loaderContainer}>
-          <GreenRotatingSpinner size={32} />
-          <Text style={styles.waitingClientText}>Waiting for client</Text>
-        </View>
       </View>
+
+      <NativeDockSpacer />
     </View>
   );
 }
@@ -155,35 +100,24 @@ const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-  },
-  contentContainer: {
-    flex: 1,
-    paddingHorizontal: 24,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    position: 'relative',
+  },
+  mainContent: {
+    width: '100%',
+    alignItems: 'center',
+    paddingHorizontal: 16,
   },
 
-  // Hourglass illustration container
-  hourglassWrapper: {
-    width: 213,
-    height: 153,
-    marginBottom: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  hourglassImage: {
-    width: 213,
-    height: 153,
-  },
-
-  // Text Block
+  // Frame 1000006442: Text Block (width: 358px, height: 116px, gap: 16px)
   textBlock: {
     width: '100%',
     maxWidth: 358,
     alignItems: 'center',
     gap: 16,
-    marginBottom: 64,
   },
+  // Verifying Appointment Status (283x28px)
   titleText: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
     fontWeight: '500',
@@ -193,6 +127,7 @@ const styles = StyleSheet.create({
     color: '#000000',
     textAlign: 'center',
   },
+  // Subtitle (358x72px)
   subtitleText: {
     fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
     fontWeight: '400',
@@ -200,21 +135,6 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 0.4,
     color: 'rgba(96, 96, 102, 0.96)',
-    textAlign: 'center',
-  },
-
-  // Mini Loader
-  loaderContainer: {
-    alignItems: 'center',
-    gap: 16,
-  },
-  waitingClientText: {
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_400Regular',
-    fontWeight: '400',
-    fontSize: 16,
-    lineHeight: 24,
-    letterSpacing: 0.4,
-    color: 'rgba(0, 8, 20, 0.96)',
     textAlign: 'center',
   },
 });

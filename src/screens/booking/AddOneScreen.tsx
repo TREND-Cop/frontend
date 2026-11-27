@@ -15,7 +15,8 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getSafeBottomPadding } from '../../utils/safeArea';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import {
   ArrowLeft,
   Search,
@@ -57,7 +58,7 @@ const HISTOGRAM_BARS = [
 ];
 
 export const AddOneScreen = ({ navigation }: { navigation?: any }) => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
@@ -154,11 +155,11 @@ export const AddOneScreen = ({ navigation }: { navigation?: any }) => {
 
   const handleGoBack = () => {
     if (navigation?.canGoBack && navigation.canGoBack()) {
-      navigation.goBack();
-    } else if (router.canGoBack()) {
-      router.back();
+      safeRouter.back();
+    } else if (safeRouter.canGoBack()) {
+      safeRouter.back();
     } else {
-      router.replace('/booking-review');
+      safeRouter.replace('/booking-review');
     }
   };
 
@@ -227,12 +228,12 @@ export const AddOneScreen = ({ navigation }: { navigation?: any }) => {
 
     if (addOnWithProducts) {
       // ONLY opens when a selected add-on requires product choice
-      router.push({
+      safeRouter.push({
         pathname: (addOnWithProducts.subCategoryRoute || '/add-one-product') as any,
         params: { addOnId: addOnWithProducts.id, addOnName: addOnWithProducts.name },
       });
     } else {
-      router.push({
+      safeRouter.push({
         pathname: '/booking-review',
         params: { selectedIds: selectedIds.join(',') },
       });

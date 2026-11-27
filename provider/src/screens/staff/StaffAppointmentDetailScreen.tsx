@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
@@ -18,6 +19,7 @@ import { useStaffAppointments } from '../../context/StaffAppointmentsContext';
 import { STAFF_ROUTES } from '../../constants/staffRoutes';
 import { formatNaira } from '../../utils/staffAppointmentFormatters';
 import { triggerLightHaptic } from '../../utils/haptics';
+import { NativeDockSpacer } from '../../components/NativeDockSpacer';
 
 // ── 1:1 Vector Icons ──────────────────────────────────────────────────────────
 
@@ -165,7 +167,7 @@ function HomeIcon({ size = 24 }: { size?: number }) {
 
 export function StaffAppointmentDetailScreen() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { getAppointmentById } = useStaffAppointments();
 
@@ -179,7 +181,7 @@ export function StaffAppointmentDetailScreen() {
         <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => safeRouter.back()}
           >
             <ArrowLeftIcon size={24} />
           </TouchableOpacity>
@@ -190,7 +192,7 @@ export function StaffAppointmentDetailScreen() {
           <Text style={styles.emptyTitle}>Appointment Not Found</Text>
           <TouchableOpacity
             style={styles.backHomeButton}
-            onPress={() => router.back()}
+            onPress={() => safeRouter.back()}
           >
             <Text style={styles.backHomeButtonText}>Go Back</Text>
           </TouchableOpacity>
@@ -214,7 +216,7 @@ export function StaffAppointmentDetailScreen() {
             activeOpacity={0.7}
             onPress={() => {
               triggerLightHaptic();
-              router.back();
+              safeRouter.back();
             }}
             accessibilityLabel="Back"
           >
@@ -222,7 +224,7 @@ export function StaffAppointmentDetailScreen() {
           </TouchableOpacity>
 
           <Text style={styles.headerTitle} numberOfLines={1}>
-            {appointment.service.category}
+            {appointment.service.serviceName || appointment.service.category}
           </Text>
 
           <View style={styles.headerSpacer} />
@@ -260,7 +262,7 @@ export function StaffAppointmentDetailScreen() {
               activeOpacity={0.85}
               onPress={() => {
                 triggerLightHaptic();
-                router.push({
+                safeRouter.push({
                   pathname: STAFF_ROUTES.ONGOING_DETAIL as any,
                   params: { id: appointment.id },
                 });
@@ -445,12 +447,12 @@ export function StaffAppointmentDetailScreen() {
           <Text style={styles.sectionTitle}>Note</Text>
 
           <View style={styles.noteCard}>
-            <Text style={styles.noteText}>{appointment.note || 'No special note provided.'}</Text>
-            {/* Real note length counter over 120 */}
-            <Text style={styles.noteCounterText}>{`${appointment.note?.length || 0}/120`}</Text>
+            <Text style={styles.noteText}>{appointment.note || 'leave a note for the staff'}</Text>
           </View>
         </View>
       </ScrollView>
+
+      <NativeDockSpacer />
     </View>
   );
 }

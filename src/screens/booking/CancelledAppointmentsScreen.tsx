@@ -8,7 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { SafeImage } from '../../components/ui/SafeImage';
 import { EmptyCancelledAppointmentScreen } from './EmptyCancelledAppointmentScreen';
@@ -112,13 +112,13 @@ const CANCELLED_APPOINTMENTS: CancelledAppointmentItem[] = [
 ];
 
 export const CancelledAppointmentsScreen = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const [appointments, setAppointments] = useState<CancelledAppointmentItem[]>(CANCELLED_APPOINTMENTS);
   const [isReportModalVisible, setIsReportModalVisible] = useState(false);
 
   const handleGoBack = () => {
-    router.replace('/home/bookings' as any);
+    safeRouter.replace('/home/bookings' as any);
   };
 
   const handleReportPress = () => {
@@ -126,7 +126,7 @@ export const CancelledAppointmentsScreen = () => {
   };
 
   const handleCardPress = (item: CancelledAppointmentItem) => {
-    router.push({
+    safeRouter.push({
       pathname: '/cancelled-booking',
       params: {
         id: item.id,

@@ -115,10 +115,7 @@ export const PayoutTermsNotice: React.FC<PayoutTermsNoticeProps> = ({
             style={[
               styles.buttonContainer,
               {
-                paddingBottom:
-                  Platform.OS === 'android'
-                    ? Math.max(insets.bottom, 56)
-                    : Math.max(insets.bottom, 16),
+                paddingBottom: insets.bottom + 16,
               },
             ]}
           >

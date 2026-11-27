@@ -11,7 +11,8 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
+import { useSafeRouter } from '../../utils/safeNavigation';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import Svg, { Path } from 'react-native-svg';
 import { getGuide, DEV_SAMPLE_GUIDE_VIDEO } from '../../constants/guideTopics';
@@ -101,7 +102,7 @@ function formatTime(totalSeconds: number): string {
  * - Pause on background / blur and cleanup on unmount
  */
 export const VideoGuideScreen: React.FC = () => {
-  const router = useRouter();
+  const safeRouter = useSafeRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ topic?: string }>();
   const topicId = params.topic || 'general';
@@ -206,7 +207,7 @@ export const VideoGuideScreen: React.FC = () => {
         player.pause();
       } catch {}
     }
-    router.back();
+    safeRouter.back();
   };
 
   // Progress fraction (0 to 1)
@@ -266,7 +267,7 @@ export const VideoGuideScreen: React.FC = () => {
       </View>
 
       {/* ── Caption & Progress Bar Section ───────────────────────────────── */}
-      <View style={[styles.bottomContent, { paddingBottom: Math.max(insets.bottom, 24) }]}>
+      <View style={[styles.bottomContent, { paddingBottom: insets.bottom + 24 }]}>
         {/* Caption */}
         <Text style={styles.captionText}>{guideData.caption}</Text>
 
