@@ -12,7 +12,7 @@
  */
 
 import React from 'react';
-import { Platform, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Platform, View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { colors, typography } from '../constants/theme';
 import { GoogleIcon } from './GoogleIcon';
 
@@ -31,12 +31,15 @@ interface SocialAuthSectionProps {
   onGooglePress: () => void;
   /** Optional button label (defaults to "Continue with Google") */
   buttonLabel?: string;
+  /** Shows a compact inline loader beside the label while Google auth is in progress */
+  loading?: boolean;
 }
 
 export const SocialAuthSection: React.FC<SocialAuthSectionProps> = ({
   dividerText,
   onGooglePress,
   buttonLabel = 'Continue with Google',
+  loading = false,
 }) => {
   return (
     <>
@@ -50,14 +53,23 @@ export const SocialAuthSection: React.FC<SocialAuthSectionProps> = ({
       {/* ─── Centered Google Auth Button ──────────────────────────── */}
       <View style={styles.socialRow}>
         <TouchableOpacity
-          style={styles.googleButton}
+          style={[styles.googleButton, loading && styles.googleButtonLoading]}
           onPress={onGooglePress}
           activeOpacity={0.75}
+          disabled={loading}
           accessibilityRole="button"
           accessibilityLabel={buttonLabel}
+          accessibilityState={{ busy: loading }}
         >
           <GoogleIcon size={22} />
           <Text style={styles.googleButtonText}>{buttonLabel}</Text>
+          {loading && (
+            <ActivityIndicator
+              size="small"
+              color="rgba(0, 8, 20, 0.96)"
+              style={styles.googleLoader}
+            />
+          )}
         </TouchableOpacity>
       </View>
     </>
@@ -103,6 +115,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
     paddingHorizontal: 16,
+  },
+  googleButtonLoading: {
+    opacity: 0.78,
+  },
+  googleLoader: {
+    marginLeft: 2,
   },
   googleButtonText: {
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',

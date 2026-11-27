@@ -94,6 +94,7 @@ export const SignInScreen = ({ navigation }: { navigation?: any }) => {
   const [usernameTouched, setUsernameTouched] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   useEffect(() => {
     const showSub = Keyboard.addListener(
@@ -229,17 +230,34 @@ export const SignInScreen = ({ navigation }: { navigation?: any }) => {
   );
 
   useEffect(() => {
-    consumeGoogleRedirectResult('client').then((res) => {
-      if (res) finishGoogleAuth(res);
+    consumeGoogleRedirectResult('client').then(async (res) => {
+      if (res) {
+        setIsGoogleLoading(true);
+        try {
+          await finishGoogleAuth(res);
+        } finally {
+          setIsGoogleLoading(false);
+        }
+      }
     });
   }, [finishGoogleAuth]);
 
   const handleGoogleSignIn = useCallback(async () => {
+    if (isGoogleLoading) return;
     setUsernameError(null);
     setPasswordError(null);
-    const res = await signInWithGoogle('client');
-    await finishGoogleAuth(res);
-  }, [finishGoogleAuth]);
+    setIsGoogleLoading(true);
+    let redirecting = false;
+    try {
+      const res = await signInWithGoogle('client');
+      redirecting = !!res.redirecting;
+      await finishGoogleAuth(res);
+    } finally {
+      if (!redirecting) {
+        setIsGoogleLoading(false);
+      }
+    }
+  }, [isGoogleLoading, finishGoogleAuth]);
 
   /**
    * Navigates to the Forgot Password screen.
@@ -328,6 +346,7 @@ export const SignInScreen = ({ navigation }: { navigation?: any }) => {
           <SocialAuthSection
             dividerText="Sign in with"
             onGooglePress={handleGoogleSignIn}
+            loading={isGoogleLoading}
           />
 
           {/* ─── Footer ─────────────────────────────────────────────────── */}

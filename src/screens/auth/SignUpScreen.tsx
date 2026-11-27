@@ -12,6 +12,7 @@ import {
   Keyboard,
   BackHandler,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSafeRouter } from '../../utils/safeNavigation';
@@ -88,6 +89,7 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   useEffect(() => {
     const showSub = Keyboard.addListener(
@@ -191,17 +193,34 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
   );
 
   useEffect(() => {
-    consumeGoogleRedirectResult('client').then((res) => {
-      if (res) finishGoogleSignUp(res);
+    consumeGoogleRedirectResult('client').then(async (res) => {
+      if (res) {
+        setIsGoogleLoading(true);
+        try {
+          await finishGoogleSignUp(res);
+        } finally {
+          setIsGoogleLoading(false);
+        }
+      }
     });
   }, [finishGoogleSignUp]);
 
   const handleGoogleSignUp = useCallback(async () => {
+    if (isGoogleLoading) return;
     setPhoneError(null);
     setPasswordError(null);
-    const res = await signInWithGoogle('client');
-    await finishGoogleSignUp(res);
-  }, [finishGoogleSignUp]);
+    setIsGoogleLoading(true);
+    let redirecting = false;
+    try {
+      const res = await signInWithGoogle('client');
+      redirecting = !!res.redirecting;
+      await finishGoogleSignUp(res);
+    } finally {
+      if (!redirecting) {
+        setIsGoogleLoading(false);
+      }
+    }
+  }, [isGoogleLoading, finishGoogleSignUp]);
 
   const isWeb = Platform.OS === 'web';
 
@@ -387,14 +406,23 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
           {/* ── Sign Up Option: Centered Google Pill Button ── */}
           <View style={styles.socialRow}>
             <TouchableOpacity
-              style={styles.googleButton}
+              style={[styles.googleButton, isGoogleLoading && styles.googleButtonLoading]}
               activeOpacity={0.75}
+              disabled={isGoogleLoading}
               onPress={handleGoogleSignUp}
               accessibilityRole="button"
               accessibilityLabel="Continue with Google"
+              accessibilityState={{ busy: isGoogleLoading }}
             >
               <GoogleIcon size={22} />
               <Text style={styles.googleButtonText}>Continue with Google</Text>
+              {isGoogleLoading && (
+                <ActivityIndicator
+                  size="small"
+                  color="rgba(0, 8, 20, 0.96)"
+                  style={styles.googleLoader}
+                />
+              )}
             </TouchableOpacity>
           </View>
 
@@ -717,6 +745,12 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',
+  },
+  googleButtonLoading: {
+    opacity: 0.78,
+  },
+  googleLoader: {
+    marginLeft: 2,
   },
   googleButtonText: {
     fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',

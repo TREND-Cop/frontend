@@ -11,6 +11,7 @@ import {
   Keyboard,
   Dimensions,
   BackHandler,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -124,6 +125,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   // Keyboard awareness
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
@@ -260,17 +262,34 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
   );
 
   useEffect(() => {
-    consumeProviderGoogleRedirectResult().then((res) => {
-      if (res) finishProviderGoogleSignUp(res);
+    consumeProviderGoogleRedirectResult().then(async (res) => {
+      if (res) {
+        setIsGoogleLoading(true);
+        try {
+          await finishProviderGoogleSignUp(res);
+        } finally {
+          setIsGoogleLoading(false);
+        }
+      }
     });
   }, [finishProviderGoogleSignUp]);
 
   const handleGoogleSignUp = useCallback(async () => {
+    if (isGoogleLoading) return;
     setPhoneError(null);
     setPasswordError(null);
-    const res = await signInProviderWithGoogle();
-    await finishProviderGoogleSignUp(res);
-  }, [finishProviderGoogleSignUp]);
+    setIsGoogleLoading(true);
+    let redirecting = false;
+    try {
+      const res = await signInProviderWithGoogle();
+      redirecting = !!res.redirecting;
+      await finishProviderGoogleSignUp(res);
+    } finally {
+      if (!redirecting) {
+        setIsGoogleLoading(false);
+      }
+    }
+  }, [isGoogleLoading, finishProviderGoogleSignUp]);
 
   const handleTermsPress = () => {
     setShowTermsModal(true);
@@ -449,10 +468,18 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
             {/* Google OAuth Button */}
             <TouchableOpacity
               activeOpacity={0.75}
-              style={styles.socialButton}
+              disabled={isGoogleLoading}
+              style={[styles.socialButton, isGoogleLoading && { opacity: 0.78 }]}
               onPress={handleGoogleSignUp}
+              accessibilityRole="button"
+              accessibilityLabel="Continue with Google"
+              accessibilityState={{ busy: isGoogleLoading }}
             >
-              <GoogleIcon size={24} />
+              {isGoogleLoading ? (
+                <ActivityIndicator size="small" color="rgba(0, 8, 20, 0.96)" />
+              ) : (
+                <GoogleIcon size={24} />
+              )}
             </TouchableOpacity>
 
             {/* Apple OAuth Button */}
