@@ -8,8 +8,8 @@ import {
   Image,
   Animated,
   Platform,
-  Modal,
   Share,
+  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSafeRouter } from '../../utils/safeNavigation';
@@ -18,6 +18,7 @@ import Svg, { Path, Circle } from 'react-native-svg';
 
 import { useProviderProfile } from '../../context/ProviderProfileContext';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
+import { ProviderPhotoUploadSheet } from '../../components/ProviderPhotoUploadSheet';
 
 function ArrowLeftIcon({ size = 24 }: { size?: number }) {
   return (
@@ -102,13 +103,18 @@ export function ProviderChangeProfilePhotoScreen() {
   };
 
   const handleLaunchCamera = async () => {
+    setShowPickerSheet(false);
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (!permission.granted) return;
+      if (!permission.granted) {
+        Alert.alert('Permission Denied', 'Camera permission is required to take a profile photo.');
+        return;
+      }
 
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
+        aspect: [1, 1],
         quality: 0.85,
       });
 
@@ -117,19 +123,22 @@ export function ProviderChangeProfilePhotoScreen() {
       }
     } catch (err) {
       // Ignored
-    } finally {
-      setShowPickerSheet(false);
     }
   };
 
   const handleLaunchLibrary = async () => {
+    setShowPickerSheet(false);
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) return;
+      if (!permission.granted) {
+        Alert.alert('Permission Denied', 'Photo library permission is required to choose a profile photo.');
+        return;
+      }
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
+        aspect: [1, 1],
         quality: 0.85,
       });
 
@@ -138,9 +147,11 @@ export function ProviderChangeProfilePhotoScreen() {
       }
     } catch (err) {
       // Ignored
-    } finally {
-      setShowPickerSheet(false);
     }
+  };
+
+  const handleSelectFile = async () => {
+    await handleLaunchLibrary();
   };
 
   const handleSave = async () => {
@@ -276,50 +287,15 @@ export function ProviderChangeProfilePhotoScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* ── Photo Picker Bottom Sheet Modal ── */}
-      <Modal
+      {/* ── 1:1 Figma Photo Upload Bottom Sheet (Left-Aligned with Icons) ── */}
+      <ProviderPhotoUploadSheet
         visible={showPickerSheet}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowPickerSheet(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowPickerSheet(false)}
-        >
-          <View style={[styles.sheetContent, { paddingBottom: Math.max(insets.bottom, 24) }]}>
-            <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>Select Profile Photo</Text>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleLaunchCamera}
-              style={styles.sheetOption}
-            >
-              <Text style={styles.sheetOptionText}>Take photo</Text>
-            </TouchableOpacity>
-
-            <View style={styles.sheetDivider} />
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={handleLaunchLibrary}
-              style={styles.sheetOption}
-            >
-              <Text style={styles.sheetOptionText}>Choose from library</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => setShowPickerSheet(false)}
-              style={styles.sheetCancelButton}
-            >
-              <Text style={styles.sheetCancelText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+        title="Photo Upload"
+        onOpenCamera={handleLaunchCamera}
+        onChoosePhotos={handleLaunchLibrary}
+        onSelectFile={handleSelectFile}
+        onClose={() => setShowPickerSheet(false)}
+      />
 
       <NativeDockSpacer />
     </SafeAreaView>
@@ -474,70 +450,5 @@ const styles = StyleSheet.create({
   },
   saveButtonTextDisabled: {
     color: 'rgba(192, 192, 204, 0.96)',
-  },
-
-  // ── Modal Sheet ──
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 8, 20, 0.4)',
-    justifyContent: 'flex-end',
-  },
-  sheetContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    alignItems: 'center',
-  },
-  sheetHandle: {
-    width: 44,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: 'rgba(192, 192, 204, 0.96)',
-    marginBottom: 16,
-  },
-  sheetTitle: {
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_600SemiBold',
-    fontWeight: '600',
-    fontSize: 17,
-    lineHeight: 24,
-    letterSpacing: 0.2,
-    color: '#000000',
-    marginBottom: 16,
-  },
-  sheetOption: {
-    width: '100%',
-    height: 52,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sheetOptionText: {
-    fontFamily: Platform.OS === 'ios' ? 'SF Pro' : 'DMSans_500Medium',
-    fontWeight: '500',
-    fontSize: 16,
-    color: '#000814',
-  },
-  sheetDivider: {
-    width: '100%',
-    height: 1,
-    backgroundColor: 'rgba(235, 235, 245, 0.96)',
-  },
-  sheetCancelButton: {
-    width: '100%',
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(247, 247, 247, 0.96)',
-    borderWidth: 1,
-    borderColor: 'rgba(192, 192, 204, 0.96)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  sheetCancelText: {
-    fontFamily: Platform.OS === 'ios' ? 'Inter' : 'Inter_500Medium',
-    fontWeight: '500',
-    fontSize: 16,
-    color: '#000814',
   },
 });

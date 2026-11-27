@@ -231,7 +231,7 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
           contentContainerStyle={[
             styles.scrollContent,
             {
-              paddingTop: 83,
+              paddingTop: isWeb ? 32 : 83,
               paddingBottom: isKeyboardVisible ? 320 : 40,
             },
           ]}
@@ -371,9 +371,9 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
               onPress={handleSkip}
               activeOpacity={0.85}
               accessibilityRole="button"
-              accessibilityLabel="Continue as Guest"
+              accessibilityLabel="Sign in as Guest"
             >
-              <Text style={styles.guestButtonText}>Guest</Text>
+              <Text style={styles.guestButtonText}>Sign in as Guest</Text>
             </TouchableOpacity>
           )}
 
