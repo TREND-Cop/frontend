@@ -407,7 +407,7 @@ export const SalonListingScreen: React.FC<SalonListingScreenProps> = ({
       {/* ── Top Header ── */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => (safeRouter.canGoBack() ? safeRouter.back() : safeRouter.replace('/(tabs)' as any))}
+          onPress={() => (safeRouter.canGoBack() ? safeRouter.back() : safeRouter.replace('/home' as any))}
           style={styles.headerButton}
           activeOpacity={0.7}
         >

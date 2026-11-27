@@ -13,6 +13,7 @@ import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { SafeImage } from '../../components/ui/SafeImage';
 import { bookingStore } from '../../utils/bookingStore';
+import { parsePrice } from '../../utils/parsePrice';
 import { useBookingContext } from '../../store/BookingContext';
 import { getServiceByIdOrName } from '../../constants/serviceCatalog';
 import { ADD_ON_CATALOG } from '../../constants/addOneCatalog';
@@ -285,9 +286,9 @@ export const BookedAppointmentReceiptScreen = () => {
           id: 'ao_param',
           name: (params.addOnName as string) || 'Nail Repair',
           price: (params.addOnPrice as string) || '₦22,700',
-          rawPrice: parseInt(String(params.addOnPrice).replace(/[^0-9]/g, ''), 10) || 22700,
+          rawPrice: parsePrice(String(params.addOnPrice), 22700),
           duration: (params.addOnDuration as string) || '24min',
-          rating: (params.addOnRating as string) || '5.1',
+          rating: (params.addOnRating as string) || '4.9',
           image: require('../../../assets/images/profile/dry_wow_pedicure.jpg'),
         },
       ];
@@ -312,7 +313,7 @@ export const BookedAppointmentReceiptScreen = () => {
       id: 'spec_addon_default',
       name: 'Bisola Olarewaju',
       role: 'Nail Artist',
-      rating: '6.1',
+      rating: '4.9',
       image: require('../../../assets/images/lady.jpg'),
     };
   }, [currentAppointment, bookedAddOnsList]);
@@ -379,7 +380,7 @@ export const BookedAppointmentReceiptScreen = () => {
   const totalAmount = useMemo(() => {
     if (params.total) return params.total as string;
     if (currentAppointment?.totalPrice) return `₦${currentAppointment.totalPrice.toLocaleString()}`;
-    const primaryRaw = parseInt(primaryServicePrice.replace(/[^0-9]/g, ''), 10) || 12000;
+    const primaryRaw = parsePrice(primaryServicePrice, 12000);
     const addOnsSum = bookedAddOnsList.reduce((acc, s) => acc + s.rawPrice, 0);
     const packageSum = bookedPackage ? (typeof bookedPackage.price === 'number' ? bookedPackage.price : 0) : 0;
     const sum = primaryRaw + addOnsSum + packageSum;

@@ -16,7 +16,7 @@ export default function PopularMenScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerButton} onPress={() => safeRouter.canGoBack() ? safeRouter.back() : safeRouter.replace('/(tabs)' as any)}>
+        <TouchableOpacity style={styles.headerButton} onPress={() => safeRouter.canGoBack() ? safeRouter.back() : safeRouter.replace('/home' as any)}>
           <ArrowLeft size={24} color={theme.colors.barberPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Popular Amongst Men</Text>

@@ -702,7 +702,7 @@ export const SalonDetailScreen = ({ salonId }: { salonId?: string }) => {
     if (safeRouter.canGoBack()) {
       safeRouter.back();
     } else {
-      safeRouter.replace('/(tabs)' as any);
+      safeRouter.replace('/home' as any);
     }
   };
 

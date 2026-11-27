@@ -135,22 +135,11 @@ export const BusinessOtpScreen: React.FC = () => {
         setTimeout(() => {
           safeRouter.replace('/congratulations' as any);
         }, 200);
-      } else if (apiRes.status >= 400 && apiRes.status < 500) {
+      } else {
         setStatus('error');
         setErrorMessage(
           apiRes.error || 'Incorrect code, please check the code and try again'
         );
-      } else {
-        const result = await verifyOtp(fullPhone, code);
-        if (result.success) {
-          setStatus('success');
-          setTimeout(() => {
-            safeRouter.replace('/congratulations' as any);
-          }, 200);
-        } else {
-          setStatus('error');
-          setErrorMessage(result.error || 'Incorrect code, please check the code and try again');
-        }
       }
     } catch (e) {
       setStatus('error');
@@ -185,7 +174,7 @@ export const BusinessOtpScreen: React.FC = () => {
     safeRouter.back();
   };
 
-  const isVerifyEnabled = code.length > 0 && !isVerifying;
+  const isVerifyEnabled = code.length >= 4 && !isVerifying;
 
   return (
     <View style={styles.screenContainer}>

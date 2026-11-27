@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSafeRouter } from '../../utils/safeNavigation';
+import { parsePrice } from '../../utils/parsePrice';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
 import { SafeImage } from '../../components/ui/SafeImage';
 import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
@@ -143,7 +144,7 @@ export const EmptyWishlistScreen: React.FC<EmptyWishlistScreenProps> = ({
   const { isFavorite, toggleFavorite: toggleContextFavorite } = useFavoritesContext();
 
   const handleToggleFavorite = async (item: (typeof YOU_MIGHT_LIKE_ITEMS)[0]) => {
-    const numPrice = parseInt(item.price.replace(/[^0-9]/g, ''), 10) || 35000;
+    const numPrice = parsePrice(item.price, 35000);
     await toggleContextFavorite({
       id: item.id,
       name: item.name,

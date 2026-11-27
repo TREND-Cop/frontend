@@ -293,7 +293,11 @@ export const NotificationDetailScreen: React.FC<NotificationDetailScreenProps> =
         <View style={isMedia ? styles.mediaSenderBlock : styles.textSenderBlock}>
           {item.senderAvatar ? (
             <Image
-              source={{ uri: item.senderAvatar }}
+              source={
+                typeof item.senderAvatar === 'string'
+                  ? { uri: item.senderAvatar }
+                  : (item.senderAvatar as any)
+              }
               style={isMedia ? styles.mediaAvatarImage : styles.textAvatarImage}
               resizeMode="cover"
             />
@@ -349,7 +353,11 @@ export const NotificationDetailScreen: React.FC<NotificationDetailScreenProps> =
                   onPress={() => handleOpenViewer(idx)}
                   style={styles.thumbnailFrame}
                 >
-                  <Image source={{ uri }} style={styles.thumbnailImage} resizeMode="cover" />
+                  <Image
+                    source={typeof uri === 'string' ? { uri } : (uri as any)}
+                    style={styles.thumbnailImage}
+                    resizeMode="cover"
+                  />
                 </TouchableOpacity>
               ))}
             </View>
@@ -362,7 +370,11 @@ export const NotificationDetailScreen: React.FC<NotificationDetailScreenProps> =
                 style={styles.heroImageFrame}
               >
                 <Image
-                  source={{ uri: item.images[0] }}
+                  source={
+                    typeof item.images[0] === 'string'
+                      ? { uri: item.images[0] }
+                      : (item.images[0] as any)
+                  }
                   style={styles.heroImage}
                   resizeMode="cover"
                 />

@@ -307,36 +307,22 @@ export const WishlistScreen = () => {
   const { favorites, removeFavorite } = useFavoritesContext();
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
-  const [items, setItems] = useState<WishlistItem[]>(() => {
-    if (favorites.length > 0) {
-      return favorites.map((f) => ({
-        id: f.id,
-        name: f.name,
-        location: f.location || 'Jabi, Abuja',
-        price: f.price ? (typeof f.price === 'number' ? `₦${f.price.toLocaleString()}` : f.price) : '₦35,000',
-        rating: f.rating || '1.3',
-        image: f.imageUri || (f.images && f.images[0]) || require('../../../assets/images/packages/clay_scrub_facial.png'),
-        images: f.images,
-      }));
-    }
-    return INITIAL_WISHLIST_ITEMS;
-  });
+  const mapFavoritesToItems = (list: typeof favorites): WishlistItem[] =>
+    list.map((f) => ({
+      id: f.id,
+      name: f.name,
+      location: f.location || 'Jabi, Abuja',
+      price: f.price ? (typeof f.price === 'number' ? `₦${f.price.toLocaleString()}` : f.price) : '₦35,000',
+      rating: f.rating || '4.8',
+      image: f.imageUri || (f.images && f.images[0]) || require('../../../assets/images/packages/clay_scrub_facial.png'),
+      images: f.images,
+    }));
 
-  // Sync if favorites changes from outside
+  const [items, setItems] = useState<WishlistItem[]>(() => mapFavoritesToItems(favorites));
+
+  // Sync unconditionally so unfavoriting the last item clears the wishlist cleanly
   useEffect(() => {
-    if (favorites.length > 0) {
-      setItems(
-        favorites.map((f) => ({
-          id: f.id,
-          name: f.name,
-          location: f.location || 'Jabi, Abuja',
-          price: f.price ? (typeof f.price === 'number' ? `₦${f.price.toLocaleString()}` : f.price) : '₦35,000',
-          rating: f.rating || '1.3',
-          image: f.imageUri || (f.images && f.images[0]) || require('../../../assets/images/packages/clay_scrub_facial.png'),
-          images: f.images,
-        }))
-      );
-    }
+    setItems(mapFavoritesToItems(favorites));
   }, [favorites]);
 
   const handleGoBack = () => {
@@ -371,7 +357,7 @@ export const WishlistScreen = () => {
   if (items.length === 0) {
     return (
       <EmptyWishlistScreen
-        onExploreServices={() => safeRouter.push('/category' as any)}
+        onExploreServices={() => safeRouter.push('/home/category' as any)}
       />
     );
   }

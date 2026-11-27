@@ -90,6 +90,7 @@ export function StaffLoginCodeScreen() {
     setVerifiedCode(code.trim());
     // Short pause on green state (~500ms) per prompt spec before navigating
     setTimeout(() => {
+      isSubmittingRef.current = false;
       safeRouter.push('/staff-login-form' as any);
     }, CODE_SUCCESS_PAUSE_MS);
   }, [code, isVerifying, setVerifiedCode, safeRouter]);

@@ -3,13 +3,23 @@ import { trendApi, getAuthToken, extractArray } from '../api/trendApi';
 
 let hasHydratedBookings = false;
 
-export async function hydrateProviderBookingsFromApi(): Promise<void> {
-  if (hasHydratedBookings) return;
+export function resetProviderBookingsHydration(): void {
+  hasHydratedBookings = false;
+  appointmentsState = [];
+  awaitingAppointmentsState = [];
+  ongoingAppointmentsState = [];
+  notify();
+  notifyAwaiting();
+  notifyOngoing();
+}
+
+export async function hydrateProviderBookingsFromApi(force = false): Promise<void> {
+  if (hasHydratedBookings && !force) return;
   try {
-    const token = await getAuthToken();
+    const token = await getAuthToken('business');
     if (!token) return;
     hasHydratedBookings = true;
-    const res = await trendApi.bookings.list();
+    const res = await trendApi.bookings.list(undefined, 'business');
     if (!res.ok || !res.data) return;
     const rows = extractArray<any>(res.data, ['bookings', 'appointments']);
     if (rows.length === 0) return;
@@ -54,7 +64,7 @@ export async function hydrateProviderBookingsFromApi(): Promise<void> {
           statusText: 'Appointment In-Progress',
           elapsedTime: '0:00:00',
           appointmentDate: b.date || 'Today',
-          appointmentTime: b.start || 'Now',
+          appointmentTime: b.start_time || b.start || 'Now',
           note: b.notes || '',
         });
       } else if (status === 'awaiting_arrival' || status === 'upcoming' || status === 'accepted') {
@@ -63,7 +73,7 @@ export async function hydrateProviderBookingsFromApi(): Promise<void> {
           status: 'awaiting',
           statusText: 'Awaiting client arrival',
           appointmentDate: b.date || 'Today',
-          appointmentTime: b.start || 'Now',
+          appointmentTime: b.start_time || b.start || 'Now',
           note: b.notes || '',
         });
       } else if (status === 'pending') {
@@ -72,7 +82,7 @@ export async function hydrateProviderBookingsFromApi(): Promise<void> {
           countdown: '2:59',
           statusText: 'Waiting for you to Accept',
           date: b.date || '',
-          time: b.start || '',
+          time: b.start_time || b.start || '',
         });
       }
     });
@@ -569,8 +579,8 @@ export const ongoingAppointmentStore = {
     };
     ongoingAppointmentsState = [newItem, ...ongoingAppointmentsState.filter((a) => a.id !== newItem.id)];
     notifyOngoing();
-    getAuthToken()
-      .then((token) => (token ? trendApi.bookings.start(newItem.id) : null))
+    getAuthToken('business')
+      .then((token) => (token ? trendApi.bookings.start(newItem.id, 'business') : null))
       .catch(() => {});
   },
 };
@@ -691,13 +701,72 @@ export const awaitingAppointmentStore = {
     return awaitingAppointmentsState.find((item) => item.id === id);
   },
 
+  removeAwaitingAppointmentLocally: (id: string): boolean => {
+    const prevCount = awaitingAppointmentsState.length;
+    awaitingAppointmentsState = awaitingAppointmentsState.filter((item) => item.id !== id);
+    if (awaitingAppointmentsState.length !== prevCount) {
+      notifyAwaiting();
+      return true;
+    }
+    return false;
+  },
+
+  acceptPendingAppointment: async (id: string): Promise<boolean> => {
+    const target = appointmentsState.find((item) => item.id === id);
+    if (target) {
+      appointmentsState = appointmentsState.filter((item) => item.id !== id);
+      notify();
+      const awaitingItem: AwaitingAppointmentItem = {
+        id: target.id,
+        title: target.title,
+        duration: target.duration,
+        rating: target.rating,
+        price: target.price,
+        numericPrice: target.numericPrice ?? (parseFloat(target.price.replace(/[^0-9.]/g, '')) || 0),
+        image: target.image,
+        status: 'awaiting',
+        statusText: 'Awaiting client arrival',
+        clientName: target.clientName || 'Client',
+        clientStatus: target.clientStatus || 'Verified Client',
+        gender: target.gender,
+        membership: target.membership,
+        specialist: target.staff || 'Specialist',
+        specialistRole: target.specialistRole || 'Specialist',
+        staff: target.staff || 'Specialist',
+        customerType: target.customerType || 'verified',
+        paymentMethod: target.paymentMethod || 'transfer',
+        appointmentType: target.appointmentType || 'in-person',
+        bookedPackage: target.bookedPackage || 'basic',
+        appointmentDate: target.date || 'Today',
+        appointmentTime: target.time || 'Now',
+      };
+      awaitingAppointmentsState = [
+        awaitingItem,
+        ...awaitingAppointmentsState.filter((a) => a.id !== awaitingItem.id),
+      ];
+      notifyAwaiting();
+    }
+    try {
+      const token = await getAuthToken('business');
+      if (token) {
+        const res = await trendApi.bookings.accept(id);
+        return res.ok;
+      }
+    } catch {
+      // Offline fallback
+    }
+    return true;
+  },
+
   cancelAwaitingAppointment: (id: string): boolean => {
     const prevCount = awaitingAppointmentsState.length;
     awaitingAppointmentsState = awaitingAppointmentsState.filter((item) => item.id !== id);
     if (awaitingAppointmentsState.length !== prevCount) {
       notifyAwaiting();
-      getAuthToken()
-        .then((token) => (token ? trendApi.bookings.cancel(id, 'Cancelled by business') : null))
+      getAuthToken('business')
+        .then((token) =>
+          token ? trendApi.bookings.cancel(id, 'Cancelled by business', 'business') : null
+        )
         .catch(() => {});
       return true;
     }

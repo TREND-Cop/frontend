@@ -56,15 +56,19 @@ export const DeleteAccountScreen: React.FC = () => {
     try {
       const token = await getAuthToken('business');
       if (token) {
-        await trendApi.auth.deleteAccount('business').catch(() => {});
+        const res = await trendApi.auth.deleteAccount('business');
+        if (!res.ok) {
+          setIsDeleting(false);
+          return;
+        }
       }
       await clearAuthToken('business');
       await clearProfile();
+      safeRouter.resetRoot('/login-business-owner');
     } catch (e) {
       console.warn('Error during provider account deletion:', e);
     } finally {
       setIsDeleting(false);
-      safeRouter.resetRoot('/login-business-owner');
     }
   });
 
@@ -98,7 +102,7 @@ export const DeleteAccountScreen: React.FC = () => {
         >
           <Text style={styles.titleText}>Want to delete your account?</Text>
           <Text style={styles.subtitleText}>
-            You will lose all your booking history, saved salons and styles. This action cant be undone.
+            You will lose all your business bookings, services, and staff records. This action can't be undone.
           </Text>
         </View>
 

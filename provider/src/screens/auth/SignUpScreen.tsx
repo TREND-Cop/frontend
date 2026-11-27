@@ -211,9 +211,9 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
       await removeFromStorage(HAS_SEEN_TUTORIAL_KEY);
     } catch {}
 
-    // Call backend registration stub
+    // Call backend registration draft store (strip leading 0 so E.164 matches login)
     await onCreateAccount({
-      phone: `${selectedCountry.code}${phone}`,
+      phone: `${selectedCountry.code}${phone.replace(/^0+/, '')}`,
       password,
     });
 

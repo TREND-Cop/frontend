@@ -184,9 +184,10 @@ export const SignInScreen = ({ navigation }: { navigation?: any }) => {
     }
 
     const user = res.data?.user || res.data || {};
+    const looksLikePhone = /^[+\d\s()-]{7,}$/.test(identifier);
     await updateProfile({
       isLoggedIn: true,
-      phone: user.phone || (identifier.includes('@') ? null : identifier),
+      phone: user.phone || (looksLikePhone ? identifier : null),
       email: user.email || (identifier.includes('@') ? identifier : null),
       fullName: user.name || null,
       username: user.username || user.name || identifier,
@@ -362,9 +363,7 @@ export const SignInScreen = ({ navigation }: { navigation?: any }) => {
               navigation?.navigate('SignUpScreen');
             }}
             onTermsPress={() => {
-              // TODO (Navigation): Navigate to TermsScreen or open a web URL
-              // navigation?.navigate('TermsScreen');
-              console.log('Navigate to TermsScreen');
+              safeRouter.push('/terms-policy' as any);
             }}
           />
         </ScrollView>

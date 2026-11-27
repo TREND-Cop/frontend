@@ -108,6 +108,8 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
             AsyncStorage.setItem(USER_STORAGE_KEY, JSON.stringify(merged)).catch(() => {});
           } else if (res.status === 401) {
             await clearAuthToken();
+            await AsyncStorage.removeItem(USER_STORAGE_KEY);
+            setProfileData({ ...DEFAULT_PROFILE, isLoggedIn: false });
           }
         }
       } catch (err) {
@@ -236,7 +238,13 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       await clearAuthToken();
-      await AsyncStorage.removeItem(USER_STORAGE_KEY);
+      await Promise.all([
+        AsyncStorage.removeItem(USER_STORAGE_KEY),
+        AsyncStorage.removeItem('@trend_appointments_v3'),
+        AsyncStorage.removeItem('@trend_favorites'),
+        AsyncStorage.removeItem('@trend_conversations_v2'),
+        AsyncStorage.removeItem('@trend_messages_v2'),
+      ]);
       setProfileData({ ...DEFAULT_PROFILE, isLoggedIn: false });
     } catch (err) {
       console.warn('Failed to logout:', err);

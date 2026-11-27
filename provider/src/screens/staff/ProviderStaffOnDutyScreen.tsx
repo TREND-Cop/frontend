@@ -710,7 +710,7 @@ export function ProviderStaffOnDutyScreen({}: ProviderStaffOnDutyScreenProps = {
               const handleCompactPress = () => {
                 // Opens existing staff profile (Messages prompt 3)
                 safeRouter.push({
-                  pathname: '/staff-profile',
+                  pathname: '/staff-profile/[id]' as any,
                   params: {
                     id: member.id,
                     staffId: member.id,

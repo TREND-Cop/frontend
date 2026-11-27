@@ -89,7 +89,7 @@ const TAPPER_FADE_IMG = require('../../assets/images/services/men_haircut.png');
  * DEV ONLY flag:
  * Set to true to preview sample services from the design ('Men Brade' and 'Tapper Fade').
  */
-export const DEV_SAMPLE_SERVICES: boolean = true;
+export const DEV_SAMPLE_SERVICES: boolean = false;
 
 /**
  * Generates sample services matching Figma frame F2 with dynamic, non-hardcoded dates.
@@ -225,7 +225,11 @@ export async function addCreatedService(service: Service): Promise<void> {
       const categoryName =
         typeof service.category === 'string'
           ? service.category
-          : service.category?.name || service.category?.label || 'General';
+          : (service.category as any)?.itemName ||
+            (service.category as any)?.groupName ||
+            service.category?.name ||
+            service.category?.label ||
+            'General';
 
       const createRes = await trendApi.business.createService({
         name: service.name,

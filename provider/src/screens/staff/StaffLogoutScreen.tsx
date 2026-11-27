@@ -16,6 +16,7 @@ import { STAFF_ROUTES } from '../../constants/staffRoutes';
 import { typography } from '../../constants/theme';
 import { useStaffLoginStore } from '../../context/StaffLoginContext';
 import { useStaffProfile } from '../../context/StaffProfileContext';
+import { clearAuthToken } from '../../api/trendApi';
 import { triggerLightHaptic } from '../../utils/haptics';
 
 /**
@@ -47,7 +48,8 @@ export function StaffLogoutScreen() {
     setIsLoading(true);
 
     // Short mock delay per designer spec: "when the user push the logout button, the screen loads and goes back to the very start"
-    setTimeout(() => {
+    setTimeout(async () => {
+      await clearAuthToken('staff').catch(() => {});
       clearStaffLogin();
       clearStaffProfile();
       setIsLoading(false);

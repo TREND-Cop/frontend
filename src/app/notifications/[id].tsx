@@ -9,7 +9,14 @@ import { NotificationDetailScreen } from '../../screens/notifications/Notificati
 import { shareStore } from '../../utils/shareStore';
 
 export default function NotificationDetailRoute() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, title, content, time, initials, image } = useLocalSearchParams<{
+    id: string;
+    title?: string;
+    content?: string;
+    time?: string;
+    initials?: string;
+    image?: string;
+  }>();
   const safeRouter = useSafeRouter();
 
   return (
@@ -63,7 +70,21 @@ export default function NotificationDetailRoute() {
           ),
         }} 
       />
-      <NotificationDetailScreen id={id} />
+      <NotificationDetailScreen
+        id={id}
+        fallbackData={
+          title || content
+            ? {
+                id: String(id || ''),
+                title: title || 'Notification',
+                content: content || '',
+                time: time || 'Now',
+                initials: initials || (title || 'TR').slice(0, 2).toUpperCase(),
+                image: image || null,
+              }
+            : undefined
+        }
+      />
     </>
   );
 }

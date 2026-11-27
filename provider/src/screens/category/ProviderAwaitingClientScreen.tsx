@@ -318,7 +318,7 @@ export default function ProviderAwaitingClientScreen() {
                 {/* 80x80px Image Placeholder with 4px padding & Shadow */}
                 <View style={styles.thumbnailContainer}>
                   <Image
-                    source={item.image}
+                    source={typeof item.image === 'string' ? { uri: item.image } : item.image}
                     style={styles.thumbnailImage}
                     resizeMode="cover"
                   />

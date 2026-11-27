@@ -41,25 +41,28 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
 
       try {
-        const token = await getAuthToken();
+        const token = await getAuthToken('business');
         if (!token || !isMounted) return;
-        const res = await trendApi.conversations.list();
+        const res = await trendApi.conversations.list('business');
         if (!res.ok || !res.data || !isMounted) return;
         const rows = extractArray<any>(res.data, ['conversations']);
         if (rows.length === 0) return;
 
         const mapped: Conversation[] = rows.map((c: any, idx: number) => ({
-          id: String(c.id || c.user_id || `remote_conv_${idx}`),
-          staffId: String(c.partner_id || c.user_id || c.id || `remote_${idx}`),
+          id: String(c.user_id || c.peer || c.id || `remote_conv_${idx}`),
+          staffId: String(c.user_id || c.peer || c.partner_id || c.id || `remote_${idx}`),
           lastMessagePreview: c.last_message || c.lastMessage || '',
-          lastMessageTime: c.last_message_at || c.updated_at
-            ? new Date(c.last_message_at || c.updated_at).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })
-            : 'Just now',
-          unreadCount: Number(c.unread_count ?? c.unreadCount ?? 0),
+          lastMessageTime:
+            c.last_at || c.last_message_at || c.updated_at
+              ? new Date(c.last_at || c.last_message_at || c.updated_at).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : 'Just now',
+          unreadCount: Number(c.unread ?? c.unread_count ?? c.unreadCount ?? 0),
           kind: c.role === 'staff' ? 'Staff' : undefined,
+          ...(c.name ? { partnerName: c.name } : {}),
+          ...(c.role ? { partnerRole: c.role } : {}),
         }));
 
         setConversations((prev) => {

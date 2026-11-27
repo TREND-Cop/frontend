@@ -25,6 +25,7 @@ import { theme } from '../../constants/theme';
 import { useSafeRouter } from '../../utils/safeNavigation';
 import { useUserContext } from '../../store/UserContext';
 import { bookingStore } from '../../utils/bookingStore';
+import { parsePrice } from '../../utils/parsePrice';
 import { useNativeDock } from '../../utils/useNativeDock';
 import { useNativeBackExitGuard } from '../../utils/exitAppGuard';
 
@@ -90,7 +91,7 @@ export const HERO_DEAL: DealSlide = {
   title: 'SPECIAL DEAL',
   buttonText: 'Book Now',
   image: 'https://images.unsplash.com/photo-1522337660859-02fbefca4702?w=800&q=80',
-  route: '/category',
+  route: '/home/category',
 };
 
 export const DEAL_CAROUSEL_IMAGES: string[] = [
@@ -278,8 +279,8 @@ export const HomeScreen = () => {
     if (typeof item.price === 'number') {
       numPrice = item.price;
     } else if (typeof item.price === 'string') {
-      const parsed = parseInt(item.price.replace(/[^0-9]/g, ''), 10);
-      if (!isNaN(parsed)) numPrice = parsed;
+      const parsed = parsePrice(item.price, 0);
+      if (parsed > 0) numPrice = parsed;
     }
 
     const formattedPrice = typeof item.price === 'number' ? `₦${item.price.toLocaleString()}` : (item.price || `₦${numPrice.toLocaleString()}`);

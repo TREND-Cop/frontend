@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { trendApi, getAuthToken, extractArray } from '../api/trendApi';
+import { useUserContext } from './UserContext';
 
 const CONVERSATIONS_STORAGE_KEY = '@trend_conversations_v2';
 const MESSAGES_STORAGE_KEY = '@trend_messages_v2';
@@ -214,6 +215,7 @@ interface MessagesContextType {
     }
   ) => Promise<void>;
   markAsRead: (conversationId: string) => Promise<void>;
+  fetchMessages: (conversationId: string) => Promise<void>;
   startOrGetConversation: (salon: {
     id: string;
     name: string;
@@ -233,11 +235,12 @@ const formatCurrentTime = () => {
 };
 
 export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { profileData } = useUserContext();
   const [conversations, setConversations] = useState<MessageConversation[]>(DEFAULT_CONVERSATIONS);
   const [messagesMap, setMessagesMap] = useState<Record<string, MessageItem[]>>(DEFAULT_MESSAGES);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load persisted conversations and messages on mount
+  // Load persisted conversations and messages and re-hydrate when auth changes
   useEffect(() => {
     const loadStorage = async () => {
       try {
@@ -246,9 +249,13 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         if (storedConvs) {
           setConversations(JSON.parse(storedConvs));
+        } else if (!profileData?.isLoggedIn) {
+          setConversations(DEFAULT_CONVERSATIONS);
         }
         if (storedMsgs) {
           setMessagesMap(JSON.parse(storedMsgs));
+        } else if (!profileData?.isLoggedIn) {
+          setMessagesMap(DEFAULT_MESSAGES);
         }
 
         const token = await getAuthToken();
@@ -258,19 +265,23 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const remoteRows = extractArray<any>(res.data, ['conversations']);
             if (remoteRows.length > 0) {
               const mapped: MessageConversation[] = remoteRows.map((c: any, idx: number) => ({
-                id: String(c.user_id || c.partner_id || c.id || `remote_${idx}`),
+                id: String(c.user_id || c.peer || c.partner_id || c.id || `remote_${idx}`),
                 name: c.name || c.partner_name || c.business_name || 'Salon Specialist',
                 avatar:
                   c.image || c.avatar ||
                   require('../../assets/images/620f39dda80fe7971b4af170c890481a63da61b0.jpg'),
                 lastMessage: c.last_message || c.lastMessage || '',
-                time: c.last_message_at || c.updated_at
-                  ? new Date(c.last_message_at || c.updated_at).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })
-                  : formatCurrentTime(),
-                unreadCount: Number(c.unread_count ?? c.unreadCount ?? 0),
+                time:
+                  c.last_at || c.last_message_at || c.updated_at
+                    ? new Date(c.last_at || c.last_message_at || c.updated_at).toLocaleTimeString(
+                        [],
+                        {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        }
+                      )
+                    : formatCurrentTime(),
+                unreadCount: Number(c.unread ?? c.unread_count ?? c.unreadCount ?? 0),
                 salonId: String(c.business_id || c.user_id || c.id || ''),
               }));
               setConversations(mapped);
@@ -287,7 +298,7 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     };
     loadStorage();
-  }, []);
+  }, [profileData?.isLoggedIn]);
 
   // Persist state updates
   const saveState = useCallback(
@@ -468,12 +479,18 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const token = await getAuthToken();
           if (token) {
             let mediaUrl = '';
-            if (typeof message.image === 'string' && message.image.length > 0) {
-              const up = await trendApi.uploads.uploadMedia(message.image, 'chat_media.jpg');
+            const rawImageUri =
+              typeof message.image === 'string'
+                ? message.image
+                : typeof message.image?.uri === 'string'
+                ? message.image.uri
+                : '';
+            if (rawImageUri.length > 0) {
+              const up = await trendApi.uploads.uploadMedia(rawImageUri, 'chat_media.jpg');
               mediaUrl = up.data?.url || up.data?.secure_url || '';
             }
             const sendRes = await trendApi.messages.send({
-              to: targetConv?.salonId || actualConvId,
+              to: actualConvId,
               body: message.text || previewText,
               media_url: mediaUrl,
             });
@@ -486,9 +503,9 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       }
 
-      // If sent by user while offline/guest, simulate realistic salon specialist response
+      // If sent by user while offline/guest, simulate realistic salon specialist response using functional state updates
       if (message.sender !== 'salon' && !sentToBackend) {
-        setTimeout(async () => {
+        setTimeout(() => {
           const userLower = (message.text || '').toLowerCase();
           let salonReply =
             'Thanks for reaching out! One of our specialists will be with you right away.';
@@ -524,29 +541,63 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             time: salonTime,
           };
 
-          const currentMessagesNow = updatedMsgs[actualConvId] || [];
-          const withSalonReply = [...currentMessagesNow, salonMsg];
-          const newMapWithReply = {
-            ...updatedMsgs,
-            [actualConvId]: withSalonReply,
-          };
-
-          // Update conversation row
-          const convNow = updatedConvs.find((c) => c.id === actualConvId);
-          if (convNow) {
-            const rest = updatedConvs.filter((c) => c.id !== convNow.id);
-            const updatedWithReply: MessageConversation = {
-              ...convNow,
-              lastMessage: salonReply,
-              time: salonTime,
+          setMessagesMap((prevMap) => {
+            const currentMessagesNow = prevMap[actualConvId] || [];
+            const nextMap = {
+              ...prevMap,
+              [actualConvId]: [...currentMessagesNow, salonMsg],
             };
-            await saveState([updatedWithReply, ...rest], newMapWithReply);
-          }
+            AsyncStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify(nextMap)).catch(() => {});
+            return nextMap;
+          });
+
+          setConversations((prevConvs) => {
+            const convNow = prevConvs.find((c) => c.id === actualConvId);
+            if (!convNow) return prevConvs;
+            const rest = prevConvs.filter((c) => c.id !== convNow.id);
+            const nextConvs = [
+              { ...convNow, lastMessage: salonReply, time: salonTime },
+              ...rest,
+            ];
+            AsyncStorage.setItem(CONVERSATIONS_STORAGE_KEY, JSON.stringify(nextConvs)).catch(
+              () => {}
+            );
+            return nextConvs;
+          });
         }, 1200);
       }
     },
     [conversations, getConversation, messagesMap, saveState]
   );
+
+  const fetchMessages = useCallback(async (conversationId: string) => {
+    if (!conversationId || conversationId.startsWith('c') && conversationId.length <= 3) return;
+    try {
+      const token = await getAuthToken();
+      if (!token) return;
+      const res = await trendApi.messages.list(conversationId);
+      if (!res.ok || !res.data) return;
+      const rows = extractArray<any>(res.data, ['messages']);
+      if (rows.length === 0) return;
+      const mapped: MessageItem[] = rows.map((m: any, idx: number) => ({
+        id: String(m.id || `msg_${idx}`),
+        type: m.media_url ? 'image' : 'text',
+        text: m.body || undefined,
+        image: m.media_url ? { uri: m.media_url } : undefined,
+        sender: String(m.sender_id) === String(conversationId) ? 'salon' : 'user',
+        time: m.created_at
+          ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          : formatCurrentTime(),
+      }));
+      setMessagesMap((prev) => {
+        const next = { ...prev, [conversationId]: mapped };
+        AsyncStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify(next)).catch(() => {});
+        return next;
+      });
+    } catch {
+      // Offline fallback
+    }
+  }, []);
 
   const totalUnreadCount = useMemo(() => {
     return conversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
@@ -558,6 +609,7 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     getMessages,
     sendMessage,
     markAsRead,
+    fetchMessages,
     startOrGetConversation,
     totalUnreadCount,
   };

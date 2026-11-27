@@ -79,6 +79,7 @@ export const CategoryScreen = ({ categoryId }: { categoryId?: string }) => {
 
   const displayedServices = useMemo(() => {
     const trimmed = searchQuery.trim().toLowerCase();
+    const activeCategoryName = getServiceNameById(selectedCategory).toLowerCase();
     const liveMapped = liveServices
       .filter((s) => {
         if (trimmed) {
@@ -88,7 +89,14 @@ export const CategoryScreen = ({ categoryId }: { categoryId?: string }) => {
             (s.business_name || '').toLowerCase().includes(trimmed)
           );
         }
-        return true;
+        const sCat = (s.category || '').toLowerCase();
+        const sName = (s.name || '').toLowerCase();
+        if (!sCat || sCat === 'general') return selectedCategory === '1';
+        return (
+          sCat.includes(activeCategoryName) ||
+          activeCategoryName.includes(sCat) ||
+          sName.includes(activeCategoryName)
+        );
       })
       .map((s) => ({
         id: s.id,
@@ -290,7 +298,10 @@ export const CategoryScreen = ({ categoryId }: { categoryId?: string }) => {
                     activeOpacity={0.7}
                   >
                     <View style={styles.serviceImageFrame}>
-                      <Image source={service.image} style={styles.serviceImage} />
+                      <Image
+                        source={typeof service.image === 'string' ? { uri: service.image } : service.image}
+                        style={styles.serviceImage}
+                      />
                     </View>
                     <Text style={styles.serviceText}>{service.name}</Text>
                   </TouchableOpacity>

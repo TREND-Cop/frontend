@@ -136,6 +136,7 @@ export const UsernameScreen = ({ navigation }: { navigation?: any }) => {
 
     const draft = getPendingAuthDraft();
     const rawPhone = (draft.phone || profileData?.phone || '').replace(/\s+/g, '');
+    const isGoogleSignup = !draft.password && profileData?.signupMethod === 'email';
 
     if (draft.password && (rawPhone || draft.email || profileData?.email)) {
       const registerRes = await trendApi.auth.register({
@@ -146,40 +147,48 @@ export const UsernameScreen = ({ navigation }: { navigation?: any }) => {
         password: draft.password,
       });
 
-      if (!registerRes.ok && registerRes.status === 409) {
-        setUsernameError(registerRes.error || 'Account already exists');
+      if (!registerRes.ok) {
+        setUsernameError(
+          registerRes.error ||
+            (registerRes.status === 409
+              ? 'Account already exists'
+              : 'Unable to create account right now. Please try again.')
+        );
         return;
       }
 
-      if (registerRes.ok) {
-        clearPendingAuthDraft();
-        if (profileData?.avatarUri) {
-          trendApi.uploads
-            .uploadMedia(profileData.avatarUri, 'avatar.jpg')
-            .then((up) => {
-              const url = up.data?.url || up.data?.secure_url;
-              if (up.ok && url) {
-                return trendApi.profile.update({ name: trimmed, image: url });
-              }
-              return null;
-            })
-            .catch(() => {});
-        }
+      clearPendingAuthDraft();
+      if (profileData?.avatarUri) {
+        trendApi.uploads
+          .uploadMedia(profileData.avatarUri, 'avatar.jpg')
+          .then((up) => {
+            const url = up.data?.url || up.data?.secure_url;
+            if (up.ok && url) {
+              return trendApi.profile.update({ name: trimmed, image: url });
+            }
+            return null;
+          })
+          .catch(() => {});
       }
-    }
-
-    const target = rawPhone || profileData?.email || '';
-    if (target) {
-      trendApi.auth.otpSend({ target }).catch(() => {});
+    } else if (isGoogleSignup) {
+      await trendApi.profile.update({ name: trimmed }).catch(() => null);
     }
 
     const success = await onCreateAccount(trimmed);
 
     if (success) {
       setContextUsername(trimmed);
+      if (isGoogleSignup) {
+        safeRouter.replace('/sign-up-success' as any);
+        return;
+      }
+      const target = rawPhone || profileData?.email || '';
+      if (target) {
+        trendApi.auth.otpSend({ target }).catch(() => {});
+      }
       safeRouter.push({
         pathname: '/phone-verification',
-        params: { phone: profileData?.phone || '+234 8136567398' },
+        params: { phone: profileData?.phone || rawPhone || '' },
       } as any);
     }
   }, [username, setContextUsername, profileData, safeRouter]);

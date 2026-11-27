@@ -256,7 +256,7 @@ export const CustomerReviewScreen = () => {
       return;
     }
 
-    const serviceId = String(params.serviceId || params.salonId || '');
+    const serviceId = String(params.serviceId || '');
     const bookingId = String(params.bookingId || params.appointmentId || '');
     const ratingValue = Math.max(1, Math.min(5, experienceRating || specialistRating || 5));
     const combinedComment = [
@@ -269,12 +269,28 @@ export const CustomerReviewScreen = () => {
 
     if (serviceId && bookingId) {
       getAuthToken()
-        .then((token) => {
+        .then(async (token) => {
           if (!token) return null;
+          let photoUrls: string[] = [];
+          if (uploadedPhotos.length > 0) {
+            const uploaded = await Promise.all(
+              uploadedPhotos.map((uri, i) =>
+                trendApi.uploads
+                  .uploadMedia(uri, `review_${i}.jpg`)
+                  .then((r) => (r.ok ? r.data?.url || r.data?.secure_url || '' : ''))
+                  .catch(() => '')
+              )
+            );
+            photoUrls = uploaded.filter(Boolean);
+          }
+          const finalComment =
+            photoUrls.length > 0
+              ? `${combinedComment || 'Great experience'} [Photos: ${photoUrls.join(', ')}]`
+              : combinedComment || 'Great experience';
           return trendApi.services.createReview(serviceId, {
             booking_id: bookingId,
             rating: ratingValue,
-            comment: combinedComment || 'Great experience',
+            comment: finalComment,
           });
         })
         .catch(() => {});
@@ -300,7 +316,7 @@ export const CustomerReviewScreen = () => {
   // Specialist level labels
   const specialistLevels = [
     { level: 1, label: 'Newbie' },
-    { level: 2, label: 'Armature' },
+    { level: 2, label: 'Amateur' },
     { level: 3, label: 'Average' },
     { level: 4, label: 'Excellent' },
     { level: 5, label: 'Expert' },

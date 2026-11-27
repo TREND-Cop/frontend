@@ -182,9 +182,8 @@ export const BusinessOwnerProfileScreen: React.FC<BusinessOwnerProfileScreenProp
     }
   };
 
-  const handleSelectFile = () => {
-    // TODO: Select from file document picker
-    setShowPhotoSheet(false);
+  const handleSelectFile = async () => {
+    await handleChoosePhotos();
   };
 
   // ── Submit / Next Handler ──

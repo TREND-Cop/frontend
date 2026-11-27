@@ -14,6 +14,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { getSafeBottomPadding } from '../../utils/safeArea';
 import { useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeRouter } from '../../utils/safeNavigation';
+import { parsePrice } from '../../utils/parsePrice';
 import { useFavoritesContext } from '../../store/FavoritesContext';
 import {
   ArrowLeft,
@@ -204,7 +205,7 @@ export default function SelectedStyleScreen() {
     ]).start();
 
     const extracted = topSalonImages.slice(0, 3);
-    const numPrice = parseInt(stylePrice.replace(/[^0-9]/g, ''), 10) || matchedService?.numericPrice || 14200;
+    const numPrice = parsePrice(stylePrice, matchedService?.numericPrice || 14200);
 
     if (willSave) {
       await toggleFavorite({
@@ -275,7 +276,7 @@ export default function SelectedStyleScreen() {
     }
 
     bookingStore.resetBookingSelections();
-    const numPrice = parseInt(stylePrice.replace(/[^0-9]/g, ''), 10) || matchedService?.numericPrice || 14200;
+    const numPrice = parsePrice(stylePrice, matchedService?.numericPrice || 14200);
     bookingStore.setBasePrice(numPrice);
     bookingStore.setServiceName(styleName);
     bookingStore.setServiceId(serviceId);
@@ -825,7 +826,7 @@ export default function SelectedStyleScreen() {
       {/* ─── 1:1 Figma Suggested Add-Ons Bottom Sheet Modal ─── */}
       <SuggestedAddOnsModal
         visible={isAddOnsModalVisible}
-        basePrice={parseInt(stylePrice.replace(/[^0-9]/g, ''), 10) || matchedService?.numericPrice || 14200}
+        basePrice={parsePrice(stylePrice, matchedService?.numericPrice || 14200)}
         serviceId={serviceId}
         salonId={salonId}
         initialSelectedIds={bookingStore.getSelectedIds()}

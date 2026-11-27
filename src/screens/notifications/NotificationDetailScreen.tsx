@@ -4,8 +4,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../../constants/theme';
 import { getNotificationById } from '../../constants/mockData';
 
-export const NotificationDetailScreen = ({ id }: { id: string }) => {
-  const notification = getNotificationById(id);
+export const NotificationDetailScreen = ({
+  id,
+  fallbackData,
+}: {
+  id: string;
+  fallbackData?: {
+    id: string;
+    title: string;
+    content: string;
+    time: string;
+    initials: string;
+    image?: any;
+  };
+}) => {
+  const notification = getNotificationById(id) || fallbackData;
 
   if (!notification) {
     return (

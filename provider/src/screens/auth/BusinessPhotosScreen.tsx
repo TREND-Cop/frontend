@@ -26,6 +26,7 @@ import { triggerLightHaptic } from '../../utils/haptics';
 import { useSafeRouter } from '../../utils/safeNavigation';
 import {
   trendApi,
+  getAuthToken,
   getPendingProviderAuthDraft,
   clearPendingProviderAuthDraft,
 } from '../../api/trendApi';
@@ -415,13 +416,15 @@ export const BusinessPhotosScreen: React.FC = () => {
     });
 
     // Register business owner account & salon profile with live Trend backend
+    let isGoogleAuthFlow = false;
     try {
       const draft = getPendingProviderAuthDraft();
       const rawPhone = (
         draft.phone ||
-        `${ownerProfile.countryCode || '+234'}${ownerProfile.phone || ''}`
+        (ownerProfile.phone ? `${ownerProfile.countryCode || '+234'}${ownerProfile.phone.replace(/^0/, '')}` : '')
       ).replace(/\s+/g, '');
 
+      let isAuthenticated = false;
       if (draft.password && rawPhone) {
         const regRes = await trendApi.auth.register({
           role: 'business',
@@ -431,69 +434,104 @@ export const BusinessPhotosScreen: React.FC = () => {
           password: draft.password,
         });
 
-        if (regRes.ok) {
-          clearPendingProviderAuthDraft();
-          const to24h = (t: TimeSegmentValue | null, fallback: string) => {
-            if (!t || t.hour === null) return fallback;
-            let h = t.hour;
-            if (t.period === 'pm' && h < 12) h += 12;
-            if (t.period === 'am' && h === 12) h = 0;
-            return `${String(h).padStart(2, '0')}:${String(t.minute ?? 0).padStart(2, '0')}`;
-          };
-          const open24 = to24h(openingTime, '09:00');
-          const close24 = to24h(closingTime, '18:00');
-          const dayMap: Record<string, string> = {
-            Monday: 'mon',
-            Tuesday: 'tue',
-            Wednesday: 'wed',
-            Thursday: 'thu',
-            Friday: 'fri',
-            Saturday: 'sat',
-            Sunday: 'sun',
-          };
-          const hours: Record<string, [string, string]> = {};
-          const activeDays = operatingDaysList.length > 0 ? operatingDaysList : ALL_WEEKDAYS;
-          activeDays.forEach((d) => {
-            const key = dayMap[d];
-            if (key) hours[key] = [open24, close24];
-          });
-
-          const uploadedSalonPhotos: string[] = [];
-          for (let i = 0; i < filledPhotos.length; i++) {
-            const up = await trendApi.uploads.uploadMedia(
-              filledPhotos[i],
-              `salon_${i + 1}.jpg`,
-              'image/jpeg',
-              'business'
-            );
-            const url = up.data?.url || up.data?.secure_url;
-            if (up.ok && url) uploadedSalonPhotos.push(url);
-          }
-
-          await trendApi.business.register({
-            name: businessName || 'Luminous Lux',
-            category: 'Beauty & Grooming',
-            description: amenities || '',
-            address: location.address || '',
-            city: location.state || location.country || '',
-            phone: rawPhone,
-            photos: uploadedSalonPhotos,
-            amenities: amenities || '',
-            gender: location.gender || 'Unisex',
-            hours,
-          });
+        if (!regRes.ok) {
+          setErrors((prev) => ({
+            ...prev,
+            photos: regRes.error || 'Could not create business account. Please try again.',
+          }));
+          return;
+        }
+        clearPendingProviderAuthDraft();
+        isAuthenticated = true;
+      } else {
+        const existingToken = await getAuthToken('business');
+        if (existingToken) {
+          isAuthenticated = true;
+          isGoogleAuthFlow = true;
         }
       }
 
-      if (rawPhone) {
+      if (isAuthenticated) {
+        if (ownerProfile.photoUri) {
+          const avatarUp = await trendApi.uploads
+            .uploadMedia(ownerProfile.photoUri, 'owner_avatar.jpg', 'image/jpeg', 'business')
+            .catch(() => null);
+          const avatarUrl = avatarUp?.data?.url || avatarUp?.data?.secure_url;
+          await trendApi.profile
+            .update(
+              {
+                name: ownerProfile.fullName || businessName || undefined,
+                ...(avatarUrl ? { image: avatarUrl } : {}),
+              },
+              'business'
+            )
+            .catch(() => null);
+        }
+
+        const to24h = (t: TimeSegmentValue | null, fallback: string) => {
+          if (!t || t.hour === null) return fallback;
+          let h = t.hour;
+          if (t.period === 'pm' && h < 12) h += 12;
+          if (t.period === 'am' && h === 12) h = 0;
+          return `${String(h).padStart(2, '0')}:${String(t.minute ?? 0).padStart(2, '0')}`;
+        };
+        const open24 = to24h(openingTime, '09:00');
+        const close24 = to24h(closingTime, '18:00');
+        const dayMap: Record<string, string> = {
+          Monday: 'mon',
+          Tuesday: 'tue',
+          Wednesday: 'wed',
+          Thursday: 'thu',
+          Friday: 'fri',
+          Saturday: 'sat',
+          Sunday: 'sun',
+        };
+        const hours: Record<string, [string, string]> = {};
+        const activeDays = operatingDaysList.length > 0 ? operatingDaysList : ALL_WEEKDAYS;
+        activeDays.forEach((d) => {
+          const key = dayMap[d];
+          if (key) hours[key] = [open24, close24];
+        });
+
+        const uploadedSalonPhotos: string[] = [];
+        for (let i = 0; i < filledPhotos.length; i++) {
+          const up = await trendApi.uploads.uploadMedia(
+            filledPhotos[i],
+            `salon_${i + 1}.jpg`,
+            'image/jpeg',
+            'business'
+          );
+          const url = up.data?.url || up.data?.secure_url;
+          if (up.ok && url) uploadedSalonPhotos.push(url);
+        }
+
+        await trendApi.business.register({
+          name: businessName || 'Luminous Lux',
+          category: 'Beauty & Grooming',
+          description: amenities || '',
+          address: location.address || '',
+          city: location.state || location.country || '',
+          phone: rawPhone || undefined,
+          photos: uploadedSalonPhotos,
+          amenities: amenities || '',
+          gender: location.gender || 'Unisex',
+          hours,
+        });
+      }
+
+      if (!isGoogleAuthFlow && rawPhone) {
         trendApi.auth.otpSend({ target: rawPhone }).catch(() => {});
       }
     } catch {
       // Keep onboarding navigable if offline
     }
 
-    // Navigate to Number Verification (OTP)
-    safeRouter.push('/business-otp' as any);
+    // Google users already have a verified Google email; phone signups verify via OTP
+    if (isGoogleAuthFlow) {
+      safeRouter.replace('/congratulations' as any);
+    } else {
+      safeRouter.push('/business-otp' as any);
+    }
   };
 
   const handleBackPress = () => {

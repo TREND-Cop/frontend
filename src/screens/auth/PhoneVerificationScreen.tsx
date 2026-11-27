@@ -91,6 +91,8 @@ export const PhoneVerificationScreen = ({
   const [countdown, setCountdown] = useState(RESEND_COUNTDOWN_SECONDS);
   const [isTimerRunning, setIsTimerRunning] = useState(true);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   useEffect(() => {
     const showSub = Keyboard.addListener(
@@ -154,40 +156,54 @@ export const PhoneVerificationScreen = ({
   const isForgotPassword = route?.params?.flow === 'forgot-password';
 
   const handleVerify = async () => {
-    if (!allDigitsEntered) return;
+    if (!allDigitsEntered || isVerifying) return;
+    setOtpError(null);
+    setIsVerifying(true);
     const code = otp.join('');
     const target = String(phone || '').replace(/\s+/g, '');
 
-    if (isForgotPassword) {
-      const draft = getPendingAuthDraft();
-      if (draft.resetPassword && target) {
-        await trendApi.auth
-          .resetPassword({
+    try {
+      if (isForgotPassword) {
+        const draft = getPendingAuthDraft();
+        if (draft.resetPassword && target) {
+          const res = await trendApi.auth.resetPassword({
             identifier: draft.resetIdentifier || target,
             code,
             new_password: draft.resetPassword,
-          })
-          .catch(() => null);
-        clearPendingAuthDraft();
-      }
-      if (navigation?.navigate) {
-        navigation.navigate('PasswordResetSuccess');
+          });
+          if (!res.ok && res.status >= 400 && res.status < 500) {
+            setOtpError(res.error || 'Invalid or expired verification code');
+            return;
+          }
+          clearPendingAuthDraft();
+        }
+        if (navigation?.navigate) {
+          navigation.navigate('PasswordResetSuccess');
+        } else {
+          safeRouter.replace('/password-reset-success' as any);
+        }
       } else {
-        safeRouter.replace('/password-reset-success' as any);
+        if (target) {
+          const res = await trendApi.auth.otpVerify({ target, code });
+          if (!res.ok && res.status >= 400 && res.status < 500) {
+            setOtpError(res.error || 'Invalid or expired verification code');
+            return;
+          }
+        }
+        if (navigation?.navigate) {
+          navigation.navigate('SignUpSuccess');
+        } else {
+          safeRouter.replace('/sign-up-success' as any);
+        }
       }
-    } else {
-      if (target) {
-        await trendApi.auth.otpVerify({ target, code }).catch(() => null);
-      }
-      if (navigation?.navigate) {
-        navigation.navigate('SignUpSuccess');
-      } else {
-        safeRouter.replace('/sign-up-success' as any);
-      }
+    } finally {
+      setIsVerifying(false);
     }
   };
 
   const handleResend = () => {
+    if (isTimerRunning) return;
+    setOtpError(null);
     setCountdown(RESEND_COUNTDOWN_SECONDS);
     setIsTimerRunning(true);
     setOtp(Array(OTP_LENGTH).fill(''));
@@ -289,6 +305,13 @@ export const PhoneVerificationScreen = ({
             })}
           </View>
 
+          {/* Inline OTP error feedback */}
+          {otpError && (
+            <Text style={{ color: '#CC2929', fontSize: 13, textAlign: 'center', marginBottom: 12 }}>
+              {otpError}
+            </Text>
+          )}
+
           {/* Resend Timer Row (Figma: resend timer, 112px, 24px, gap 8px, top 395) */}
           <View style={styles.timerRow}>
             <Text style={styles.resendInText}>Resend in</Text>
@@ -304,8 +327,9 @@ export const PhoneVerificationScreen = ({
 
           {/* Resend Action Button (Figma: Filled action Button, 358x48, radius 24, top 695) */}
           <TouchableOpacity
-            style={styles.resendButton}
+            style={[styles.resendButton, isTimerRunning && { opacity: 0.5 }]}
             onPress={handleResend}
+            disabled={isTimerRunning}
             activeOpacity={0.8}
           >
             <Text style={styles.resendButtonText}>Resend</Text>
@@ -317,10 +341,10 @@ export const PhoneVerificationScreen = ({
           <TouchableOpacity
             style={[
               styles.verifyButton,
-              allDigitsEntered ? styles.verifyButtonActive : styles.verifyButtonDisabled,
+              allDigitsEntered && !isVerifying ? styles.verifyButtonActive : styles.verifyButtonDisabled,
             ]}
             onPress={handleVerify}
-            disabled={!allDigitsEntered}
+            disabled={!allDigitsEntered || isVerifying}
             activeOpacity={0.8}
           >
             <Text

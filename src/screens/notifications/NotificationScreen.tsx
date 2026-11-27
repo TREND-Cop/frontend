@@ -118,7 +118,11 @@ export const NotificationScreen = () => {
           : 'Now',
         initials: (n.title || 'TR').slice(0, 2).toUpperCase(),
         image: n.image || null,
-        isUnread: n.read === false || n.is_read === false || n.read === 0,
+        isUnread:
+          n.is_read === 0 ||
+          n.is_read === false ||
+          n.read === 0 ||
+          n.read === false,
       }));
       setSections([{ title: 'Recent', data: mapped }]);
     } catch {
@@ -195,7 +199,11 @@ export const NotificationScreen = () => {
           <Text style={styles.infoText}>
             Stay updated on appointments, promotions, discounts and special offers with push notification.
           </Text>
-          <TouchableOpacity style={styles.actionButtonFloating} activeOpacity={0.8}>
+          <TouchableOpacity
+            style={styles.actionButtonFloating}
+            activeOpacity={0.8}
+            onPress={() => safeRouter.push('/notification-settings' as any)}
+          >
             <Text style={styles.actionButtonText}>Enable Push Notification</Text>
           </TouchableOpacity>
         </View>
@@ -209,10 +217,27 @@ export const NotificationScreen = () => {
             <NotificationItem 
               item={item} 
               onPress={() => {
+                setSections((prev) =>
+                  prev.map((sec) => ({
+                    ...sec,
+                    data: sec.data.map((n) =>
+                      n.id === item.id ? { ...n, isUnread: false } : n
+                    ),
+                  }))
+                );
                 getAuthToken()
                   .then((token) => (token ? trendApi.notifications.markRead(item.id) : null))
                   .catch(() => {});
-                safeRouter.push(`/notifications/${item.id}`);
+                safeRouter.push({
+                  pathname: `/notifications/${item.id}` as any,
+                  params: {
+                    title: item.title,
+                    content: item.content,
+                    time: item.time,
+                    initials: item.initials || '',
+                    image: typeof item.image === 'string' ? item.image : '',
+                  },
+                });
               }} 
             />
           )}

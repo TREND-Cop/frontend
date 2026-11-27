@@ -13,6 +13,7 @@ import { useSafeRouter } from '../../utils/safeNavigation';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { SafeImage } from '../../components/ui/SafeImage';
 import { bookingStore } from '../../utils/bookingStore';
+import { parsePrice } from '../../utils/parsePrice';
 import { AppointmentTypeModal, AppointmentBookingType } from '../../components/AppointmentTypeModal';
 import { ReportBottomSheet } from '../../components/ReportBottomSheet';
 import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
@@ -209,7 +210,7 @@ export const CancelledBookingDetailScreen = () => {
     setIsTypeModalVisible(false);
 
     bookingStore.setServiceName(serviceName);
-    const numPrice = parseInt(price.replace(/[^0-9]/g, ''), 10) || 22700;
+    const numPrice = parsePrice(price, 22700);
     bookingStore.setBasePrice(numPrice);
     bookingStore.setAppointmentType(type);
     bookingStore.setDuration(duration);

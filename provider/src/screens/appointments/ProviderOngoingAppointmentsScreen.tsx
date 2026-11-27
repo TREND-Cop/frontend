@@ -420,7 +420,11 @@ export function ProviderOngoingAppointmentsScreen() {
                     <View style={styles.cardContent}>
                       {/* 80x80 Thumbnail Container */}
                       <View style={styles.thumbnailContainer}>
-                        <Image source={item.image} style={styles.thumbnailImage} resizeMode="cover" />
+                        <Image
+                          source={typeof item.image === 'string' ? { uri: item.image } : item.image}
+                          style={styles.thumbnailImage}
+                          resizeMode="cover"
+                        />
                       </View>
 
                       {/* Information Column */}

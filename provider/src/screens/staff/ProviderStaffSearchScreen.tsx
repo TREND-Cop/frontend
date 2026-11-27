@@ -381,7 +381,7 @@ export function ProviderStaffSearchScreen() {
     });
     // Navigate to staff profile
     safeRouter.push({
-      pathname: '/staff-profile',
+      pathname: '/staff-profile/[id]' as any,
       params: { id: memberId },
     });
   };

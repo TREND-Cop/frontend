@@ -330,50 +330,36 @@ export const providerMessagesStore = {
 
     // Sync outgoing message with live backend when authenticated
     const recipientId = targetConv?.id || idOrName;
-    getAuthToken()
+    getAuthToken('business')
       .then(async (token) => {
-        if (!token) return;
+        if (!token) return false;
         let mediaUrl = '';
-        if (typeof image === 'string' && image.length > 0) {
-          const up = await trendApi.uploads.uploadMedia(image, 'provider_chat.jpg');
+        const rawUri =
+          typeof image === 'string'
+            ? image
+            : typeof (image as any)?.uri === 'string'
+            ? (image as any).uri
+            : '';
+        if (rawUri.length > 0) {
+          const up = await trendApi.uploads.uploadMedia(
+            rawUri,
+            'provider_chat.jpg',
+            'image/jpeg',
+            'business'
+          );
           mediaUrl = up.data?.url || up.data?.secure_url || '';
         }
-        await trendApi.messages.send({
-          to: recipientId,
-          body: text || (image ? 'Photo' : 'Service Card'),
-          media_url: mediaUrl,
-        });
+        const res = await trendApi.messages.send(
+          {
+            to: recipientId,
+            body: text || (image ? 'Photo' : 'Service Card'),
+            media_url: mediaUrl,
+          },
+          'business'
+        );
+        return res.ok;
       })
-      .catch(() => {});
-
-    // If it's a greeting or first message in empty chat, trigger friendly customer reply after 1.5s
-    if (targetConv && targetConv.messages.length === 1) {
-      setTimeout(() => {
-        const replyTime = new Date();
-        const rH = replyTime.getHours().toString().padStart(2, '0');
-        const rM = replyTime.getMinutes().toString().padStart(2, '0');
-        const replyMsg: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          type: 'text',
-          text: `Good morning! Thanks for reaching out. How can I assist you today?`,
-          time: `${rH}:${rM}`,
-          sender: 'customer',
-        };
-
-        conversationsState = conversationsState.map((c) => {
-          if (c.id === targetConv!.id) {
-            return {
-              ...c,
-              lastMessage: replyMsg.text || '',
-              time: `${rH}:${rM}`,
-              messages: [...c.messages, replyMsg],
-            };
-          }
-          return c;
-        });
-        notify();
-      }, 1400);
-    }
+      .catch(() => false);
   },
 };
 

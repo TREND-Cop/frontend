@@ -38,11 +38,12 @@ import { BookingProgressStepper } from '../../components/BookingProgressStepper'
 import { getServiceByIdOrName } from '../../constants/serviceCatalog';
 import { PackagePhotosCarousel } from '../../components/ui/PackagePhotosCarousel';
 import { theme } from '../../constants/theme';
+import { parsePrice } from '../../utils/parsePrice';
 
 const TIME_SLOT_ROWS = [
   ['8:00am', '9:00am', '10:00am'],
-  ['11:00am', '8:00am', '12:00am'],
-  ['1:00pm', '2:00pm'],
+  ['11:00am', '12:00pm', '1:00pm'],
+  ['2:00pm', '3:00pm'],
 ];
 
 export const BookingReviewScreen = ({ navigation }: { navigation?: any }) => {
@@ -61,7 +62,7 @@ export const BookingReviewScreen = ({ navigation }: { navigation?: any }) => {
 
   const baseServicePrice =
     params.price
-      ? parseInt(String(params.price).replace(/[^0-9]/g, ''), 10) || bookingStore.getBasePrice() || 12000
+      ? parsePrice(String(params.price), bookingStore.getBasePrice() || 12000)
       : bookingStore.getBasePrice() || 12000;
 
   const baseServiceDuration =
@@ -328,7 +329,7 @@ export const BookingReviewScreen = ({ navigation }: { navigation?: any }) => {
             <View style={styles.serviceMainCard}>
               <View style={styles.serviceImageFrame}>
                 <Image
-                  source={baseServiceImage}
+                  source={typeof baseServiceImage === 'string' ? { uri: baseServiceImage } : baseServiceImage}
                   style={styles.serviceImage}
                   resizeMode="cover"
                 />

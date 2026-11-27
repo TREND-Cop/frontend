@@ -188,7 +188,7 @@ export const ReviewScreen: React.FC = () => {
   const pricing = getServicePricing(draft.price, draft.discount);
 
   // Submit button handler
-  const handlePressSubmit = () => {
+  const handlePressSubmit = async () => {
     triggerLightHaptic();
 
     // Guard: ensure step 1 and step 2 requirements are satisfied
@@ -227,14 +227,12 @@ export const ReviewScreen: React.FC = () => {
           (pkg.images && pkg.images.length > 0)
       ),
     };
-    addCreatedService(newService);
-
-    // Mock API submission delay (~1200ms)
-    // TODO (Backend): submitService(draft) to backend API
-    setTimeout(() => {
+    try {
+      await addCreatedService(newService);
+    } finally {
       setIsLoading(false);
       safeRouter.resetRoot('/congratulations-service' as any);
-    }, 1200);
+    }
   };
 
   // Compact duration

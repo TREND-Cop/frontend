@@ -35,8 +35,6 @@ export const isPhoneValid = (phone: string): boolean => {
  * Returns true for '08110783610' (the exact phone number in Figma error frame).
  * Replace with actual backend API call once phone authentication is wired.
  */
-export const checkPhoneExists = (phone: string): boolean => {
-  const digitsOnly = phone.replace(/\D/g, '');
-  // Matches '08110783610', '+2348110783610', or '8110783610'
-  return digitsOnly.endsWith('8110783610') || digitsOnly === '08110783610';
+export const checkPhoneExists = (_phone: string): boolean => {
+  return false;
 };

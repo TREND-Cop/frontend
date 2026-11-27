@@ -159,7 +159,7 @@ export default function GalleryPreviewScreen() {
             if (safeRouter.canGoBack()) {
               safeRouter.back();
             } else {
-              safeRouter.replace('/(tabs)' as any);
+              safeRouter.replace('/home' as any);
             }
           }}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}

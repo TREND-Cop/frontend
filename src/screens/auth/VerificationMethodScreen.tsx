@@ -13,6 +13,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useSafeRouter } from '../../utils/safeNavigation';
 import { useUserContext } from '../../store/UserContext';
 import { typography } from '../../constants/theme';
+import { trendApi, setPendingAuthDraft } from '../../api/trendApi';
 
 export const VerificationMethodScreen: React.FC = () => {
   const safeRouter = useSafeRouter();
@@ -49,11 +50,21 @@ export const VerificationMethodScreen: React.FC = () => {
 
   const handleConfirm = () => {
     if (selectedMethod === 'email') {
+      const target = String(emailAddress || '').trim();
+      setPendingAuthDraft({ resetIdentifier: target });
+      if (target) {
+        trendApi.auth.forgotPassword({ identifier: target }).catch(() => {});
+      }
       safeRouter.push({
         pathname: '/email-verification',
         params: { email: emailAddress, flow: 'forgot-password' },
       });
     } else if (selectedMethod === 'phone') {
+      const target = String(phoneNumber || '').replace(/\s+/g, '');
+      setPendingAuthDraft({ resetIdentifier: target });
+      if (target) {
+        trendApi.auth.forgotPassword({ identifier: target }).catch(() => {});
+      }
       safeRouter.push({
         pathname: '/phone-verification',
         params: { phone: phoneNumber, flow: 'forgot-password' },

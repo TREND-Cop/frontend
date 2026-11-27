@@ -74,27 +74,26 @@ export const InChatScreen = () => {
     getMessages,
     sendMessage,
     markAsRead,
+    fetchMessages,
     getConversation,
     startOrGetConversation,
   } = useMessagesContext();
 
   const defaultAvatar = require('../../../assets/images/620f39dda80fe7971b4af170c890481a63da61b0.jpg');
 
-  const resolvedConvId = useMemo(() => {
-    const rawId = params.id && params.id !== '[id]' ? params.id : params.salonId;
-    if (rawId) {
-      const existing = getConversation(rawId);
-      if (existing) {
-        return existing.id;
-      }
-      return startOrGetConversation({
+  const rawId = params.id && params.id !== '[id]' ? params.id : params.salonId;
+  const existingConversation = rawId ? getConversation(rawId) : undefined;
+  const resolvedConvId = existingConversation?.id || rawId || 'c1';
+
+  useEffect(() => {
+    if (rawId && !existingConversation) {
+      startOrGetConversation({
         id: rawId,
         name: params.name || 'Salon Specialist',
         avatar: defaultAvatar,
       });
     }
-    return 'c1';
-  }, [params.id, params.salonId, params.name, getConversation, startOrGetConversation, defaultAvatar]);
+  }, [rawId, existingConversation, params.name, startOrGetConversation, defaultAvatar]);
 
   const activeConversation = getConversation(resolvedConvId);
   const salonName = params.name || activeConversation?.name || 'Luminous Lux';
@@ -110,8 +109,9 @@ export const InChatScreen = () => {
 
   useEffect(() => {
     markAsRead(resolvedConvId);
+    fetchMessages(resolvedConvId);
     scrollToBottom(200);
-  }, [resolvedConvId, markAsRead]);
+  }, [resolvedConvId, markAsRead, fetchMessages]);
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -165,7 +165,7 @@ export const InChatScreen = () => {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        handleSendSampleImage();
+        Alert.alert('Permission Required', 'Photo library access is needed to attach an image.');
         return;
       }
 
@@ -185,8 +185,7 @@ export const InChatScreen = () => {
         scrollToBottom(50);
       }
     } catch (e) {
-      console.warn('Image picker error, using sample image fallback:', e);
-      handleSendSampleImage();
+      console.warn('Image picker error:', e);
     }
   };
 
@@ -194,7 +193,7 @@ export const InChatScreen = () => {
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
-        handleSendSampleImage();
+        Alert.alert('Permission Required', 'Camera access is needed to take a photo.');
         return;
       }
 
@@ -214,19 +213,21 @@ export const InChatScreen = () => {
         scrollToBottom(50);
       }
     } catch (e) {
-      console.warn('Camera error, using sample image fallback:', e);
-      handleSendSampleImage();
+      console.warn('Camera error:', e);
     }
   };
 
   const handlePickImage = () => {
+    if (Platform.OS === 'web') {
+      pickFromLibrary();
+      return;
+    }
     Alert.alert(
       'Attach Photo',
       'Select reference photo to send to salon specialist',
       [
         { text: 'Take Photo', onPress: pickFromCamera },
         { text: 'Choose from Photos', onPress: pickFromLibrary },
-        { text: 'Sample Reference Photo', onPress: handleSendSampleImage },
         { text: 'Cancel', style: 'cancel' },
       ],
       { cancelable: true }

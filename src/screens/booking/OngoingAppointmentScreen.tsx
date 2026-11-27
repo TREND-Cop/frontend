@@ -166,6 +166,18 @@ export const OngoingAppointmentScreen = () => {
 
   const hasOngoing = Boolean(targetAppointment) || Boolean(params.name || params.serviceName);
 
+  // Live Timer: 30 seconds (declared before early return to satisfy Rules of Hooks)
+  const [secondsRemaining, setSecondsRemaining] = useState<number>(30);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!hasOngoing || secondsRemaining <= 0) return;
+    const interval = setInterval(() => {
+      setSecondsRemaining((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [hasOngoing, secondsRemaining]);
+
   if (!hasOngoing) {
     return (
       <EmptyBookedItemScreen
@@ -180,7 +192,7 @@ export const OngoingAppointmentScreen = () => {
   const serviceName = (params.name as string) || (params.serviceName as string) || targetAppointment?.serviceName || bookingStore.getServiceName() || 'Acrylic nails';
   const price = (params.price as string) || (targetAppointment ? `₦${targetAppointment.totalPrice.toLocaleString()}` : `₦${(bookingStore.getFinalTotal() || 12000).toLocaleString()}`);
   const duration = (params.duration as string) || targetAppointment?.duration || bookingStore.getDuration() || '24min';
-  const rating = (params.rating as string) || targetAppointment?.rating || bookingStore.getRating() || '5.1';
+  const rating = (params.rating as string) || targetAppointment?.rating || bookingStore.getRating() || '4.9';
   const appointmentType = (params.appointmentType as string) || (targetAppointment ? 'In-Person' : bookingStore.getAppointmentType() || 'In-Person');
   const ticketNumber = (params.ticketNumber as string) || targetAppointment?.ticketNumber || '#740375';
   const bookedDate = (params.date as string) || (params.bookedDay as string) || targetAppointment?.date || bookingStore.getAppointmentDate() || 'Wednesday, Oct 24';
@@ -198,18 +210,6 @@ export const OngoingAppointmentScreen = () => {
     (serviceName.toLowerCase().includes('nail') || serviceName.toLowerCase().includes('acrylic')
       ? require('../../../assets/images/profile/882a99380ae2d750b39f897365bd1d6083664a3b.jpg')
       : require('../../../assets/images/services/men_haircut.png'));
-
-  // Live Timer: 30 seconds
-  const [secondsRemaining, setSecondsRemaining] = useState<number>(30);
-  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-
-  useEffect(() => {
-    if (secondsRemaining <= 0) return;
-    const interval = setInterval(() => {
-      setSecondsRemaining((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [secondsRemaining]);
 
   const isCompleted = secondsRemaining === 0;
 
@@ -272,6 +272,10 @@ export const OngoingAppointmentScreen = () => {
     safeRouter.replace({
       pathname: '/customer-review',
       params: {
+        bookingId: targetAppointment?.id || (params.id as string) || '',
+        appointmentId: targetAppointment?.id || (params.id as string) || '',
+        serviceId: targetAppointment?.serviceId || (params.serviceId as string) || bookingStore.getServiceId() || '',
+        salonId: targetAppointment?.salonId || (params.salonId as string) || bookingStore.getSalonId() || '',
         salonName: targetAppointment?.salonName || 'Luminous Lux',
         specialistName: targetAppointment?.specialist?.name || (targetAppointment?.specialists && targetAppointment.specialists[0]?.name) || 'Precious Emmanuel',
         specialistRole: targetAppointment?.specialist?.role || (targetAppointment?.specialists && targetAppointment.specialists[0]?.role) || 'Hair stylist',

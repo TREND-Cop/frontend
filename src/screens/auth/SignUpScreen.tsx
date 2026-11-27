@@ -19,7 +19,7 @@ import { useSafeRouter } from '../../utils/safeNavigation';
 import { Check, ChevronDown, X, Eye, EyeOff } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { SearchablePicker } from '../../components/SearchablePicker';
-import { setPendingAuthDraft } from '../../api/trendApi';
+import { setPendingAuthDraft, clearAuthToken } from '../../api/trendApi';
 import { signInWithGoogle, consumeGoogleRedirectResult } from '../../api/firebaseAuth';
 import { isPhoneValid, isPasswordValid } from '../../constants/validation';
 import { useUserContext } from '../../store/UserContext';
@@ -156,6 +156,7 @@ export const SignUpScreen = ({ navigation }: { navigation?: any }) => {
 
   const handleSkip = useCallback(async () => {
     try {
+      await clearAuthToken();
       await updateProfile({ isLoggedIn: false });
     } catch {}
     safeRouter.replace('/home');

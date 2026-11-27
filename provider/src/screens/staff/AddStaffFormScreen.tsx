@@ -317,46 +317,43 @@ export const AddStaffFormScreen: React.FC = () => {
     triggerLightHaptic();
     setIsSubmitting(true);
 
-    // Short mock delay (1000-1500ms) representing backend createStaff call
-    // TODO (Backend): Connect to backend API when available
-    setTimeout(() => {
-      const validRoles = roles.filter((r) => r.trim().length > 0);
-      const generatedLoginCode = '1234';
+    const validRoles = roles.filter((r) => r.trim().length > 0);
+    const newStaffMember: StaffMember = {
+      id: `staff_${Date.now()}`,
+      name: name.trim(),
+      photoUri,
+      avatarUri: photoUri,
+      roles: validRoles,
+      role: validRoles[0] || 'Staff',
+      experienceYears: experienceYears || 1,
+      yearsExperience: experienceYears || 1,
+      workHours: {
+        start: formatTimeSegment(resumptionTime),
+        end: formatTimeSegment(closingTime),
+      },
+      breakHours:
+        breakStartTime?.hour !== null && breakEndTime?.hour !== null
+          ? {
+              start: formatTimeSegment(breakStartTime),
+              end: formatTimeSegment(breakEndTime),
+            }
+          : null,
+      workDays,
+      loginCode: null,
+      isVerified: false,
+    };
 
-      const newStaffMember: StaffMember = {
-        id: `staff_${Date.now()}`,
-        name: name.trim(),
-        photoUri,
-        avatarUri: photoUri,
-        roles: validRoles,
-        role: validRoles[0] || 'Staff',
-        experienceYears: experienceYears || 1,
-        yearsExperience: experienceYears || 1,
-        workHours: {
-          start: formatTimeSegment(resumptionTime),
-          end: formatTimeSegment(closingTime),
-        },
-        breakHours:
-          breakStartTime?.hour !== null && breakEndTime?.hour !== null
-            ? {
-                start: formatTimeSegment(breakStartTime),
-                end: formatTimeSegment(breakEndTime),
-              }
-            : null,
-        workDays,
-        loginCode: generatedLoginCode,
-        isVerified: false,
-      };
-
-      addStaff(newStaffMember);
-      setIsSubmitting(false);
-
-      // Navigate to Successful screen, replacing current route
-      safeRouter.replace({
-        pathname: '/staff/success',
-        params: { id: newStaffMember.id },
-      } as any);
-    }, 1200);
+    addStaff(newStaffMember)
+      .then((saved) => {
+        setIsSubmitting(false);
+        safeRouter.replace({
+          pathname: '/staff/success',
+          params: { id: saved.id },
+        } as any);
+      })
+      .catch(() => {
+        setIsSubmitting(false);
+      });
   }, 1500);
 
   return (

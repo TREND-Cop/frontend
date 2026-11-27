@@ -18,6 +18,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { useSafeRouter } from '../../utils/safeNavigation';
+import { parsePrice } from '../../utils/parsePrice';
 import {
   ArrowLeft,
   ArrowRight,
@@ -334,7 +335,7 @@ export const SalonLocationScreen = () => {
   const handleToggleWishlist = async () => {
     const heroImage = serviceHeroImage;
     const galleryImages = GALLERY_ITEMS.map((g) => g.image);
-    const numPrice = parseInt((salon.priceFrom || '27000').replace(/[^0-9]/g, ''), 10) || 27000;
+    const numPrice = parsePrice(salon.priceFrom, 27000);
 
     if (!isBookmarked) {
       await toggleFavorite({

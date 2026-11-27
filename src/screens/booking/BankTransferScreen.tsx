@@ -222,47 +222,65 @@ export const BankTransferScreen = ({ navigation }: { navigation?: any }) => {
   };
 
   const { confirmBooking } = useBookingContext();
+  const isMountedRef = useRef(true);
+  const verifyTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  // Full Verification Flow (idle -> verifying with 4-dots -> success banner with 4-dots continuing -> congratulation screen)
-  const handleMakePayment = () => {
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      verifyTimersRef.current.forEach((t) => clearTimeout(t));
+      verifyTimersRef.current = [];
+    };
+  }, []);
+
+  // Full Verification Flow: persist booking + payment first, then show success & navigate
+  const handleMakePayment = async () => {
     if (transactionState === 'verifying' || transactionState === 'success') return;
 
     setTransactionState('verifying');
 
-    // 1. Initial verification loading period
-    setTimeout(() => {
-      // 2. Transaction successful banner appears, while 4-dots loading indicator continues loading
-      setTransactionState('success');
+    const transferDetails = {
+      method: 'bank_transfer' as const,
+      methodTitle: 'Inter-Bank Transfer',
+      accountName: accountName,
+      accountNumber: accountNumber,
+      bankName: bankName,
+    };
 
-      // 3. Continue loading, then smoothly enter the Congratulations page
-      setTimeout(async () => {
-        const transferDetails = {
-          method: 'bank_transfer' as const,
-          methodTitle: 'Inter-Bank Transfer',
-          accountName: accountName,
-          accountNumber: accountNumber,
-          bankName: bankName,
-        };
-        const newAppt = await confirmBooking(transferDetails);
-        try {
-          const token = await getAuthToken();
-          if (token && newAppt?.id) {
-            await trendApi.payments.submit({
-              booking_id: newAppt.id,
-              amount: finalTotal || newAppt.totalPrice || 0,
-              method: 'transfer',
-              reference: newAppt.ticketNumber,
-            });
-          }
-        } catch {
-          // Non-fatal payment report fallback
-        }
-        safeRouter.push({
-          pathname: '/booking-success',
-          params: { appointmentId: newAppt?.id },
-        });
-      }, 1500);
-    }, 1600);
+    try {
+      const newAppt = await confirmBooking(transferDetails);
+      const token = await getAuthToken();
+      if (token && newAppt?.id) {
+        await trendApi.payments
+          .submit({
+            booking_id: newAppt.id,
+            amount: finalTotal || newAppt.totalPrice || 0,
+            method: 'transfer',
+            reference: newAppt.ticketNumber,
+          })
+          .catch(() => null);
+      }
+
+      if (!isMountedRef.current) return;
+      const t1 = setTimeout(() => {
+        if (!isMountedRef.current) return;
+        setTransactionState('success');
+        const t2 = setTimeout(() => {
+          if (!isMountedRef.current) return;
+          safeRouter.push({
+            pathname: '/booking-success',
+            params: { appointmentId: newAppt?.id },
+          });
+        }, 1200);
+        verifyTimersRef.current.push(t2);
+      }, 900);
+      verifyTimersRef.current.push(t1);
+    } catch {
+      if (isMountedRef.current) {
+        setTransactionState('idle');
+      }
+    }
   };
 
   return (

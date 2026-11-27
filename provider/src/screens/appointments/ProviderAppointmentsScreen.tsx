@@ -299,15 +299,15 @@ export const ProviderAppointmentsScreen: React.FC = () => {
                     pathname: '/appointment/[id]',
                     params: {
                       id: item.id,
-                      title: 'Ayobami Isaac',
-                      clientName: item.id === '1' ? 'Jude Fabulous' : (item.clientName || 'Jude Fabulous'),
-                      serviceTitle: item.id === '1' ? 'All Back Dreadlock' : item.title,
+                      title: item.clientName || 'Client',
+                      clientName: item.clientName || 'Client',
+                      serviceTitle: item.title,
                       clientStatus: item.clientStatus || 'New Client',
                       gender: item.gender || 'Male',
                       membership: item.membership || '5 Days ago',
-                      price: item.id === '1' ? '₦14,200' : item.price,
-                      duration: item.id === '1' ? '1hr' : item.duration,
-                      rating: item.id === '1' ? '3.6' : item.rating,
+                      price: item.price,
+                      duration: item.duration,
+                      rating: item.rating,
                       staff: item.staff || 'Bisola Olarewaju',
                       specialist: item.staff || 'Bisola Olarewaju',
                       specialistRole: item.specialistRole || 'Nail Artist',
@@ -336,7 +336,7 @@ export const ProviderAppointmentsScreen: React.FC = () => {
                   {/* 80x80px Image Container with 72x72px inner image */}
                   <View style={styles.imagePlaceholder}>
                     <Image
-                      source={item.image}
+                      source={typeof item.image === 'string' ? { uri: item.image } : item.image}
                       style={styles.thumbnailImage}
                       resizeMode="cover"
                     />

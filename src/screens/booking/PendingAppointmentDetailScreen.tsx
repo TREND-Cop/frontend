@@ -298,6 +298,38 @@ export const PendingAppointmentDetailScreen = () => {
 
   const hasAppointment = Boolean(targetAppointment) || Boolean(params.name || params.serviceName || params.date);
 
+  // Unique key & state hooks declared before early return to satisfy Rules of Hooks
+  const aptKey = targetAppointment?.id || (params.id as string) || 'default_pending';
+  const initialStatus = (params.status as string) === 'approved' || targetAppointment?.status === 'approved' ? 'approved' : 'pending';
+  const [appointmentState, setAppointmentState] = useState<'pending' | 'approved'>(initialStatus);
+
+  const [secondsLeft, setSecondsLeft] = useState<number>(() => {
+    if (initialStatus === 'approved') return 0;
+    return pendingTimerStore.getRemainingSeconds(aptKey, 180, targetAppointment?.createdAt);
+  });
+  const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!hasAppointment || appointmentState === 'approved') return;
+
+    const syncTimer = () => {
+      const remaining = pendingTimerStore.getRemainingSeconds(aptKey, 180, targetAppointment?.createdAt);
+      setSecondsLeft(remaining);
+      if (remaining <= 0) {
+        setAppointmentState('approved');
+        if (targetAppointment && targetAppointment.status !== 'approved') {
+          updateAppointmentStatus(targetAppointment.id, 'approved');
+        }
+      }
+    };
+
+    syncTimer();
+
+    const interval = setInterval(syncTimer, 1000);
+    return () => clearInterval(interval);
+  }, [hasAppointment, aptKey, appointmentState, targetAppointment, updateAppointmentStatus]);
+
   if (!hasAppointment) {
     return (
       <EmptyBookedItemScreen
@@ -312,7 +344,7 @@ export const PendingAppointmentDetailScreen = () => {
   const serviceName = (params.name as string) || (params.serviceName as string) || targetAppointment?.serviceName || bookingStore.getServiceName() || 'Acrylic nails';
   const price = (params.price as string) || (targetAppointment ? `₦${targetAppointment.totalPrice.toLocaleString()}` : `₦${(bookingStore.getFinalTotal() || 12000).toLocaleString()}`);
   const duration = (params.duration as string) || targetAppointment?.duration || bookingStore.getDuration() || '24min';
-  const rating = (params.rating as string) || targetAppointment?.rating || bookingStore.getRating() || '5.1';
+  const rating = (params.rating as string) || targetAppointment?.rating || bookingStore.getRating() || '4.9';
   const appointmentType = (params.appointmentType as string) || (targetAppointment ? 'In-Person' : bookingStore.getAppointmentType() || 'In-Person');
   const ticketNumber = (params.ticketNumber as string) || targetAppointment?.ticketNumber || '#740375';
   const bookedDate = (params.date as string) || (params.bookedDay as string) || targetAppointment?.date || bookingStore.getAppointmentDate() || 'Wednesday, Oct 24';
@@ -332,42 +364,6 @@ export const PendingAppointmentDetailScreen = () => {
     (serviceName.toLowerCase().includes('nail') || serviceName.toLowerCase().includes('acrylic')
       ? require('../../../assets/images/profile/882a99380ae2d750b39f897365bd1d6083664a3b.jpg')
       : require('../../../assets/images/services/men_haircut.png'));
-
-  // Unique key for tracking persistent appointment timer
-  const aptKey = targetAppointment?.id || (params.id as string) || 'default_pending';
-
-  // State: 'pending' (waiting for provider) -> 'approved' (accepted by provider)
-  const initialStatus = (params.status as string) === 'approved' || targetAppointment?.status === 'approved' ? 'approved' : 'pending';
-  const [appointmentState, setAppointmentState] = useState<'pending' | 'approved'>(initialStatus);
-
-  // Live Persistent Countdown Timer (keeps decreasing in real time even when leaving the page)
-  const [secondsLeft, setSecondsLeft] = useState<number>(() => {
-    if (initialStatus === 'approved') return 0;
-    return pendingTimerStore.getRemainingSeconds(aptKey, 180, targetAppointment?.createdAt);
-  });
-  const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
-  const [isCancelModalOpen, setIsCancelModalOpen] = useState<boolean>(false);
-
-  useEffect(() => {
-    if (appointmentState === 'approved') return;
-
-    const syncTimer = () => {
-      const remaining = pendingTimerStore.getRemainingSeconds(aptKey, 180, targetAppointment?.createdAt);
-      setSecondsLeft(remaining);
-      if (remaining <= 0) {
-        setAppointmentState('approved');
-        if (targetAppointment && targetAppointment.status !== 'approved') {
-          updateAppointmentStatus(targetAppointment.id, 'approved');
-        }
-      }
-    };
-
-    // Immediate sync on mount / screen focus
-    syncTimer();
-
-    const interval = setInterval(syncTimer, 1000);
-    return () => clearInterval(interval);
-  }, [aptKey, appointmentState, targetAppointment, updateAppointmentStatus]);
 
   const formattedTimer = `${Math.floor(secondsLeft / 60)}:${(secondsLeft % 60).toString().padStart(2, '0')}`;
 

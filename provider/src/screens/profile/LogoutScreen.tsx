@@ -13,6 +13,9 @@ import Svg, { Path } from 'react-native-svg';
 
 import { useProviderProfile } from '../../context/ProviderProfileContext';
 import { NativeDockSpacer } from '../../components/NativeDockSpacer';
+import { clearAuthToken } from '../../api/trendApi';
+import { resetProviderBookingsHydration } from '../../store/appointmentStore';
+import { removeFromStorage, STORAGE_KEYS } from '../../utils/providerStorage';
 
 function ArrowLeftIcon({ size = 24 }: { size?: number }) {
   return (
@@ -39,7 +42,15 @@ export function ProviderLogoutScreen() {
 
   const handleConfirmLogout = useSingleFlight(async () => {
     try {
-      await clearProfile();
+      await clearAuthToken('business');
+      resetProviderBookingsHydration();
+      await Promise.all([
+        clearProfile(),
+        removeFromStorage(STORAGE_KEYS.SERVICES_LIST),
+        removeFromStorage(STORAGE_KEYS.STAFF_LIST),
+        removeFromStorage(STORAGE_KEYS.PROVIDER_CONVERSATIONS),
+        removeFromStorage(STORAGE_KEYS.WORK_PHOTOS),
+      ]);
     } catch (e) {
       console.warn('Error clearing profile on logout:', e);
     }

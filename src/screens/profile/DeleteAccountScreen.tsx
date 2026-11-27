@@ -58,22 +58,36 @@ export const DeleteAccountScreen: React.FC = () => {
     try {
       const token = await getAuthToken();
       if (token) {
-        await trendApi.auth.deleteAccount().catch(() => {});
+        const res = await trendApi.auth.deleteAccount();
+        if (!res.ok) {
+          toastStore.showToast({
+            message: res.error || 'Could not delete account right now. Please try again.',
+            type: 'error',
+          });
+          setIsDeleting(false);
+          return;
+        }
       }
       await logout();
       await Promise.all([
-        AsyncStorage.removeItem('@trend_saved_favorites'),
-        AsyncStorage.removeItem('@trend_bookings'),
+        AsyncStorage.removeItem('@trend_favorites'),
+        AsyncStorage.removeItem('@trend_appointments_v3'),
+        AsyncStorage.removeItem('@trend_conversations_v2'),
+        AsyncStorage.removeItem('@trend_messages_v2'),
       ]).catch(() => {});
       toastStore.showToast({
         message: 'Your account has been deleted',
         type: 'success',
       });
+      safeRouter.resetRoot('/sign-in');
     } catch (e) {
       console.warn('Error during account deletion:', e);
+      toastStore.showToast({
+        message: 'Unable to delete account right now.',
+        type: 'error',
+      });
     } finally {
       setIsDeleting(false);
-      safeRouter.resetRoot('/sign-in');
     }
   };
 
@@ -107,7 +121,7 @@ export const DeleteAccountScreen: React.FC = () => {
         >
           <Text style={styles.titleText}>Want to delete your account?</Text>
           <Text style={styles.subtitleText}>
-            You will lose all your booking history, saved salons and styles. This action cant be undone.
+            You will lose all your booking history, saved salons and styles. This action can't be undone.
           </Text>
         </View>
 

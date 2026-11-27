@@ -17,6 +17,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { BookingProgressStepper } from '../../components/BookingProgressStepper';
 import { SafeImage } from '../../components/ui/SafeImage';
 import { bookingStore, SpecialistItem } from '../../utils/bookingStore';
+import { parsePrice } from '../../utils/parsePrice';
 import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
 import { theme } from '../../constants/theme';
 
@@ -131,8 +132,8 @@ export const SpecialistSelectionScreen: React.FC<SpecialistSelectionScreenProps>
 
   // Dynamic Base Price & Double Staff pricing calculation
   const baseServicePrice = params.price
-    ? parseInt(String(params.price).replace(/[^0-9]/g, ''), 10) || 10200
-    : (bookingStore.getBasePrice() === 12000 ? 10200 : bookingStore.getBasePrice() || 10200);
+    ? parsePrice(String(params.price), 10200)
+    : bookingStore.getBasePrice() || 10200;
 
   // When multiple specialists are selected, each additional staff increases price by 4,500
   const totalStaffCount = isFromReview

@@ -66,18 +66,24 @@ function mapRemoteBooking(row: any): Appointment {
       avatarUri: row.staff_image || row.staff?.image,
     },
     date: row.date || new Date().toISOString().slice(0, 10),
-    time: row.start || row.time || '10:00',
+    time: row.start_time || row.start || row.time || '10:00',
     basePrice: Number(row.price ?? row.base_price ?? row.total_price ?? 0),
     addOns: Array.isArray(row.addons)
-      ? row.addons.map((a: any, idx: number) => ({
-          id: String(a.id || idx),
-          name: a.name || 'Add-on',
-          price: Number(a.price || 0),
-        }))
+      ? row.addons.map((a: any, idx: number) =>
+          typeof a === 'string'
+            ? { id: a, name: a, price: 0 }
+            : {
+                id: String(a?.id || idx),
+                name: a?.name || 'Add-on',
+                price: Number(a?.price || 0),
+              }
+        )
       : [],
     servicePackage: null,
     totalPrice: Number(row.total_price ?? row.total ?? row.price ?? 0),
     note: row.notes || '',
+    serviceId: row.service_id ? String(row.service_id) : undefined,
+    salonId: row.business_id ? String(row.business_id) : undefined,
     createdAt: row.created_at ? Date.parse(row.created_at) || Date.now() : Date.now(),
     completedAt:
       mappedStatus === 'completed'
@@ -118,6 +124,8 @@ export interface BookingPackage {
 
 export interface Appointment {
   id: string;
+  serviceId?: string;
+  salonId?: string;
   ticketNumber: string;
   status: AppointmentStatus;
   salonName: string;
@@ -437,6 +445,9 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       const token = await getAuthToken();
       if (token) {
+        const rawSpecId = String(specialist.id || '');
+        const isMockStaffId = !rawSpecId || /^(sp-|s\d+|spec_)/i.test(rawSpecId);
+        const rawType = (bookingStore.getAppointmentType() || '').toLowerCase();
         const res = await trendApi.bookings.create({
           service_id: sId || sName,
           date: toBackendBookingDate(
@@ -445,9 +456,9 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
           start: toBackendBookingTime(
             bookingStore.getAppointmentTime() || draft.time || '10:00 AM'
           ),
-          staff_id: specialist.id || '',
+          ...(isMockStaffId ? {} : { staff_id: rawSpecId }),
           addons: finalAddOns.map((a) => a.id),
-          appointment_type: 'in_shop',
+          appointment_type: rawType.includes('home') ? 'home_service' : 'in_shop',
           notes: bookingStore.getSpecialistNote() || draft.note || '',
         });
         const createdId = res.data?.id || res.data?.booking?.id;
@@ -461,6 +472,8 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const newAppointment: Appointment = {
       id: remoteBookingId || `apt_${Date.now()}`,
+      serviceId: sId || undefined,
+      salonId: bookingStore.getSalonId() || undefined,
       ticketNumber: `TR-${randomTicketNum}`,
       status: 'pending',
       salonName: bookingStore.getSalonName() || draft.salonName || 'Luminous Lux',
@@ -468,7 +481,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       serviceName: sName,
       serviceImage: resolvedImage,
       duration: bookingStore.getDuration() || '24min',
-      rating: bookingStore.getRating() || '5.1',
+      rating: bookingStore.getRating() || '4.9',
       styleName: draft.styleName || sName,
       specialist,
       specialists: mappedSpecialists,

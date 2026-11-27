@@ -758,46 +758,50 @@ export const ProviderAppointmentDetailScreen: React.FC = () => {
     setShowCancelModal(false);
     setIsCancelling(true);
     if (params.id) {
-      appointmentStore.cancelAppointment(params.id);
-    }
-    if (isAwaiting) {
-      awaitingAppointmentStore.cancelAwaitingAppointment((params.id as string) || 'awaiting-1');
-      awaitingAppointmentStore.clearAwaitingAppointments();
+      if (isAwaiting) {
+        awaitingAppointmentStore.cancelAwaitingAppointment(params.id as string);
+      } else {
+        appointmentStore.cancelAppointment(params.id as string);
+      }
     }
     setTimeout(() => {
       setIsCancelling(false);
-      // Direct in-chat retention screen with 1:1 Figma prefilled support message
+      // Direct in-chat retention screen with prefilled support message
       safeRouter.push({
         pathname: '/chat' as any,
         params: {
           id: (params.id as string) || '1',
-          name: clientName || 'Damson Otuola',
+          name: clientName || 'Client',
           role: 'Customer',
-          prefilledMessage: 'Hello Damson, this is luminous Lux we are contacting you in regards to the cancellation of of your hair cut, we would love to know why and how we could be of assistance.',
+          prefilledMessage: `Hello ${clientName || 'there'}, we are contacting you regarding the cancellation of your ${serviceName || 'appointment'}. We would love to know how we can assist you.`,
         },
       });
     }, 1000);
   };
 
-  const handleAccept = () => {
+  const handleAccept = async () => {
     setIsLoading(true);
+    const targetId = (params.id as string) || 'awaiting-1';
+    await awaitingAppointmentStore.acceptPendingAppointment(targetId).catch(() => false);
     setTimeout(() => {
       setIsLoading(false);
       setIsAccepted(true);
       safeRouter.push({
         pathname: '/appointment-success' as any,
-        params: { id: (params.id as string) || 'awaiting-1' },
+        params: { id: targetId },
       });
-    }, 1800);
+    }, 600);
   };
 
   const handleBeginAppointment = () => {
     if (params.id) {
-      awaitingAppointmentStore.cancelAwaitingAppointment(params.id as string);
+      awaitingAppointmentStore.removeAwaitingAppointmentLocally(params.id as string);
     }
-    const rawNumeric = typeof appointmentPrice === 'string'
-      ? parseInt(appointmentPrice.replace(/[^0-9]/g, ''), 10) || 14200
-      : 14200;
+    const cleanedPrice =
+      typeof appointmentPrice === 'string'
+        ? appointmentPrice.replace(/,/g, '').match(/\d+(?:\.\d+)?/)?.[0]
+        : undefined;
+    const rawNumeric = cleanedPrice ? Math.round(parseFloat(cleanedPrice)) : 14200;
     ongoingAppointmentStore.addOngoingAppointment({
       id: (params.id as string) || `ongoing-${Date.now()}`,
       title: serviceName || 'Men Brade',

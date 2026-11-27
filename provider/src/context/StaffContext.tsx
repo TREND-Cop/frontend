@@ -103,7 +103,7 @@ export interface StaffMember {
 export interface StaffContextType {
   staff: StaffMember[];
   ownerIsProvider: boolean;
-  addStaff: (member: Omit<StaffMember, 'id'> | StaffMember) => void;
+  addStaff: (member: Omit<StaffMember, 'id'> | StaffMember) => Promise<StaffMember>;
   updateStaff: (id: string, updates: Partial<StaffMember>) => void;
   removeStaff: (id: string) => void;
   removePortfolioPhotos: (staffId: string, photoIds: string[]) => void;
@@ -132,7 +132,7 @@ export const StaffProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (isMounted && saved) {
         const normalizedSaved = saved.map((s) => ({
           ...s,
-          loginCode: s.loginCode || '1234',
+          loginCode: s.loginCode ?? null,
         }));
         const existingIds = new Set(normalizedSaved.map((s) => s.id));
         localList = [...normalizedSaved, ...base.filter((s) => !existingIds.has(s.id))];
@@ -182,14 +182,14 @@ export const StaffProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     saveToStorage(STORAGE_KEYS.STAFF_LIST, staff);
   }, [staff]);
 
-  const addStaff = useCallback((member: Omit<StaffMember, 'id'> | StaffMember) => {
+  const addStaff = useCallback(async (member: Omit<StaffMember, 'id'> | StaffMember): Promise<StaffMember> => {
     const id = 'id' in member && member.id ? member.id : `staff_${Date.now()}`;
     const roles = member.roles || (member.role ? [member.role] : []);
     const role = member.role || (roles.length > 0 ? roles[0] : '');
     const experienceYears = member.experienceYears ?? member.yearsExperience ?? 0;
     const photoUri = member.photoUri ?? member.avatarUri ?? null;
 
-    const newMember: StaffMember = {
+    let finalMember: StaffMember = {
       ...member,
       id,
       photoUri,
@@ -205,32 +205,46 @@ export const StaffProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       isVerified: member.isVerified ?? false,
     };
 
-    // Prepend newly added staff to front so they appear prominently
-    setStaff((prev) => [newMember, ...prev.filter((item) => item.id !== id)]);
-    syncMemberToStore(newMember);
-
-    getAuthToken('business')
-      .then(async (token) => {
-        if (!token) return;
+    try {
+      const token = await getAuthToken('business');
+      if (token) {
+        let uploadedPhotoUrl: string | undefined;
+        if (photoUri && !photoUri.startsWith('http')) {
+          const up = await trendApi.uploads
+            .uploadMedia(photoUri, 'staff_avatar.jpg', 'image/jpeg', 'business')
+            .catch(() => null);
+          uploadedPhotoUrl = up?.data?.url || up?.data?.secure_url;
+        }
         const res = await trendApi.business.addStaff({
-          name: newMember.name,
-          phone: (newMember as any).phone || '',
-          title: newMember.role || 'Specialist',
+          name: finalMember.name,
+          phone: (finalMember as any).phone || '',
+          title: finalMember.role || 'Specialist',
         });
         if (res.ok && res.data) {
           const remoteStaff = res.data.staff || res.data;
           const remoteId = remoteStaff?.id ? String(remoteStaff.id) : id;
-          const remoteCode = remoteStaff?.login_code || remoteStaff?.code || newMember.loginCode;
-          setStaff((prev) =>
-            prev.map((item) =>
-              item.id === id
-                ? { ...item, id: remoteId, loginCode: remoteCode ?? item.loginCode }
-                : item
-            )
-          );
+          const remoteCode = remoteStaff?.login_code || remoteStaff?.code || finalMember.loginCode;
+          finalMember = {
+            ...finalMember,
+            id: remoteId,
+            photoUri: uploadedPhotoUrl || finalMember.photoUri,
+            avatarUri: uploadedPhotoUrl || finalMember.avatarUri,
+            loginCode: remoteCode ?? finalMember.loginCode,
+          };
+          if (uploadedPhotoUrl) {
+            trendApi.business
+              .updateStaff(remoteId, { image: uploadedPhotoUrl })
+              .catch(() => {});
+          }
         }
-      })
-      .catch(() => {});
+      }
+    } catch {
+      // Keep local member if offline
+    }
+
+    setStaff((prev) => [finalMember, ...prev.filter((item) => item.id !== finalMember.id && item.id !== id)]);
+    syncMemberToStore(finalMember);
+    return finalMember;
   }, []);
 
   const updateStaff = useCallback((id: string, updates: Partial<StaffMember>) => {

@@ -82,10 +82,10 @@ const TIME_SLOTS_DATA: TimeSlotOption[] = [
   { id: 't2', time: '9:00am' },
   { id: 't3', time: '10:00am' },
   { id: 't4', time: '11:00am' },
-  { id: 't5', time: '8:00am' },
-  { id: 't6', time: '12:00am' },
-  { id: 't7', time: '1:00pm' },
-  { id: 't8', time: '2:00pm' },
+  { id: 't5', time: '12:00pm' },
+  { id: 't6', time: '1:00pm' },
+  { id: 't7', time: '2:00pm' },
+  { id: 't8', time: '3:00pm' },
 ];
 
 // Disabled calendar days in June 2026 matching Figma Line 128

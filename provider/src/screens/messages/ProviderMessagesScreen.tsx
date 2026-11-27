@@ -149,13 +149,15 @@ export function ProviderMessagesScreen() {
     (conv: Conversation) => {
       markConversationRead(conv.id);
       const member = staff.find((s) => s.id === conv.staffId);
+      const fallbackName = (conv as any).partnerName || (conv.kind === 'Staff' ? 'Staff Member' : 'Client');
+      const fallbackRole = (conv as any).partnerRole === 'client' ? 'Customer' : conv.kind === 'Staff' ? 'Staff' : 'Customer';
       safeRouter.push({
         pathname: '/chat' as any,
         params: {
           id: conv.id,
-          name: member?.name || 'Staff Member',
-          role: member?.role || (member?.roles && member?.roles[0]) || 'Staff',
-          recipientName: member?.name,
+          name: member?.name || fallbackName,
+          role: member?.role || (member?.roles && member?.roles[0]) || fallbackRole,
+          recipientName: member?.name || fallbackName,
         },
       });
     },

@@ -301,7 +301,7 @@ export const BusinessOwnerLoginScreen: React.FC<BusinessOwnerLoginScreenProps> =
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Trend Business</Text>
             <Text style={styles.headerSubtitle}>
-              Welcome back Ann Nwachukwu, your business awaits you.
+              Welcome back, your business awaits you.
             </Text>
           </View>
 
@@ -353,9 +353,9 @@ export const BusinessOwnerLoginScreen: React.FC<BusinessOwnerLoginScreenProps> =
             )}
           </View>
 
-          {/* ── Create Password Field ── */}
+          {/* ── Password Field ── */}
           <View style={styles.fieldWrapper}>
-            <Text style={styles.fieldLabel}>Create Password</Text>
+            <Text style={styles.fieldLabel}>Password</Text>
             <View
               style={[
                 styles.inputContainer,
@@ -474,14 +474,14 @@ export const BusinessOwnerLoginScreen: React.FC<BusinessOwnerLoginScreenProps> =
             <Text style={styles.termsBaseText}>Application </Text>
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={() => console.log('View Terms')}
+              onPress={() => safeRouter.push('/terms-policy' as any)}
             >
               <Text style={styles.termsBlueText}>Terms</Text>
             </TouchableOpacity>
             <Text style={styles.termsBaseText}> and </Text>
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={() => console.log('View Condition')}
+              onPress={() => safeRouter.push('/terms-policy' as any)}
             >
               <Text style={styles.termsBlueText}>condition</Text>
             </TouchableOpacity>

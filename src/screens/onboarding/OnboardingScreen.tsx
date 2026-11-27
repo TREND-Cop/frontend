@@ -13,6 +13,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSafeRouter } from '../../utils/safeNavigation';
 import { useUserContext } from '../../store/UserContext';
+import { clearAuthToken } from '../../api/trendApi';
 import { OnboardingHeroVideo } from '../../components/OnboardingHeroVideo';
 import { WebMobileViewport } from '../../components/WebMobileViewport';
 
@@ -108,6 +109,7 @@ export const OnboardingScreen = ({
   const { updateProfile } = useUserContext();
 
   const handleDismiss = () => {
+    clearAuthToken().catch(() => {});
     try {
       updateProfile({ isLoggedIn: false });
     } catch {}

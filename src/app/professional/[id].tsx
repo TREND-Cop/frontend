@@ -447,7 +447,7 @@ export default function ProfessionalProfileScreen() {
       <View style={styles.headerContainer}>
           <TouchableOpacity 
             style={styles.iconButton} 
-            onPress={() => safeRouter.canGoBack() ? safeRouter.back() : safeRouter.replace('/(tabs)' as any)} 
+            onPress={() => safeRouter.canGoBack() ? safeRouter.back() : safeRouter.replace('/home' as any)} 
             activeOpacity={0.7}
           >
             <ArrowLeft size={24} color="rgba(0, 8, 20, 0.96)" strokeWidth={1.5} />
