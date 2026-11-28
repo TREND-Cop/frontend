@@ -39,7 +39,7 @@ function mapBackendStaffBooking(row: any): StaffAppointment {
       membershipAgeText: 'TREND Client',
     },
     service: {
-      category: row.category || 'Service',
+      category: row.service_name || row.category || 'Service',
       serviceName: row.service_name || 'Service',
       image: serviceImg,
       price: Number(row.price || 0),

@@ -367,7 +367,7 @@ export const MessagesProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return existing.id;
       }
 
-      const newId = `c_${Date.now()}`;
+      const newId = salon.id || `c_${Date.now()}`;
       const newConversation: MessageConversation = {
         id: newId,
         name: salon.name,
