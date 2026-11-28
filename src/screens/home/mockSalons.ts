@@ -1,5 +1,6 @@
 export interface SalonItem {
   id: string;
+  ownerId?: string;
   name: string;
   rating: number;
   reviews: number;

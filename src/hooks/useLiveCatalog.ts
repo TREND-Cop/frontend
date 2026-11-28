@@ -5,9 +5,11 @@ import type { SalonItem } from '../screens/home/mockSalons';
 export interface LiveBackendService {
   id: string;
   business_id: string;
+  owner_id?: string;
   business_name?: string;
   business_address?: string;
   business_city?: string;
+  business_photos?: string[];
   category?: string;
   name: string;
   description?: string;
@@ -66,12 +68,23 @@ function normalizeServiceRow(row: any): LiveBackendService {
       if (Array.isArray(parsed)) images = parsed;
     } catch {}
   }
+  let businessPhotos: string[] = [];
+  if (Array.isArray(row.business_photos)) {
+    businessPhotos = row.business_photos.filter((u: any) => typeof u === 'string' && u.length > 0);
+  } else if (typeof row.business_photos === 'string') {
+    try {
+      const parsed = JSON.parse(row.business_photos);
+      if (Array.isArray(parsed)) businessPhotos = parsed;
+    } catch {}
+  }
   return {
     id: String(row.id || ''),
     business_id: String(row.business_id || row.id || ''),
+    owner_id: row.owner_id ? String(row.owner_id) : undefined,
     business_name: row.business_name || 'TREND Salon',
     business_address: row.business_address || row.address || '',
     business_city: row.business_city || row.city || '',
+    business_photos: businessPhotos,
     category: row.category || 'Hair',
     name: row.name || 'Service',
     description: row.description || '',
@@ -122,7 +135,10 @@ export function mapServicesToSalons(services: LiveBackendService[]): SalonItem[]
     const minPrice = prices.length ? Math.min(...prices) : 0;
     const maxPrice = prices.length ? Math.max(...prices) : minPrice;
     const images = Array.from(
-      new Set(bizServices.flatMap((s) => s.images).filter(Boolean))
+      new Set([
+        ...(first.business_photos || []),
+        ...bizServices.flatMap((s) => s.images),
+      ].filter(Boolean))
     );
     const categories = Array.from(
       new Set(bizServices.map((s) => s.category || 'Hair'))
@@ -136,6 +152,7 @@ export function mapServicesToSalons(services: LiveBackendService[]): SalonItem[]
 
     salons.push({
       id: bizId,
+      ownerId: first.owner_id,
       name: first.business_name || 'TREND Salon',
       rating: avgRating,
       reviews: bizServices.length * 12,

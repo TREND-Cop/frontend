@@ -18,6 +18,7 @@ import { BookingProgressStepper } from '../../components/BookingProgressStepper'
 import { SafeImage } from '../../components/ui/SafeImage';
 import { bookingStore, SpecialistItem } from '../../utils/bookingStore';
 import { parsePrice } from '../../utils/parsePrice';
+import { trendApi, extractArray } from '../../api/trendApi';
 import { NativeDockSpacer } from '../../components/ui/NativeDockSpacer';
 import { theme } from '../../constants/theme';
 
@@ -116,6 +117,45 @@ export const SpecialistSelectionScreen: React.FC<SpecialistSelectionScreenProps>
   // Specialist selection and notes always start in a clean, unselected empty state
   const [selectedSpecialistIds, setSelectedSpecialistIds] = useState<string[]>([]);
   const [noteText, setNoteText] = useState<string>('');
+  const [liveSpecialists, setLiveSpecialists] = useState<SpecialistItem[]>([]);
+
+  // Fetch real salon staff from backend whenever booking a live backend service
+  const activeServiceId = (params?.serviceId as string) || bookingStore.getServiceId() || '';
+  useEffect(() => {
+    let active = true;
+    const isMockSvc = !activeServiceId || /^(h|p|m|f|svc_mock)\d*$/i.test(activeServiceId);
+    if (isMockSvc) {
+      setLiveSpecialists([]);
+      return;
+    }
+    (async () => {
+      try {
+        const res = await trendApi.services.getSpecialists(activeServiceId);
+        if (!active || !res.ok || !res.data) return;
+        const rows = extractArray<any>(res.data, ['specialists', 'staff']);
+        if (rows.length > 0) {
+          const mapped: SpecialistItem[] = rows.map((row: any) => ({
+            id: String(row.id),
+            name: String(row.name || 'Specialist'),
+            role: String(row.title || 'Specialist'),
+            rating: row.rating !== null && row.rating !== undefined ? String(row.rating) : '5.0',
+            reviews: Number(row.reviews_count || 0),
+            image:
+              row.image ||
+              'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&q=80',
+          }));
+          setLiveSpecialists(mapped);
+        }
+      } catch {
+        // Fallback to default specialists offline
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [activeServiceId]);
+
+  const availableSpecialists = liveSpecialists.length > 0 ? liveSpecialists : SPECIALIST_LIST;
 
   // When navigating to this screen fresh or starting a new booking, ensure it starts clean in empty state
   useFocusEffect(
@@ -204,7 +244,7 @@ export const SpecialistSelectionScreen: React.FC<SpecialistSelectionScreenProps>
   };
 
   const handleNext = () => {
-    const newlyChosen = SPECIALIST_LIST.filter((s) => selectedSpecialistIds.includes(s.id));
+    const newlyChosen = availableSpecialists.filter((s) => selectedSpecialistIds.includes(s.id));
     if (newlyChosen.length === 0 && selectedSpecialistIds.length === 0) return;
 
     if (isAddOnSpecialist) {
@@ -240,7 +280,7 @@ export const SpecialistSelectionScreen: React.FC<SpecialistSelectionScreenProps>
     }
 
     if (onApply) {
-      onApply(newlyChosen[0] || SPECIALIST_LIST[0], noteText);
+      onApply(newlyChosen[0] || availableSpecialists[0], noteText);
     } else if (isFromReview || isAddOnSpecialist) {
       if (safeRouter.canGoBack()) {
         safeRouter.back();
@@ -294,7 +334,7 @@ export const SpecialistSelectionScreen: React.FC<SpecialistSelectionScreenProps>
 
             {/* Stylist List (Figma: gap 40px) */}
             <View style={styles.specialistList}>
-              {SPECIALIST_LIST.map((specialist) => {
+              {availableSpecialists.map((specialist) => {
                 const isAlreadySelected =
                   alreadySelectedIds.includes(specialist.id) ||
                   alreadySelectedNames.includes(specialist.name.toLowerCase().trim());

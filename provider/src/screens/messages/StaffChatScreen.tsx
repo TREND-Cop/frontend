@@ -122,8 +122,12 @@ export function StaffChatScreen() {
   const participantRole = params.participantRole || 'Staff';
   const roleLabel = participantRole.toLowerCase().includes('owner') ? 'Owner' : 'Staff';
 
-  const { getMessagesForConversation, sendMessage, sendImageMessage } = useStaffMessages();
+  const { getMessagesForConversation, fetchMessages, sendMessage, sendImageMessage } = useStaffMessages();
   const messages = getMessagesForConversation(convId);
+
+  useEffect(() => {
+    fetchMessages(convId, params.participantId).catch(() => {});
+  }, [convId, params.participantId, fetchMessages]);
 
   const [inputText, setInputText] = useState('');
   const [photoSheetVisible, setPhotoSheetVisible] = useState(false);
@@ -157,7 +161,7 @@ export function StaffChatScreen() {
   const handleSendText = useSingleFlight(() => {
     if (!hasInput) return;
     triggerLightHaptic();
-    sendMessage(convId, inputText);
+    sendMessage(convId, inputText, params.participantId);
     setInputText('');
   });
 

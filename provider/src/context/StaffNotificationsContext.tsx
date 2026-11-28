@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
+import { trendApi, getAuthToken, extractArray } from '../api/trendApi';
+import { useStaffLoginStore } from './StaffLoginContext';
 
 export type StaffNotificationKind = 'text' | 'media-upload-result';
 export type StaffMediaStatus = 'declined'; // only designed value per Figma
@@ -135,8 +137,51 @@ const StaffNotificationsContext = createContext<StaffNotificationsContextState>(
 });
 
 export const StaffNotificationsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { verifiedCode } = useStaffLoginStore();
   const [notifications, setNotifications] = useState<StaffNotificationItem[]>(DEV_STAFF_NOTIFICATIONS);
   const [hasPromptedPush, setHasPromptedPush] = useState<boolean>(false);
+
+  // Hydrate live staff notifications from backend
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const token = await getAuthToken('staff');
+      if (!token) return;
+      try {
+        const res = await trendApi.notifications.list('staff');
+        if (!active || !res.ok || !res.data) return;
+        const rows = extractArray<any>(res.data, ['notifications']);
+        const mapped: StaffNotificationItem[] = rows.map((n: any) => {
+          const ts = n.created_at ? new Date(n.created_at).getTime() : Date.now();
+          const d = new Date(Number.isFinite(ts) ? ts : Date.now());
+          const formattedDate = d.toLocaleString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+          });
+          return {
+            id: String(n.id),
+            kind: 'text',
+            senderName: n.title || 'System Notification',
+            senderAvatar: sampleAvatars.system,
+            timestamp: Number.isFinite(ts) ? ts : Date.now(),
+            formattedDate,
+            read: n.is_read === 1 || n.is_read === true,
+            body: n.body || '',
+          };
+        });
+        setNotifications(mapped);
+      } catch {
+        // Keep current list if offline
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [verifiedCode]);
 
   const unreadCount = useMemo(
     () => notifications.filter((n) => !n.read).length,
@@ -144,10 +189,12 @@ export const StaffNotificationsProvider: React.FC<{ children: React.ReactNode }>
   );
 
   const markAsRead = useCallback((id: string) => {
-    // TODO (Backend): Mark notification as read
     setNotifications((prev) =>
       prev.map((item) => (item.id === id ? { ...item, read: true } : item))
     );
+    getAuthToken('staff')
+      .then((token) => (token ? trendApi.notifications.markRead(id, 'staff') : null))
+      .catch(() => {});
   }, []);
 
   const deleteNotification = useCallback((id: string) => {

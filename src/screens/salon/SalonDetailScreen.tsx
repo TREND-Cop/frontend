@@ -917,7 +917,7 @@ export const SalonDetailScreen = ({ salonId }: { salonId?: string }) => {
               onPress={() =>
                 safeRouter.push({
                   pathname: '/chat/[id]',
-                  params: { id: salon.id, name: salon.name },
+                  params: { id: salon.ownerId || salon.id, name: salon.name },
                 } as any)
               }
             >

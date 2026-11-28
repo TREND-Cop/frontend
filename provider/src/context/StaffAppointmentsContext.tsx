@@ -1,16 +1,74 @@
 import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
-import { StaffAppointment } from '../types/staffAppointments';
-import {
-  DEV_SAMPLE_STAFF_APPOINTMENTS,
-  generateSampleAppointments,
-} from '../constants/staffAppointments.config';
+import { StaffAppointment, StaffAppointmentStatus } from '../types/staffAppointments';
+import { generateSampleAppointments } from '../constants/staffAppointments.config';
 import { loadFromStorage, saveToStorage, STORAGE_KEYS } from '../utils/providerStorage';
+import { trendApi, getAuthToken, extractArray } from '../api/trendApi';
+import { useStaffLoginStore } from './StaffLoginContext';
+
+const DEFAULT_SERVICE_IMAGE = require('../../assets/images/appointments/hair_cut.jpg');
+
+function mapBackendStatus(raw: string): StaffAppointmentStatus {
+  const s = String(raw || '').toLowerCase();
+  if (s === 'in_progress' || s === 'ongoing') return 'in-progress';
+  if (s === 'completed') return 'completed';
+  if (s === 'cancelled' || s === 'declined') return 'cancelled';
+  return 'waiting';
+}
+
+function mapBackendStaffBooking(row: any): StaffAppointment {
+  const status = mapBackendStatus(row.status);
+  const mins = Number(row.duration || 60);
+  const durationLabel =
+    mins >= 60
+      ? mins % 60 === 0
+        ? `${mins / 60}hr`
+        : `${Math.floor(mins / 60)}hr ${mins % 60}min`
+      : `${mins}min`;
+  const serviceImg =
+    typeof row.service_image === 'string' && row.service_image.length > 0
+      ? { uri: row.service_image }
+      : DEFAULT_SERVICE_IMAGE;
+
+  return {
+    id: String(row.id),
+    client: {
+      name: row.client_name || 'Client',
+      isNew: false,
+      gender: 'Female',
+      badge: 'Verified',
+      membershipAgeText: 'TREND Client',
+    },
+    service: {
+      category: row.category || 'Service',
+      serviceName: row.service_name || 'Service',
+      image: serviceImg,
+      price: Number(row.price || 0),
+      duration: durationLabel,
+      rating: 5.0,
+    },
+    specialist: {
+      name: row.staff_name || 'Specialist',
+      role: row.staff_title || 'Specialist',
+      rating: 5.0,
+    },
+    date: row.date || 'Today',
+    time: row.start_time || row.start || '9:00am',
+    type: row.appointment_type === 'home_service' ? 'Home Service' : 'In-Person',
+    note: row.notes || '',
+    status,
+    startTime: Date.now() + 30 * 60 * 1000,
+    startedAt: status === 'in-progress' ? Date.now() : undefined,
+    completionTime: status === 'completed' ? Date.now() : undefined,
+    cancellationTime: status === 'cancelled' ? Date.now() : undefined,
+  };
+}
 
 export interface StaffAppointmentsContextType {
   appointments: StaffAppointment[];
   isRefreshing: boolean;
   refreshAppointments: () => Promise<void>;
   getAppointmentById: (id: string) => StaffAppointment | undefined;
+  startAppointment: (id: string) => Promise<void>;
   completeAppointment: (id: string, durationText?: string) => void;
   waitingCount: number;
   inProgressCount: number;
@@ -21,59 +79,48 @@ export interface StaffAppointmentsContextType {
 const StaffAppointmentsContext = createContext<StaffAppointmentsContextType | undefined>(undefined);
 
 export const StaffAppointmentsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Store starts with sample appointments populated for reference across all 4 screens
-  const [appointments, setAppointments] = useState<StaffAppointment[]>(() => {
-    return generateSampleAppointments();
-  });
-
-  // Hydrate staff appointments from storage on mount (guaranteeing all 4 screens are populated)
-  useEffect(() => {
-    let isMounted = true;
-    loadFromStorage<StaffAppointment[] | null>(STORAGE_KEYS.STAFF_APPOINTMENTS, null).then((saved) => {
-      if (isMounted) {
-        if (saved && saved.length > 0) {
-          const hasWaiting = saved.some((a) => a.status === 'waiting');
-          const hasInProgress = saved.some((a) => a.status === 'in-progress');
-          const hasCompleted = saved.some((a) => a.status === 'completed');
-          const hasCancelled = saved.some((a) => a.status === 'cancelled');
-          if (hasWaiting && hasInProgress && hasCompleted && hasCancelled) {
-            setAppointments(saved);
-            return;
-          }
-        }
-        const sample = generateSampleAppointments();
-        setAppointments(sample);
-        saveToStorage(STORAGE_KEYS.STAFF_APPOINTMENTS, sample);
-      }
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  // Persist appointments on updates
-  useEffect(() => {
-    if (appointments.length > 0) {
-      saveToStorage(STORAGE_KEYS.STAFF_APPOINTMENTS, appointments);
-    }
-  }, [appointments]);
-
+  const { verifiedCode } = useStaffLoginStore();
+  const [appointments, setAppointments] = useState<StaffAppointment[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Refresh handler with mock delay
-  const refreshAppointments = useCallback(async () => {
+  const hydrateFromBackendOrLocal = useCallback(async () => {
     setIsRefreshing(true);
-
-    // Mock fetch delay
-    await new Promise((resolve) => setTimeout(resolve, 1200));
-
-    // Refresh with sample appointments
-    const fresh = generateSampleAppointments();
-    setAppointments(fresh);
-    saveToStorage(STORAGE_KEYS.STAFF_APPOINTMENTS, fresh);
-
-    setIsRefreshing(false);
+    try {
+      const token = await getAuthToken('staff');
+      if (token) {
+        const res = await trendApi.bookings.list(undefined, 'staff');
+        if (res.ok && res.data) {
+          const rows = extractArray<any>(res.data, ['bookings', 'appointments']);
+          const mapped = rows.map(mapBackendStaffBooking);
+          setAppointments(mapped);
+          await saveToStorage(STORAGE_KEYS.STAFF_APPOINTMENTS, mapped);
+          return;
+        }
+      }
+      // Unauthenticated preview fallback
+      const saved = await loadFromStorage<StaffAppointment[] | null>(STORAGE_KEYS.STAFF_APPOINTMENTS, null);
+      if (saved && saved.length > 0) {
+        setAppointments(saved);
+      } else {
+        const sample = generateSampleAppointments();
+        setAppointments(sample);
+      }
+    } catch {
+      const saved = await loadFromStorage<StaffAppointment[] | null>(STORAGE_KEYS.STAFF_APPOINTMENTS, null);
+      if (saved) setAppointments(saved);
+    } finally {
+      setIsRefreshing(false);
+    }
   }, []);
+
+  // Hydrate on mount and whenever a staff member logs in
+  useEffect(() => {
+    hydrateFromBackendOrLocal();
+  }, [hydrateFromBackendOrLocal, verifiedCode]);
+
+  const refreshAppointments = useCallback(async () => {
+    await hydrateFromBackendOrLocal();
+  }, [hydrateFromBackendOrLocal]);
 
   const getAppointmentById = useCallback(
     (id: string) => {
@@ -81,6 +128,24 @@ export const StaffAppointmentsProvider: React.FC<{ children: React.ReactNode }> 
     },
     [appointments]
   );
+
+  const startAppointment = useCallback(async (id: string) => {
+    setAppointments((prev) =>
+      prev.map((apt) =>
+        apt.id === id
+          ? { ...apt, status: 'in-progress' as const, startedAt: Date.now() }
+          : apt
+      )
+    );
+    try {
+      const token = await getAuthToken('staff');
+      if (token) {
+        await trendApi.bookings.start(id, 'staff');
+      }
+    } catch {
+      // Non-fatal offline fallback
+    }
+  }, []);
 
   const completeAppointment = useCallback((id: string, durationText?: string) => {
     setAppointments((prev) =>
@@ -95,6 +160,9 @@ export const StaffAppointmentsProvider: React.FC<{ children: React.ReactNode }> 
           : apt
       )
     );
+    getAuthToken('staff')
+      .then((token) => (token ? trendApi.bookings.complete(id, 'staff') : null))
+      .catch(() => {});
   }, []);
 
   const waitingCount = useMemo(() => {
@@ -119,6 +187,7 @@ export const StaffAppointmentsProvider: React.FC<{ children: React.ReactNode }> 
       isRefreshing,
       refreshAppointments,
       getAppointmentById,
+      startAppointment,
       completeAppointment,
       waitingCount,
       inProgressCount,
@@ -130,6 +199,7 @@ export const StaffAppointmentsProvider: React.FC<{ children: React.ReactNode }> 
       isRefreshing,
       refreshAppointments,
       getAppointmentById,
+      startAppointment,
       completeAppointment,
       waitingCount,
       inProgressCount,
@@ -140,7 +210,6 @@ export const StaffAppointmentsProvider: React.FC<{ children: React.ReactNode }> 
 
   return (
     <StaffAppointmentsContext.Provider value={value}>
-
       {children}
     </StaffAppointmentsContext.Provider>
   );

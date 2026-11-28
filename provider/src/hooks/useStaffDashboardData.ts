@@ -11,24 +11,63 @@ import { useStaffStatistics } from '../context/StaffStatisticsContext';
 import { useStaffWorkPhotos } from '../context/StaffWorkPhotosContext';
 import { useBusinessStore } from '../store/businessStore';
 import { StaffDashboardData } from '../types/staffDashboard';
+import { trendApi, getAuthToken } from '../api/trendApi';
 
-/**
- * Hook to provide data for the Staff Home Screen.
- *
- * Current frontend stubs marked TODO (Backend).
- * Business name comes from in-memory StaffLoginProvider or businessStore.
- * Address is populated from businessStore so staff always see the salon address.
- */
 export function useStaffDashboardData(isScreenFocused: boolean = true) {
-  const { businessName } = useStaffLoginStore();
+  const { businessName, verifiedCode } = useStaffLoginStore();
   const { business } = useBusinessStore();
-  const { waitingCount, inProgressCount, completedCount, cancelledCount } = useStaffAppointments();
+  const {
+    waitingCount,
+    inProgressCount,
+    completedCount,
+    cancelledCount,
+    refreshAppointments,
+  } = useStaffAppointments();
   const { photos } = useStaffWorkPhotos();
   const { reviews } = useStaffReviews();
   const { homeSummary } = useStaffStatistics();
 
+  const [liveMeta, setLiveMeta] = useState<{
+    businessName?: string;
+    address?: string;
+    avatarUrl?: string;
+    reviewsCount?: number;
+  }>({});
+
+  // Hydrate real staff business profile, stats, and appointments whenever Staff Home focuses
+  useEffect(() => {
+    if (!isScreenFocused) return;
+    let active = true;
+    (async () => {
+      const token = await getAuthToken('staff');
+      if (!token) return;
+      refreshAppointments().catch(() => {});
+      try {
+        const [meRes, statsRes] = await Promise.all([
+          trendApi.auth.me('staff'),
+          trendApi.staff.getStats(),
+        ]);
+        if (!active) return;
+        const me = meRes.ok ? meRes.data : null;
+        const stats = statsRes.ok ? statsRes.data : null;
+        const rawAddr = [me?.business_address, me?.business_city].filter(Boolean).join(', ');
+        setLiveMeta({
+          businessName: me?.business_name || undefined,
+          address: rawAddr || undefined,
+          avatarUrl: me?.image || me?.business_logo || undefined,
+          reviewsCount: Array.isArray(stats?.reviews) ? stats.reviews.length : undefined,
+        });
+      } catch {
+        // Keep cached metadata if offline
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [isScreenFocused, verifiedCode, refreshAppointments]);
+
   const effectiveAddress = formatDisplayLocation(
-    business.address || 'Maitama, Abuja'
+    liveMeta.address || business.address || 'Maitama, Abuja'
   );
 
   // Initial break time seconds calculation
@@ -36,18 +75,15 @@ export function useStaffDashboardData(isScreenFocused: boolean = true) {
     if (DEV_STAFF_BREAK_IN_SECONDS !== null) {
       return DEV_STAFF_BREAK_IN_SECONDS;
     }
-    // Default to Figma preview (8 hrs, 30 mins, 10 secs = 30610s)
     return 8 * 3600 + 30 * 60 + 10;
   }, []);
 
   const [breakSeconds, setBreakSeconds] = useState<number | null>(initialBreakSeconds);
 
-  // Sync state if dev override changes
   useEffect(() => {
     setBreakSeconds(initialBreakSeconds);
   }, [initialBreakSeconds]);
 
-  // Live countdown ticker that pauses when screen loses focus
   useEffect(() => {
     if (!isScreenFocused || breakSeconds === null || breakSeconds <= 0) {
       return;
@@ -56,7 +92,7 @@ export function useStaffDashboardData(isScreenFocused: boolean = true) {
     const interval = setInterval(() => {
       setBreakSeconds((prev) => {
         if (prev === null || prev <= 1) {
-          return null; // Break reached or expired; hide chip
+          return null;
         }
         return prev - 1;
       });
@@ -65,13 +101,16 @@ export function useStaffDashboardData(isScreenFocused: boolean = true) {
     return () => clearInterval(interval);
   }, [isScreenFocused, breakSeconds]);
 
+  const resolvedBusinessName =
+    liveMeta.businessName?.trim() || businessName?.trim() || business.name || 'Business Dashboard';
+  const resolvedReviewsCount = liveMeta.reviewsCount ?? reviews.length;
+
   const data = useMemo<StaffDashboardData>(() => {
-    // 1. Dev Sample Mode (mirrors Figma frame counts derived from live store)
     if (DEV_SAMPLE_STAFF_DASHBOARD) {
       return {
-        businessName: businessName?.trim() || business.name || 'Luminous Lux',
+        businessName: resolvedBusinessName,
         address: effectiveAddress,
-        avatarUrl: undefined, // Uses neutral placeholder image
+        avatarUrl: liveMeta.avatarUrl,
         pendingAppointmentsCount: waitingCount,
         ongoingAppointmentsCount: inProgressCount,
         cancelledAppointmentsCount: cancelledCount,
@@ -84,15 +123,14 @@ export function useStaffDashboardData(isScreenFocused: boolean = true) {
         photosCount: photos.length,
         performanceChangePercent: homeSummary?.performanceChangePercent ?? 12,
         performanceTimeframe: homeSummary?.performanceTimeframe ?? 'Today',
-        reviewsCount: reviews.length,
+        reviewsCount: resolvedReviewsCount,
       };
     }
 
-    // 2. Production / Backend Stub Mode (returns real stored data with fallback salon address & Figma schedule times)
     return {
-      businessName: businessName?.trim() || business.name || 'Business Dashboard',
+      businessName: resolvedBusinessName,
       address: effectiveAddress,
-      avatarUrl: undefined,
+      avatarUrl: liveMeta.avatarUrl,
       pendingAppointmentsCount: waitingCount > 0 ? waitingCount : undefined,
       ongoingAppointmentsCount: inProgressCount > 0 ? inProgressCount : undefined,
       cancelledAppointmentsCount: cancelledCount > 0 ? cancelledCount : undefined,
@@ -105,10 +143,21 @@ export function useStaffDashboardData(isScreenFocused: boolean = true) {
       photosCount: photos.length,
       performanceChangePercent: homeSummary?.performanceChangePercent ?? undefined,
       performanceTimeframe: homeSummary?.performanceTimeframe ?? undefined,
-      reviewsCount: reviews.length,
+      reviewsCount: resolvedReviewsCount,
     };
-  }, [businessName, business.name, effectiveAddress, breakSeconds, waitingCount, inProgressCount, completedCount, cancelledCount, photos.length, reviews.length, homeSummary]);
+  }, [
+    resolvedBusinessName,
+    effectiveAddress,
+    liveMeta.avatarUrl,
+    breakSeconds,
+    waitingCount,
+    inProgressCount,
+    completedCount,
+    cancelledCount,
+    photos.length,
+    resolvedReviewsCount,
+    homeSummary,
+  ]);
 
   return data;
 }
-
